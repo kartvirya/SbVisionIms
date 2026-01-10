@@ -3,6 +3,7 @@ from django.urls import reverse
 
 # Class-based views
 from django.views.generic import (
+    ListView,
     CreateView,
     UpdateView,
     DeleteView
@@ -12,23 +13,31 @@ from django.views.generic import (
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 
 # Third-party packages
-from django_tables2 import SingleTableView
 from django_tables2.export.views import ExportMixin
 
 # Local app imports
 from .models import Bill
-from .tables import BillTable
 from accounts.models import Profile
+from .filters import BillFilter
 
 
-class BillListView(LoginRequiredMixin, ExportMixin, SingleTableView):
-    """View for listing bills."""
+class BillListView(LoginRequiredMixin, ListView):
+    """View for listing bills with filtering."""
     model = Bill
-    table_class = BillTable
     template_name = 'bills/bill_list.html'
     context_object_name = 'bills'
     paginate_by = 10
-    SingleTableView.table_pagination = False
+    filterset_class = BillFilter
+
+    def get_queryset(self):
+        queryset = super().get_queryset().order_by('-date')
+        self.filterset = self.filterset_class(self.request.GET, queryset=queryset)
+        return self.filterset.qs
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['filter'] = self.filterset
+        return context
 
 
 class BillCreateView(LoginRequiredMixin, CreateView):

@@ -1,0 +1,17 @@
+[Unit]
+Description=gunicorn daemon for inventory_ms
+After=network.target
+
+[Service]
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/inventory_ms
+Environment="PATH=/var/www/inventory_ms/venv/bin"
+ExecStart=/var/www/inventory_ms/venv/bin/gunicorn \
+    --access-logfile - \
+    --workers 3 \
+    --bind unix:/var/www/inventory_ms/inventory_ms.sock \
+    InventoryMS.wsgi:application
+
+[Install]
+WantedBy=multi-user.target

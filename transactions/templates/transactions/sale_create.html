@@ -8,6 +8,18 @@
 <!--Select2 CSS-->
 <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@ttskch/select2-bootstrap4-theme@1.5.2/dist/select2-bootstrap4.min.css">
+<style>
+    .variant-select {
+        font-size: 0.875rem;
+    }
+    #table_items td {
+        vertical-align: middle;
+    }
+    #table_items .variant-select {
+        width: 100%;
+        min-width: 180px;
+    }
+</style>
 {% endblock stylesheets %}
 
 <!-- Page Heading -->
@@ -52,6 +64,7 @@
                                     <tr>
                                         <th>#</th>
                                         <th>Name</th>
+                                        <th>Variant</th>
                                         <th>Price</th>
                                         <th>Quantity</th>
                                         <th>Total</th>
@@ -165,7 +178,16 @@
             // Calculates the total for each item
             $.each(this.products.items, function (pos, dict) {
                 dict.pos = pos;
-                dict.total_item = roundTo(dict.quantity * dict.price, 2);
+                // Use variant price if variant is selected, otherwise use base price
+                var itemPrice = dict.price;
+                if (dict.selected_variant && dict.variations) {
+                    var selectedVar = dict.variations.find(function(v) { return v.id == dict.selected_variant; });
+                    if (selectedVar) {
+                        itemPrice = selectedVar.final_price;
+                    }
+                }
+                dict.current_price = itemPrice;
+                dict.total_item = roundTo(dict.quantity * itemPrice, 2);
                 // Add the item total to the sale subtotal
                 sub_total += roundTo(dict.total_item, 2);
             });
@@ -181,6 +203,15 @@
         },
         // Adds an item to the sale object
         add_item: function (item) {
+            // Initialize selected_variant if not set
+            if (!item.selected_variant) {
+                item.selected_variant = null;
+            }
+            // If no variant selected, use base price
+            if (!item.selected_variant && item.variations && item.variations.length > 0) {
+                // Default to first variant or base price
+                item.selected_variant = null; // User will select from dropdown
+            }
             this.products.items.push(item);
             this.list_item();
         },
@@ -195,6 +226,7 @@
                 columns: [
                     {"data": "number"},
                     {"data": "name"},
+                    {"data": "selected_variant"},
                     {"data": "price"},
                     {"data": "quantity"},
                     {"data": "total_item"},
@@ -202,9 +234,40 @@
                 ],
                 columnDefs: [
                     {
+                        // Product name
+                        targets: [1],
+                        render: function (data, type, row) {
+                            return '<strong>' + row.name + '</strong>';
+                        },
+                    },
+                    {
+                        // Variant selection dropdown
+                        targets: [2],
+                        class: 'text-center',
+                        orderable: false,
+                        render: function (data, type, row) {
+                            var variantHtml = '<select name="variant" class="form-select form-select-sm variant-select" data-row-index="' + row.pos + '" style="min-width: 150px;">';
+                            variantHtml += '<option value="">Base Product</option>';
+                            
+                            if (row.variations && row.variations.length > 0) {
+                                row.variations.forEach(function(variation) {
+                                    var selected = (row.selected_variant == variation.id) ? 'selected' : '';
+                                    var displayText = variation.type_display + ': ' + variation.name;
+                                    if (variation.value) {
+                                        displayText += ' (' + variation.value + ')';
+                                    }
+                                    displayText += ' - Rs ' + parseFloat(variation.final_price).toFixed(2);
+                                    variantHtml += '<option value="' + variation.id + '" ' + selected + '>' + displayText + '</option>';
+                                });
+                            }
+                            variantHtml += '</select>';
+                            return variantHtml;
+                        },
+                    },
+                    {
                         // Quantity
                         class: 'text-center',
-                        targets: [3],
+                        targets: [4],
                         render: function (data, type, row) {
                             return '<input name="quantity" type="text" class="form-control form-control-xs text-center input-sm" autocomplete="off" value="' + row.quantity + '">';
                         },
@@ -212,9 +275,11 @@
                     {
                         // Item price and total
                         class: 'text-right',
-                        targets: [2, 4],
+                        targets: [3, 5],
                         render: function (data, type, row) {
-                            return parseFloat(data).toFixed(2) + ' $';
+                            // Use current_price if available (from variant), otherwise use base price
+                            var price = row.current_price || row.price;
+                            return parseFloat(price).toFixed(2) + ' Rs';
                         },
                     },
                     {
@@ -355,7 +420,24 @@
             // Calculate the sale with the new quantity
             sale.calculate_sale();
             // Find the row to update the item total
-            $('td:eq(4)', tblItems.row(tr.row).node()).html(sale.products.items[tr.row].total_item + ' $');
+            $('td:eq(5)', tblItems.row(tr.row).node()).html(sale.products.items[tr.row].total_item + ' Rs');
+        }).on('change', 'select[name="variant"]', function () {
+            // When a variant is selected
+            var variantId = $(this).val();
+            var tr = tblItems.cell($(this).closest('td, li')).index();
+            var rowIndex = tr.row;
+            
+            // Update the selected variant in the sale object
+            sale.products.items[rowIndex].selected_variant = variantId ? parseInt(variantId) : null;
+            
+            // Recalculate the sale with the new variant price
+            sale.calculate_sale();
+            
+            // Update price and total columns
+            var item = sale.products.items[rowIndex];
+            var displayPrice = item.current_price || item.price;
+            $('td:eq(3)', tblItems.row(rowIndex).node()).html(parseFloat(displayPrice).toFixed(2) + ' Rs');
+            $('td:eq(5)', tblItems.row(rowIndex).node()).html(item.total_item + ' Rs');
         });
 
         // Delete all items
@@ -434,6 +516,18 @@
             var grandTotal = parseFloat($('input[name="grand_total"]').val());
             var amountChange = roundTo(amountPaid - grandTotal, 2);
 
+            // Prepare items with correct price (variant price if selected)
+            var itemsToSubmit = sale.products.items.map(function(item) {
+                var itemData = {
+                    id: item.id,
+                    price: item.current_price || item.price, // Use current_price (variant price) if available
+                    quantity: item.quantity,
+                    total_item: item.total_item,
+                    selected_variant: item.selected_variant || null
+                };
+                return itemData;
+            });
+
             // Gather sale details
             var formData = {
                 customer: $('select[name="customer"]').val(),
@@ -441,7 +535,7 @@
                 grand_total: grandTotal,
                 amount_paid: amountPaid,
                 amount_change: amountChange,
-                items: sale.products.items
+                items: itemsToSubmit
             };
 
             // Check if amount_change is present

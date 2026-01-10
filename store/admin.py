@@ -10,7 +10,7 @@ This module defines the following admin classes:
 """
 
 from django.contrib import admin
-from .models import Category, Item, Delivery
+from .models import Category, Item, Delivery, ProductVariation
 
 
 class CategoryAdmin(admin.ModelAdmin):
@@ -20,6 +20,15 @@ class CategoryAdmin(admin.ModelAdmin):
     list_display = ('name', 'slug')
     search_fields = ('name',)
     ordering = ('name',)
+
+
+class ProductVariationInline(admin.TabularInline):
+    """
+    Inline admin for ProductVariation.
+    """
+    model = ProductVariation
+    extra = 1
+    fields = ('variation_type', 'name', 'value', 'quantity', 'price_adjustment', 'is_active')
 
 
 class ItemAdmin(admin.ModelAdmin):
@@ -32,6 +41,20 @@ class ItemAdmin(admin.ModelAdmin):
     search_fields = ('name', 'category__name', 'vendor__name')
     list_filter = ('category', 'vendor')
     ordering = ('name',)
+    inlines = [ProductVariationInline]
+
+
+class ProductVariationAdmin(admin.ModelAdmin):
+    """
+    Admin configuration for the ProductVariation model.
+    """
+    list_display = (
+        'item', 'variation_type', 'name', 'value', 'quantity', 
+        'price_adjustment', 'is_active'
+    )
+    search_fields = ('item__name', 'name', 'value')
+    list_filter = ('variation_type', 'is_active', 'item__category')
+    ordering = ('item', 'variation_type', 'name')
 
 
 class DeliveryAdmin(admin.ModelAdmin):
@@ -50,3 +73,4 @@ class DeliveryAdmin(admin.ModelAdmin):
 admin.site.register(Category, CategoryAdmin)
 admin.site.register(Item, ItemAdmin)
 admin.site.register(Delivery, DeliveryAdmin)
+admin.site.register(ProductVariation, ProductVariationAdmin)

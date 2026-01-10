@@ -42,11 +42,67 @@
         </a>
     </div>
 
+    <!-- Filter Section -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-light">
+            <h5 class="mb-0"><i class="fa-solid fa-filter"></i> Filters & Sorting</h5>
+        </div>
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label">Institution Name</label>
+                    {{ filter.form.institution_name }}
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Email</label>
+                    {{ filter.form.email }}
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Payment Details</label>
+                    {{ filter.form.payment_details }}
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Status</label>
+                    {{ filter.form.status }}
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Date From</label>
+                    {{ filter.form.date_from }}
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Date To</label>
+                    {{ filter.form.date_to }}
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Min Amount</label>
+                    {{ filter.form.min_amount }}
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Max Amount</label>
+                    {{ filter.form.max_amount }}
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Sort By</label>
+                    {{ filter.form.ordering }}
+                </div>
+                <div class="col-md-12">
+                    <button type="submit" class="btn btn-success btn-sm">
+                        <i class="fa-solid fa-filter"></i> Apply Filters
+                    </button>
+                    <a href="{% url 'bill_list' %}" class="btn btn-secondary btn-sm">
+                        <i class="fa-solid fa-times"></i> Clear
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <div class="m-2">
+        {% if bills %}
         <table class="table table-sm table-striped table-bordered">
             <thead class="thead-light">
                 <tr>
-                    <th scope="col"><a href="{% querystring table.prefixed_order_by_field=column.order_by_alias.next %}">ID <i class="fa-solid fa-sort"></i></a></th>
+                    <th scope="col">ID <i class="fa-solid fa-sort"></i></th>
                     <th scope="col">Name <i class="fa-solid fa-sort"></i></th>
                     <th scope="col">Description <i class="fa-solid fa-sort"></i></th>
                     <th scope="col">Contact Number <i class="fa-solid fa-sort"></i></th>
@@ -62,11 +118,11 @@
                 <tr>
                     <th scope="row">{{ bill.id }}</th>
                     <td>{{ bill.institution_name }}</td>
-                    <td>{{ bill.description }}</td>
-                    <td>{{ bill.phone_number }}</td>
-                    <td>{{ bill.email }}</td>
+                    <td>{{ bill.description|default:"-" }}</td>
+                    <td>{{ bill.phone_number|default:"-" }}</td>
+                    <td>{{ bill.email|default:"-" }}</td>
                     <td>{{ bill.payment_details }}</td>
-                    <td>{{ bill.amount }}</td>
+                    <td>Rs {{ bill.amount }}</td>
                     <td>
                         {% if bill.status %}
                             <span class="badge badge-pill bg-soft-success text-success me-2">
@@ -82,14 +138,22 @@
                         <a class="text-info" href="{% url 'bill_update' bill.slug %}">
                             <i class="fa-solid fa-pen"></i>
                         </a>
+                        {% if user.is_superuser %}
                         <a class="text-danger float-end" href="{% url 'bill_delete' bill.pk %}">
                             <i class="fa-solid fa-trash"></i>
                         </a>
+                        {% endif %}
                     </td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
+        {% else %}
+        <div class="alert alert-info text-center" role="alert">
+            <i class="fa-solid fa-info-circle me-2"></i>
+            No bills found. <a href="{% url 'bill_create' %}" class="alert-link">Create your first bill</a> to get started.
+        </div>
+        {% endif %}
     </div>
 
     <!-- Pagination -->

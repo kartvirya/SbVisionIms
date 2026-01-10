@@ -1,0 +1,152 @@
+{% extends 'store/base.html' %}
+{% load static %}
+
+{% block content %}
+<!-- Header Section -->
+<div class="container my-4">
+    <div class="card shadow-sm rounded p-3">
+        <div class="row align-items-center">
+            <div class="col-md-6">
+                <h4 class="display-6 mb-0 text-success">Logistics Companies</h4>
+            </div>
+            <div class="col-md-6 d-flex justify-content-end gap-2">
+                <a class="btn btn-success btn-sm rounded-pill shadow-sm" href="{% url 'logistics-create' %}">
+                    <i class="fa-solid fa-plus"></i> Add Logistics Company
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="container px-3">
+    <style>
+        .table th, .table td {
+            text-align: center;
+        }
+    </style>
+    {% if logistics %}
+    <table class="table table-bordered table-striped">
+        <thead class="thead-light">
+            <tr>
+                <th>Name</th>
+                <th>Contact Person</th>
+                <th>Phone Number</th>
+                <th>Email</th>
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for logistic in logistics %}
+            <tr>
+                <td>{{ logistic.name }}</td>
+                <td>{{ logistic.contact_person|default:"-" }}</td>
+                <td>{{ logistic.phone_number|default:"-" }}</td>
+                <td>{{ logistic.email|default:"-" }}</td>
+                <td>
+                    {% if logistic.is_active %}
+                        <span class="badge bg-success">Active</span>
+                    {% else %}
+                        <span class="badge bg-secondary">Inactive</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <a href="{% url 'logistics-update' logistic.pk %}" class="btn btn-outline-warning btn-sm">
+                        <i class="fas fa-edit me-2"></i>Edit
+                    </a>
+                    <a href="{% url 'logistics-delete' logistic.pk %}" class="btn btn-outline-danger btn-sm">
+                        <i class="fas fa-trash-alt me-2"></i>Delete
+                    </a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <!-- Pagination controls -->
+    {% if is_paginated %}
+    <nav aria-label="Page navigation example">
+        <ul class="pagination justify-content-center">
+            <!-- First Page Link -->
+            {% if page_obj.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?page=1" aria-label="First">
+                    <span aria-hidden="true">&laquo;&laquo;</span>
+                </a>
+            </li>
+            {% else %}
+            <li class="page-item disabled">
+                <span class="page-link" aria-label="First">
+                    <span aria-hidden="true">&laquo;&laquo;</span>
+                </span>
+            </li>
+            {% endif %}
+
+            <!-- Previous Page Link -->
+            {% if page_obj.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.previous_page_number }}" aria-label="Previous">
+                    <span aria-hidden="true">&laquo;</span>
+                </a>
+            </li>
+            {% else %}
+            <li class="page-item disabled">
+                <span class="page-link" aria-label="Previous">
+                    <span aria-hidden="true">&laquo;</span>
+                </span>
+            </li>
+            {% endif %}
+
+            <!-- Page Number Links -->
+            {% for num in paginator.page_range %}
+                {% if page_obj.number == num %}
+                <li class="page-item active">
+                    <span class="page-link">{{ num }}</span>
+                </li>
+                {% else %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+                </li>
+                {% endif %}
+            {% endfor %}
+
+            <!-- Next Page Link -->
+            {% if page_obj.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.next_page_number }}" aria-label="Next">
+                    <span aria-hidden="true">&raquo;</span>
+                </a>
+            </li>
+            {% else %}
+            <li class="page-item disabled">
+                <span class="page-link" aria-label="Next">
+                    <span aria-hidden="true">&raquo;</span>
+                </span>
+            </li>
+            {% endif %}
+
+            <!-- Last Page Link -->
+            {% if page_obj.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ paginator.num_pages }}" aria-label="Last">
+                    <span aria-hidden="true">&raquo;&raquo;</span>
+                </a>
+            </li>
+            {% else %}
+            <li class="page-item disabled">
+                <span class="page-link" aria-label="Last">
+                    <span aria-hidden="true">&raquo;&raquo;</span>
+                </span>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+    {% else %}
+    <div class="alert alert-info text-center" role="alert">
+        <i class="fa-solid fa-info-circle me-2"></i>
+        No logistics companies found. <a href="{% url 'logistics-create' %}" class="alert-link">Create your first logistics company</a> to get started.
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

@@ -25,7 +25,7 @@
   --dropdown-menu-bg: #495057;
   --dropdown-item-color: #adb5bd;
   --dropdown-item-active-bg: #6c757d;
-  --sidebar-separator-bg: #4caf50;
+  --sidebar-separator-bg: #87CEEB;
   --logo-separator-height: 60px;
   --sidebar-item-height: 50px;
   --submenu-item-height: 45px;
@@ -49,12 +49,16 @@ a {
 
 /* Wrapper */
 #wrapper {
-  margin-left: var(--sidebar-width);
+  margin-left: 250px;
   transition: margin-left 0.3s ease-in-out;
 }
 
 #wrapper.fullwidth {
   margin-left: 0;
+}
+
+#wrapper.sidebar-collapsed {
+  margin-left: 80px;
 }
 
 /* Sidebar */

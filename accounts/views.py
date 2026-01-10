@@ -22,11 +22,11 @@ from django_tables2 import SingleTableView
 from django_tables2.export.views import ExportMixin
 
 # Local app imports
-from .models import Profile, Customer, Vendor
+from .models import Profile, Customer, Vendor, Logistics
 from .forms import (
     CreateUserForm, UserUpdateForm,
     ProfileUpdateForm, CustomerForm,
-    VendorForm
+    VendorForm, LogisticsForm
 )
 from .tables import ProfileTable
 
@@ -267,3 +267,30 @@ class VendorDeleteView(LoginRequiredMixin, DeleteView):
     model = Vendor
     template_name = 'accounts/vendor_confirm_delete.html'
     success_url = reverse_lazy('vendor-list')
+
+
+class LogisticsListView(LoginRequiredMixin, ListView):
+    model = Logistics
+    template_name = 'accounts/logistics_list.html'
+    context_object_name = 'logistics'
+    paginate_by = 10
+
+
+class LogisticsCreateView(LoginRequiredMixin, CreateView):
+    model = Logistics
+    form_class = LogisticsForm
+    template_name = 'accounts/logistics_form.html'
+    success_url = reverse_lazy('logistics-list')
+
+
+class LogisticsUpdateView(LoginRequiredMixin, UpdateView):
+    model = Logistics
+    form_class = LogisticsForm
+    template_name = 'accounts/logistics_form.html'
+    success_url = reverse_lazy('logistics-list')
+
+
+class LogisticsDeleteView(LoginRequiredMixin, DeleteView):
+    model = Logistics
+    template_name = 'accounts/logistics_confirm_delete.html'
+    success_url = reverse_lazy('logistics-list')

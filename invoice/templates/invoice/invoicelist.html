@@ -21,6 +21,57 @@
         </a>
     </div>
 
+    <!-- Filter Section -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-light">
+            <h5 class="mb-0"><i class="fa-solid fa-filter"></i> Filters & Sorting</h5>
+        </div>
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label">Customer Name</label>
+                    {{ filter.form.customer_name }}
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Contact Number</label>
+                    {{ filter.form.contact_number }}
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Item</label>
+                    {{ filter.form.item }}
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Date From</label>
+                    {{ filter.form.date_from }}
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Date To</label>
+                    {{ filter.form.date_to }}
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Min Total</label>
+                    {{ filter.form.min_total }}
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Max Total</label>
+                    {{ filter.form.max_total }}
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Sort By</label>
+                    {{ filter.form.ordering }}
+                </div>
+                <div class="col-md-12">
+                    <button type="submit" class="btn btn-success btn-sm">
+                        <i class="fa-solid fa-filter"></i> Apply Filters
+                    </button>
+                    <a href="{% url 'invoicelist' %}" class="btn btn-secondary btn-sm">
+                        <i class="fa-solid fa-times"></i> Clear
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <div class="m-2">
         <table class="table table-sm table-striped table-bordered">
             <thead class="thead-light">

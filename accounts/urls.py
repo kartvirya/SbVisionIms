@@ -19,7 +19,11 @@ from .views import (
     VendorListView,
     VendorCreateView,
     VendorUpdateView,
-    VendorDeleteView
+    VendorDeleteView,
+    LogisticsListView,
+    LogisticsCreateView,
+    LogisticsUpdateView,
+    LogisticsDeleteView
 )
 
 urlpatterns = [
@@ -58,6 +62,14 @@ urlpatterns = [
          name='vendor-update'),
     path('vendors/<int:pk>/delete/', VendorDeleteView.as_view(),
          name='vendor-delete'),
+
+    # Logistics URLs
+    path('logistics/', LogisticsListView.as_view(), name='logistics-list'),
+    path('logistics/new/', LogisticsCreateView.as_view(), name='logistics-create'),
+    path('logistics/<int:pk>/update/', LogisticsUpdateView.as_view(),
+         name='logistics-update'),
+    path('logistics/<int:pk>/delete/', LogisticsDeleteView.as_view(),
+         name='logistics-delete'),
 ]
 
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

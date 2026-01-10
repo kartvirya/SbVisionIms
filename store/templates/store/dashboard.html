@@ -6,121 +6,434 @@
 <!-- Dashboard -->
 <div class="d-flex flex-column flex-lg-row h-lg-full bg-surface-secondary">
     {% load static %}
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@2.9.4/dist/Chart.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
     <!-- Main content -->
     <div class="h-screen flex-grow-1 overflow-y-lg-auto">
         <!-- Main -->
-        <main class="py-6 bg-surface-secondary">
+        <main class="py-4 px-3">
             <div class="container-fluid">
-                <!-- Card stats -->
-                <div class="row g-6 mb-6">
+                <!-- Welcome Section -->
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <div class="card border-0 shadow-sm" style="background: linear-gradient(135deg, #87CEEB 0%, #6BB6D6 100%);">
+                            <div class="card-body text-white p-4">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <h2 class="mb-2 fw-bold">Welcome back, {{ request.user.get_full_name|default:request.user.username }}!</h2>
+                                        <p class="mb-0 opacity-90">Here's what's happening with your inventory today.</p>
+                                    </div>
+                                    <div class="d-none d-md-block">
+                                        <i class="fa fa-chart-line fa-4x opacity-50"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Key Metrics Cards -->
+                <div class="row g-4 mb-4">
                     <style>
                         a {
                             text-decoration: none;
+                            color: inherit;
                         }
+                        .stat-card {
+                            background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+                            border-left: 4px solid;
+                            position: relative;
+                            overflow: hidden;
+                        }
+                        .stat-card::before {
+                            content: '';
+                            position: absolute;
+                            top: -50%;
+                            right: -20px;
+                            width: 100px;
+                            height: 100px;
+                            background: radial-gradient(circle, rgba(135,206,235,0.1) 0%, transparent 70%);
+                            border-radius: 50%;
+                        }
+                        .stat-card.products { border-left-color: #FF6384; }
+                        .stat-card.revenue { border-left-color: #36A2EB; }
+                        .stat-card.customers { border-left-color: #87CEEB; }
+                        .stat-card.sales { border-left-color: #FFCE56; }
+                        .stat-card.purchases { border-left-color: #4BC0C0; }
+                        .stat-card.stock { border-left-color: #FF6B6B; }
+                        .stat-card .icon-shape {
+                            background: linear-gradient(135deg, var(--icon-start) 0%, var(--icon-end) 100%);
+                        }
+                        .stat-card.products .icon-shape { --icon-start: #FF6384; --icon-end: #FF8FA3; }
+                        .stat-card.revenue .icon-shape { --icon-start: #36A2EB; --icon-end: #5BB3F0; }
+                        .stat-card.customers .icon-shape { --icon-start: #87CEEB; --icon-end: #A8D8F0; }
+                        .stat-card.sales .icon-shape { --icon-start: #FFCE56; --icon-end: #FFD93D; }
+                        .stat-card.purchases .icon-shape { --icon-start: #4BC0C0; --icon-end: #6DD5E8; }
+                        .stat-card.stock .icon-shape { --icon-start: #FF6B6B; --icon-end: #FF8E8E; }
                     </style>
-                    <div class="col-xl-3 col-sm-6 col-12" id="products">
+                    
+                    <!-- Products Card -->
+                    <div class="col-xl-3 col-md-6 col-12">
                         <a href="{% url 'productslist' %}">
-                            <div class="card shadow border-0">
+                            <div class="card shadow-lg stat-card products h-100">
                                 <div class="card-body">
-                                    <div class="row">
-                                        <div class="col">
-                                            <span class="h6 font-semibold text-muted text-sm d-block mb-2">Products</span>
-                                            <span class="h3 font-bold mb-0">{{total_items}}</span>
-                                        </div>
-                                        <div class="col-auto">
-                                            <div class="icon icon-shape bg-tertiary text-white text-lg rounded-circle">
-                                                <i class="fa fa-clipboard-list"></i>
+                                    <div class="d-flex justify-content-between align-items-start mb-3">
+                                        <div class="flex-grow-1">
+                                            <span class="h6 font-semibold text-muted text-sm d-block mb-2">
+                                                <i class="fa fa-clipboard-list me-2" style="color: #000000;"></i>Total Products
+                                            </span>
+                                            <span class="h2 font-bold mb-0" style="color: #2d3748;">{{items_count}}</span>
+                                            <div class="mt-2">
+                                                <small class="text-muted">Total Stock: {{total_items|floatformat:0}}</small>
                                             </div>
                                         </div>
+                                        <div class="icon icon-shape text-white">
+                                            <i class="fa fa-clipboard-list fa-lg"></i>
+                                        </div>
                                     </div>
-                                    <div class="mt-2 mb-0 text-sm">
+                                    <div class="mt-3 pt-3 border-top">
                                         <span class="badge badge-pill bg-soft-success text-success me-2">
-                                            <i class="fa fa-arrow-up me-1"></i>13%
+                                            <i class="fa fa-arrow-up me-1"></i>Active
                                         </span>
-                                        <span class="text-nowrap text-xs text-muted">Since last month</span>
                                     </div>
                                 </div>
                             </div>
                         </a>
                     </div>
-                    <div class="col-xl-3 col-sm-6 col-12" id="profiles">
-                        <a href="{% url 'profile_list' %}">
-                            <div class="card shadow border-0">
-                                <div class="card-body">
-                                    <div class="row">
-                                        <div class="col">
-                                            <span class="h6 font-semibold text-muted text-sm d-block mb-2">Staff</span>
-                                            <span class="h3 font-bold mb-0">{{profiles_count}}</span>
-                                        </div>
-                                        <div class="col-auto">
-                                            <div class="icon icon-shape bg-primary text-white text-lg rounded-circle">
-                                                <i class="fa-solid fa fa-users"></i>
-                                            </div>
+
+                    <!-- Revenue Card -->
+                    <div class="col-xl-3 col-md-6 col-12">
+                        <div class="card shadow-lg stat-card revenue h-100">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-start mb-3">
+                                    <div class="flex-grow-1">
+                                        <span class="h6 font-semibold text-muted text-sm d-block mb-2">
+                                            <i class="fa fa-rupee-sign me-2" style="color: #000000;"></i>Total Revenue
+                                        </span>
+                                        <span class="h2 font-bold mb-0" style="color: #2d3748;">Rs {{total_revenue|floatformat:2}}</span>
+                                        <div class="mt-2">
+                                            <small class="text-muted">Today: Rs {{today_revenue|floatformat:2}}</small>
                                         </div>
                                     </div>
-                                    <div class="mt-2 mb-0 text-sm">
-                                        <span class="badge badge-pill bg-soft-success text-success me-2">
-                                            <i class="fa fa-arrow-up me-1"></i>30%
-                                        </span>
-                                        <span class="text-nowrap text-xs text-muted">Since last month</span>
+                                    <div class="icon icon-shape text-white">
+                                        <i class="fa fa-rupee-sign fa-lg"></i>
                                     </div>
                                 </div>
-                            </div>
-                        </a>
-                    </div>
-                    <div class="col-xl-3 col-sm-6 col-12" id="deliveries">
-                        <a href="{% url 'deliveries' %}">
-                            <div class="card shadow border-0">
-                                <div class="card-body">
-                                    <div class="row">
-                                        <div class="col">
-                                            <span class="h6 font-semibold text-muted text-sm d-block mb-2">Pending deliveries</span>
-                                            <span class="h3 font-bold mb-0">{{delivery.count}}</span>
-                                        </div>
-                                        <div class="col-auto">
-                                            <div class="icon icon-shape bg-info text-white text-lg rounded-circle">
-                                                <i class="fa fa-truck"></i>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="mt-2 mb-0 text-sm">
-                                        <span class="badge badge-pill bg-soft-danger text-danger me-2">
-                                            <i class="fa fa-arrow-down me-1"></i>-5%
-                                        </span>
-                                        <span class="text-nowrap text-xs text-muted">Since last month</span>
-                                    </div>
+                                <div class="mt-3 pt-3 border-top">
+                                    <span class="badge badge-pill bg-soft-success text-success me-2">
+                                        <i class="fa fa-calendar me-1"></i>This Month: Rs {{month_revenue|floatformat:2}}
+                                    </span>
                                 </div>
                             </div>
-                        </a>
+                        </div>
                     </div>
-                    <div class="col-xl-3 col-sm-6 col-12" id="sales">
+
+                    <!-- Sales Card -->
+                    <div class="col-xl-3 col-md-6 col-12">
                         <a href="{% url 'saleslist' %}">
-                            <div class="card shadow border-0">
+                            <div class="card shadow-lg stat-card sales h-100">
                                 <div class="card-body">
-                                    <div class="row">
-                                        <div class="col">
-                                            <span class="h6 font-semibold text-muted text-sm d-block mb-2">Sales</span>
-                                            <span class="h3 font-bold mb-0">{{sales.count}}</span>
-                                        </div>
-                                        <div class="col-auto">
-                                            <div class="icon icon-shape bg-warning text-white text-lg rounded-circle">
-                                                <i class="fa fa-shopping-cart"></i>
+                                    <div class="d-flex justify-content-between align-items-start mb-3">
+                                        <div class="flex-grow-1">
+                                            <span class="h6 font-semibold text-muted text-sm d-block mb-2">
+                                                <i class="fa fa-shopping-cart me-2" style="color: #000000;"></i>Total Sales
+                                            </span>
+                                            <span class="h2 font-bold mb-0" style="color: #2d3748;">{{sales_count}}</span>
+                                            <div class="mt-2">
+                                                <small class="text-muted">Orders completed</small>
                                             </div>
                                         </div>
+                                        <div class="icon icon-shape text-white">
+                                            <i class="fa fa-shopping-cart fa-lg"></i>
+                                        </div>
                                     </div>
-                                    <div class="mt-2 mb-0 text-sm">
+                                    <div class="mt-3 pt-3 border-top">
                                         <span class="badge badge-pill bg-soft-success text-success me-2">
-                                            <i class="fa fa-arrow-up me-1"></i>10%
+                                            <i class="fa fa-check-circle me-1"></i>Active
                                         </span>
-                                        <span class="text-nowrap text-xs text-muted">Since last month</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </a>
+                    </div>
+
+                    <!-- Low Stock Alert Card -->
+                    <div class="col-xl-3 col-md-6 col-12">
+                        <a href="{% url 'productslist' %}">
+                            <div class="card shadow-lg stat-card stock h-100">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between align-items-start mb-3">
+                                        <div class="flex-grow-1">
+                                            <span class="h6 font-semibold text-muted text-sm d-block mb-2">
+                                                <i class="fa fa-exclamation-triangle me-2" style="color: #000000;"></i>Low Stock Alert
+                                            </span>
+                                            <span class="h2 font-bold mb-0" style="color: #2d3748;">{{low_stock_items}}</span>
+                                            <div class="mt-2">
+                                                <small class="text-muted">Items need restocking</small>
+                                            </div>
+                                        </div>
+                                        <div class="icon icon-shape text-white">
+                                            <i class="fa fa-exclamation-triangle fa-lg"></i>
+                                        </div>
+                                    </div>
+                                    <div class="mt-3 pt-3 border-top">
+                                        <span class="badge badge-pill bg-soft-danger text-danger me-2">
+                                            <i class="fa fa-bell me-1"></i>Action Required
+                                        </span>
                                     </div>
                                 </div>
                             </div>
                         </a>
                     </div>
                 </div>
-                {% include 'store/charts.html' %}
+
+                <!-- Charts Row -->
+                <div class="row g-4 mb-4">
+                    {% include 'store/charts.html' %}
+                </div>
+
+                <!-- Additional Info Row -->
+                <div class="row g-4 mb-4">
+                    <!-- Customers & Vendors -->
+                    <div class="col-lg-3 col-md-6">
+                        <div class="card shadow-lg border-0 h-100">
+                            <div class="card-body">
+                                <h6 class="card-title fw-bold mb-3">
+                                    <i class="fa fa-users me-2" style="color: #000000;"></i>Customers
+                                </h6>
+                                <div class="d-flex align-items-center">
+                                    <div class="flex-grow-1">
+                                        <h2 class="mb-0 fw-bold">{{customers_count}}</h2>
+                                        <small class="text-muted">Total customers</small>
+                                    </div>
+                                    <div class="icon icon-shape text-white" style="--icon-start: #87CEEB; --icon-end: #A8D8F0;">
+                                        <i class="fa fa-users"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-lg-3 col-md-6">
+                        <div class="card shadow-lg border-0 h-100">
+                            <div class="card-body">
+                                <h6 class="card-title fw-bold mb-3">
+                                    <i class="fa fa-building me-2" style="color: #000000;"></i>Vendors
+                                </h6>
+                                <div class="d-flex align-items-center">
+                                    <div class="flex-grow-1">
+                                        <h2 class="mb-0 fw-bold">{{vendors_count}}</h2>
+                                        <small class="text-muted">Active vendors</small>
+                                    </div>
+                                    <div class="icon icon-shape text-white" style="--icon-start: #4BC0C0; --icon-end: #6DD5E8;">
+                                        <i class="fa fa-building"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-lg-3 col-md-6">
+                        <div class="card shadow-lg border-0 h-100">
+                            <div class="card-body">
+                                <h6 class="card-title fw-bold mb-3">
+                                    <i class="fa fa-shopping-bag me-2" style="color: #000000;"></i>Purchases
+                                </h6>
+                                <div class="d-flex align-items-center">
+                                    <div class="flex-grow-1">
+                                        <h2 class="mb-0 fw-bold">Rs {{total_purchases|floatformat:2}}</h2>
+                                        <small class="text-muted">Total purchases</small>
+                                    </div>
+                                    <div class="icon icon-shape text-white" style="--icon-start: #FFCE56; --icon-end: #FFD93D;">
+                                        <i class="fa fa-shopping-bag"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Profit Card -->
+                    <div class="col-lg-3 col-md-6">
+                        <div class="card shadow-lg border-0 h-100" style="border-left: 4px solid #28a745 !important;">
+                            <div class="card-body">
+                                <h6 class="card-title fw-bold mb-3">
+                                    <i class="fa fa-chart-line me-2" style="color: #000000;"></i>Total Profit
+                                </h6>
+                                <div class="d-flex align-items-center">
+                                    <div class="flex-grow-1">
+                                        <h2 class="mb-0 fw-bold text-success">Rs {{total_profit|floatformat:2}}</h2>
+                                        <small class="text-muted">From all sales</small>
+                                    </div>
+                                    <div class="icon icon-shape text-white" style="--icon-start: #28a745; --icon-end: #34ce57;">
+                                        <i class="fa fa-chart-line"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-lg-3 col-md-6">
+                        <a href="{% url 'profile_list' %}">
+                            <div class="card shadow-lg border-0 h-100">
+                                <div class="card-body">
+                                    <h6 class="card-title fw-bold mb-3">
+                                        <i class="fa fa-user-tie me-2" style="color: #000000;"></i>Staff
+                                    </h6>
+                                    <div class="d-flex align-items-center">
+                                        <div class="flex-grow-1">
+                                            <h2 class="mb-0 fw-bold">{{profiles_count}}</h2>
+                                            <small class="text-muted">Team members</small>
+                                        </div>
+                                        <div class="icon icon-shape text-white" style="--icon-start: #36A2EB; --icon-end: #5BB3F0;">
+                                            <i class="fa fa-user-tie"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Low Stock Items Alert -->
+                {% if low_stock_items_list %}
+                <div class="row g-4 mb-4">
+                    <div class="col-12">
+                        <div class="card shadow-lg border-0 border-start border-danger border-4">
+                            <div class="card-header bg-danger text-white">
+                                <h5 class="card-title mb-0 fw-bold">
+                                    <i class="fa fa-exclamation-triangle me-2"></i>Low Stock Items - Action Required
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="table-responsive">
+                                    <table class="table table-hover mb-0">
+                                        <thead>
+                                            <tr>
+                                                <th>Product Name</th>
+                                                <th>Current Stock</th>
+                                                <th>Threshold</th>
+                                                <th>Status</th>
+                                                <th>Action</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for item in low_stock_items_list %}
+                                            <tr>
+                                                <td><strong>{{ item.name }}</strong></td>
+                                                <td>
+                                                    <span class="badge bg-danger">{{ item.quantity }}</span>
+                                                </td>
+                                                <td>{{ item.low_stock_threshold }}</td>
+                                                <td>
+                                                    {% if item.quantity == 0 %}
+                                                        <span class="badge bg-dark">Out of Stock</span>
+                                                    {% elif item.quantity < item.low_stock_threshold %}
+                                                        <span class="badge bg-warning">Low Stock</span>
+                                                    {% endif %}
+                                                </td>
+                                                <td>
+                                                    <a href="{% url 'item-detail' item.slug %}" class="btn btn-sm btn-outline-primary">
+                                                        <i class="fa fa-eye"></i> View
+                                                    </a>
+                                                </td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                {% if low_stock_items > 10 %}
+                                <div class="mt-3 text-center">
+                                    <a href="{% url 'productslist' %}" class="btn btn-outline-danger">
+                                        View All {{ low_stock_items }} Low Stock Items
+                                    </a>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Recent Activity Row -->
+                <div class="row g-4">
+                    <!-- Recent Sales -->
+                    <div class="col-lg-6">
+                        <div class="card shadow-lg border-0">
+                            <div class="card-header bg-white border-0 pb-0">
+                                <h5 class="card-title mb-0 fw-bold">
+                                    <i class="fa fa-clock me-2" style="color: #000000;"></i>Recent Sales
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                {% if recent_sales %}
+                                <div class="table-responsive">
+                                    <table class="table table-hover mb-0">
+                                        <thead>
+                                            <tr>
+                                                <th>ID</th>
+                                                <th>Customer</th>
+                                                <th>Amount</th>
+                                                <th>Date</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for sale in recent_sales %}
+                                            <tr>
+                                                <td><a href="{% url 'sale-detail' sale.id %}" class="text-decoration-none">#{{sale.id}}</a></td>
+                                                <td>{{sale.customer.get_full_name|default:sale.customer.first_name}}</td>
+                                                <td class="fw-bold text-success">Rs {{sale.grand_total|floatformat:2}}</td>
+                                                <td><small class="text-muted">{{sale.date_added|date:"M d, Y"}}</small></td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <div class="text-center mt-3">
+                                    <a href="{% url 'saleslist' %}" class="btn btn-sm" style="background: linear-gradient(135deg, #87CEEB 0%, #6BB6D6 100%); color: white; border: none;">
+                                        View All Sales <i class="fa fa-arrow-right ms-1"></i>
+                                    </a>
+                                </div>
+                                {% else %}
+                                <p class="text-muted text-center py-4">No recent sales</p>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Top Products -->
+                    <div class="col-lg-6">
+                        <div class="card shadow-lg border-0">
+                            <div class="card-header bg-white border-0 pb-0">
+                                <h5 class="card-title mb-0 fw-bold">
+                                    <i class="fa fa-star me-2" style="color: #000000;"></i>Top Selling Products
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                {% if top_products %}
+                                <div class="list-group list-group-flush">
+                                    {% for product in top_products %}
+                                    <div class="list-group-item border-0 px-0 d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <h6 class="mb-1">{{product.item__name}}</h6>
+                                            <small class="text-muted">{{product.total_sold}} units sold</small>
+                                        </div>
+                                        <span class="badge" style="background: linear-gradient(135deg, #87CEEB 0%, #6BB6D6 100%); color: white;">
+                                            #{{forloop.counter}}
+                                        </span>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                                <div class="text-center mt-3">
+                                    <a href="{% url 'productslist' %}" class="btn btn-sm" style="background: linear-gradient(135deg, #87CEEB 0%, #6BB6D6 100%); color: white; border: none;">
+                                        View All Products <i class="fa fa-arrow-right ms-1"></i>
+                                    </a>
+                                </div>
+                                {% else %}
+                                <p class="text-muted text-center py-4">No sales data available</p>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </main>
     </div>

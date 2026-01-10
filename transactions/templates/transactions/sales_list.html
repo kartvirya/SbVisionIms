@@ -9,7 +9,8 @@
     <div class="card shadow-sm rounded p-3">
         <div class="row align-items-center">
             <div class="col-md-6">
-                <h4 class="display-6 mb-0 text-success">Sales</h4>
+                <h4 class="display-6 mb-0 text-success">Sales Bills</h4>
+                <small class="text-muted">All sales transactions and receipts</small>
             </div>
             <div class="col-md-6 d-flex justify-content-end gap-2">
                 <a class="btn btn-success btn-sm rounded-pill shadow-sm" href="{% url 'sale-create' %}">
@@ -22,6 +23,56 @@
         </div>
     </div>
 </div>
+
+<!-- Filter Section -->
+<div class="container my-3">
+    <div class="card shadow-sm">
+        <div class="card-header bg-light">
+            <h5 class="mb-0"><i class="fa-solid fa-filter"></i> Filters & Sorting</h5>
+        </div>
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label">Customer</label>
+                    {{ filter.form.customer }}
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Customer Name</label>
+                    {{ filter.form.customer_name }}
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Date From</label>
+                    {{ filter.form.date_from }}
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Date To</label>
+                    {{ filter.form.date_to }}
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Min Total</label>
+                    {{ filter.form.min_total }}
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Max Total</label>
+                    {{ filter.form.max_total }}
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Sort By</label>
+                    {{ filter.form.ordering }}
+                </div>
+                <div class="col-md-12">
+                    <button type="submit" class="btn btn-success btn-sm">
+                        <i class="fa-solid fa-filter"></i> Apply Filters
+                    </button>
+                    <a href="{% url 'saleslist' %}" class="btn btn-secondary btn-sm">
+                        <i class="fa-solid fa-times"></i> Clear
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <div class="container px-3">
     <style>
         .table th, .table td {
@@ -48,24 +99,35 @@
             </tr>
         </thead>
         <tbody>
-            {% for sale in sales %}
-            <tr>
-                <td>{{ sale.id }}</td>
-                <td>{{ sale.date_added|date:"Y-m-d H:i:s" }}</td>
-                <td>{{ sale.customer }}</td>
-                <td>{{ sale.sub_total }}</td>
-                <td>{{ sale.grand_total }}</td>
-                <td>{{ sale.tax_amount }}</td>
-                <td>{{ sale.tax_percentage }}</td>
-                <td>{{ sale.amount_paid }}</td>
-                <td>{{ sale.amount_change }}</td>
-                <td>
-                    <a class="btn btn-outline-info btn-sm" href="{% url 'sale-detail' sale.id %}">
-                        <i class="fa-solid fa-eye"></i> View Details
-                    </a>
-                </td>
-            </tr>
-            {% endfor %}
+            {% if sales %}
+                {% for sale in sales %}
+                <tr>
+                    <td>{{ sale.id }}</td>
+                    <td>{{ sale.date_added|date:"Y-m-d H:i:s" }}</td>
+                    <td>{{ sale.customer.get_full_name|default:sale.customer.first_name }}</td>
+                    <td>Rs {{ sale.sub_total }}</td>
+                    <td><strong>Rs {{ sale.grand_total }}</strong></td>
+                    <td>Rs {{ sale.tax_amount }}</td>
+                    <td>{{ sale.tax_percentage }}%</td>
+                    <td>Rs {{ sale.amount_paid }}</td>
+                    <td>Rs {{ sale.amount_change }}</td>
+                    <td>
+                        <a class="btn btn-outline-info btn-sm" href="{% url 'sale-detail' sale.id %}" title="View Bill/Receipt">
+                            <i class="fa-solid fa-eye"></i> View Bill
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            {% else %}
+                <tr>
+                    <td colspan="10" class="text-center py-4">
+                        <div class="alert alert-info" role="alert">
+                            <i class="fa-solid fa-info-circle me-2"></i>
+                            No sales found. <a href="{% url 'sale-create' %}" class="alert-link">Create your first sale</a> to get started.
+                        </div>
+                    </td>
+                </tr>
+            {% endif %}
         </tbody>
     </table>
     <div class="d-flex justify-content-center mt-4">

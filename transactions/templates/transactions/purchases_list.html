@@ -20,6 +20,71 @@
     </div>
 </div>
 
+<!-- Filter Section -->
+<div class="container my-3">
+    <div class="card shadow-sm">
+        <div class="card-header bg-light">
+            <h5 class="mb-0"><i class="fa-solid fa-filter"></i> Filters & Sorting</h5>
+        </div>
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <div class="col-md-2">
+                    <label class="form-label">Item</label>
+                    {{ filter.form.item }}
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Item Name</label>
+                    {{ filter.form.item_name }}
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Vendor</label>
+                    {{ filter.form.vendor }}
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Status</label>
+                    {{ filter.form.delivery_status }}
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Order Date From</label>
+                    {{ filter.form.order_date_from }}
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Order Date To</label>
+                    {{ filter.form.order_date_to }}
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Delivery Date From</label>
+                    {{ filter.form.delivery_date_from }}
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Delivery Date To</label>
+                    {{ filter.form.delivery_date_to }}
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Min Total</label>
+                    {{ filter.form.min_total }}
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Max Total</label>
+                    {{ filter.form.max_total }}
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Sort By</label>
+                    {{ filter.form.ordering }}
+                </div>
+                <div class="col-md-12">
+                    <button type="submit" class="btn btn-success btn-sm">
+                        <i class="fa-solid fa-filter"></i> Apply Filters
+                    </button>
+                    <a href="{% url 'purchaseslist' %}" class="btn btn-secondary btn-sm">
+                        <i class="fa-solid fa-times"></i> Clear
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <div class="container">
     <style>
       .table th, .table td {
@@ -43,7 +108,23 @@
             {% for purchase in purchases %}
             <tr>
                 <th scope="row">{{ purchase.id }}</th>
-                <td>{{ purchase.item.name }}</td>
+                <td>
+                    {% if purchase.item.image %}
+                    <img src="{{ purchase.item.image.url }}" alt="{{ purchase.item.name }}" class="img-thumbnail" style="width: 30px; height: 30px; object-fit: cover; margin-right: 5px;">
+                    {% endif %}
+                    {{ purchase.item.name }}
+                    {% with variations=purchase.item.variations.all %}
+                    {% if variations %}
+                    <div style="margin-top: 4px;">
+                        {% for variation in variations %}
+                        <span class="badge bg-info" style="font-size: 9px;" title="{{ variation.get_variation_type_display }}: {{ variation.name }}{% if variation.value %} ({{ variation.value }}){% endif %}">
+                            {{ variation.get_variation_type_display|slice:":1" }}: {{ variation.name }}
+                        </span>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                    {% endwith %}
+                </td>
                 <td>{{ purchase.quantity }}</td>
                 <td>{{ purchase.total_value }}</td>
                 <td>

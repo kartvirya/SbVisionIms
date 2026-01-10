@@ -20,9 +20,10 @@ from openpyxl import Workbook
 
 # Local app imports
 from store.models import Item
-from accounts.models import Customer
+from accounts.models import Customer, Company
 from .models import Sale, Purchase, SaleDetail
 from .forms import PurchaseForm
+from .filters import SaleFilter, PurchaseFilter
 
 
 logger = logging.getLogger(__name__)
@@ -90,7 +91,7 @@ def export_purchases_to_excel(request):
     columns = [
         'ID', 'Item', 'Description', 'Vendor', 'Order Date',
         'Delivery Date', 'Quantity', 'Delivery Status',
-        'Price per item (Ksh)', 'Total Value'
+        'Price per item (Rs)', 'Total Value'
     ]
     worksheet.append(columns)
 
@@ -135,14 +136,24 @@ def export_purchases_to_excel(request):
 
 class SaleListView(LoginRequiredMixin, ListView):
     """
-    View to list all sales with pagination.
+    View to list all sales with pagination and filtering.
     """
 
     model = Sale
     template_name = "transactions/sales_list.html"
     context_object_name = "sales"
     paginate_by = 10
-    ordering = ['date_added']
+    filterset_class = SaleFilter
+
+    def get_queryset(self):
+        queryset = super().get_queryset().select_related('customer').order_by('-date_added')
+        self.filterset = self.filterset_class(self.request.GET, queryset=queryset)
+        return self.filterset.qs
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['filter'] = self.filterset
+        return context
 
 
 class SaleDetailView(LoginRequiredMixin, DetailView):
@@ -152,6 +163,26 @@ class SaleDetailView(LoginRequiredMixin, DetailView):
 
     model = Sale
     template_name = "transactions/saledetail.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        sale_details = self.object.saledetail_set.select_related('item').prefetch_related('item__variations')
+        context['sale_details'] = sale_details
+        
+        # Calculate profit for this sale
+        total_profit = 0
+        total_cost = 0
+        for detail in sale_details:
+            item_cost = detail.item.cost_price if detail.item.cost_price > 0 else 0
+            detail_profit = (detail.price - item_cost) * detail.quantity
+            total_profit += detail_profit
+            total_cost += item_cost * detail.quantity
+        
+        context['company'] = Company.load()
+        context['total_profit'] = total_profit
+        context['total_cost'] = total_cost
+        context['profit_margin'] = (total_profit / self.object.grand_total * 100) if self.object.grand_total > 0 else 0
+        return context
 
 
 def SaleCreateView(request):
@@ -294,13 +325,24 @@ class SaleDeleteView(LoginRequiredMixin, UserPassesTestMixin, DeleteView):
 
 class PurchaseListView(LoginRequiredMixin, ListView):
     """
-    View to list all purchases with pagination.
+    View to list all purchases with pagination and filtering.
     """
 
     model = Purchase
     template_name = "transactions/purchases_list.html"
     context_object_name = "purchases"
     paginate_by = 10
+    filterset_class = PurchaseFilter
+
+    def get_queryset(self):
+        queryset = super().get_queryset().select_related('item', 'vendor').prefetch_related('item__variations')
+        self.filterset = self.filterset_class(self.request.GET, queryset=queryset)
+        return self.filterset.qs
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['filter'] = self.filterset
+        return context
 
 
 class PurchaseDetailView(LoginRequiredMixin, DetailView):

@@ -31,6 +31,57 @@
         </a>
     </div>
 
+    <!-- Filter Section -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-light">
+            <h5 class="mb-0"><i class="fa-solid fa-filter"></i> Filters & Sorting</h5>
+        </div>
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label">Customer Name</label>
+                    {{ filter.form.customer_name }}
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Phone Number</label>
+                    {{ filter.form.phone_number }}
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Location</label>
+                    {{ filter.form.location }}
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Logistics</label>
+                    {{ filter.form.logistics }}
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Status</label>
+                    {{ filter.form.is_delivered }}
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Date From</label>
+                    {{ filter.form.date_from }}
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Date To</label>
+                    {{ filter.form.date_to }}
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Sort By</label>
+                    {{ filter.form.ordering }}
+                </div>
+                <div class="col-md-12">
+                    <button type="submit" class="btn btn-success btn-sm">
+                        <i class="fa-solid fa-filter"></i> Apply Filters
+                    </button>
+                    <a href="{% url 'deliveries' %}" class="btn btn-secondary btn-sm">
+                        <i class="fa-solid fa-times"></i> Clear
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <div class="mb-4">
         <table class="table table-bordered table-striped table-hover table-sm">
             <thead class="thead-light">

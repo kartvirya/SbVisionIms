@@ -1,15 +1,23 @@
-<div class="row">
-    <div class="card shadow border-0 mb-7 col-md-6 col-lg-6">
+<div class="row g-4">
+    <div class="card shadow-lg border-0 mb-4 col-md-6 col-lg-6">
         <div class="card-body">
-            <h5 class="card-title">Category Distribution</h5>
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h5 class="card-title mb-0 fw-bold">
+                    <i class="fa fa-chart-pie me-2" style="color: #87CEEB;"></i>Category Distribution
+                </h5>
+            </div>
             <div class="chart-container">
                 <canvas id="pieChart"></canvas>
             </div>
         </div>
     </div>
-    <div class="card shadow border-0 mb-7 col-md-6 col-lg-6">
+    <div class="card shadow-lg border-0 mb-4 col-md-6 col-lg-6">
         <div class="card-body">
-            <h5 class="card-title">Sales Over Time</h5>
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h5 class="card-title mb-0 fw-bold">
+                    <i class="fa fa-chart-line me-2" style="color: #87CEEB;"></i>Sales Over Time
+                </h5>
+            </div>
             <div class="chart-container">
                 <canvas id="lineChart"></canvas>
             </div>
@@ -17,86 +25,141 @@
     </div>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script>
-    // Pie Chart
-    var ctxPie = document.getElementById('pieChart').getContext('2d');
-    var pieChart = new Chart(ctxPie, {
-        type: 'doughnut',
-        data: {
-            labels: {{ categories|safe }},
-            datasets: [{
-                data: {{ category_counts|safe }},
-                backgroundColor: ['#FF6384', '#36A2EB', '#FFCE56', '#E7E9ED', '#8E5EA2'],
-                borderWidth: 1
-            }]
-        },
-        options: {
-            responsive: true,
-            plugins: {
-                legend: {
-                    position: 'bottom',
-                    labels: {
-                        usePointStyle: true,
-                        padding: 10
-                    }
+    // Wait for Chart.js to load
+    document.addEventListener('DOMContentLoaded', function() {
+        // Pie Chart
+        var ctxPie = document.getElementById('pieChart');
+        if (ctxPie) {
+            var pieChart = new Chart(ctxPie.getContext('2d'), {
+                type: 'doughnut',
+                data: {
+                    labels: {{ categories|safe }},
+                    datasets: [{
+                        data: {{ category_counts|safe }},
+                        backgroundColor: ['#FF6384', '#36A2EB', '#87CEEB', '#FFCE56', '#4BC0C0', '#8E5EA2', '#95A5A6'],
+                        borderWidth: 2,
+                        borderColor: '#ffffff'
+                    }]
                 },
-                tooltip: {
-                    callbacks: {
-                        label: function(tooltipItem) {
-                            return tooltipItem.label + ': ' + tooltipItem.raw;
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                usePointStyle: true,
+                                padding: 15,
+                                font: {
+                                    size: 12,
+                                    weight: '500'
+                                }
+                            }
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                            padding: 12,
+                            titleFont: {
+                                size: 14,
+                                weight: 'bold'
+                            },
+                            bodyFont: {
+                                size: 13
+                            },
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.label || '';
+                                    if (label) {
+                                        label += ': ';
+                                    }
+                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                    const percentage = ((context.parsed / total) * 100).toFixed(1);
+                                    label += context.parsed + ' (' + percentage + '%)';
+                                    return label;
+                                }
+                            }
                         }
-                    }
-                },
-                title: {
-                    display: true,
-                    text: 'Category Distribution',
-                    font: {
-                        size: 16
-                    }
+                    },
+                    cutout: '65%'
                 }
-            },
-            cutout: '60%',
-            maintainAspectRatio: false
+            });
         }
-    });
 
-    // Line Chart
-    var ctxLine = document.getElementById('lineChart').getContext('2d');
-    var lineChart = new Chart(ctxLine, {
-        type: 'line',
-        data: {
-            labels: {{ sale_dates_labels|safe }},
-            datasets: [{
-                label: 'Sales Over Time',
-                data: {{ sale_dates_values|safe }},
-                fill: false,
-                borderColor: '#4BC0C0',
-                tension: 0.1
-            }]
-        },
-        options: {
-            responsive: true,
-            plugins: {
-                legend: {
-                    position: 'top',
+        // Line Chart
+        var ctxLine = document.getElementById('lineChart');
+        if (ctxLine) {
+            var lineChart = new Chart(ctxLine.getContext('2d'), {
+                type: 'line',
+                data: {
+                    labels: {{ sale_dates_labels|safe }},
+                    datasets: [{
+                        label: 'Sales Revenue',
+                        data: {{ sale_dates_values|safe }},
+                        fill: true,
+                        borderColor: '#87CEEB',
+                        backgroundColor: 'rgba(135, 206, 235, 0.15)',
+                        borderWidth: 3,
+                        pointRadius: 5,
+                        pointHoverRadius: 7,
+                        pointBackgroundColor: '#87CEEB',
+                        pointBorderColor: '#ffffff',
+                        pointBorderWidth: 2,
+                        tension: 0.4
+                    }]
                 },
-                tooltip: {
-                    callbacks: {
-                        label: function(tooltipItem) {
-                            return 'Sales: ' + tooltipItem.raw;
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                            padding: 12,
+                            titleFont: {
+                                size: 14,
+                                weight: 'bold'
+                            },
+                            bodyFont: {
+                                size: 13
+                            },
+                            callbacks: {
+                                label: function(context) {
+                                    return 'Sales: $' + parseFloat(context.parsed.y).toFixed(2);
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return '$' + value.toLocaleString();
+                                },
+                                font: {
+                                    size: 11
+                                }
+                            },
+                            grid: {
+                                color: 'rgba(0, 0, 0, 0.05)'
+                            }
+                        },
+                        x: {
+                            ticks: {
+                                font: {
+                                    size: 11
+                                }
+                            },
+                            grid: {
+                                display: false
+                            }
                         }
                     }
-                },
-                title: {
-                    display: true,
-                    text: 'Sales Over Time',
-                    font: {
-                        size: 16
-                    }
                 }
-            },
-            maintainAspectRatio: false
+            });
         }
     });
   </script>
@@ -105,11 +168,17 @@
   .chart-container {
     position: relative;
     width: 100%;
-    height: 400px;
+    height: 350px;
+    padding: 10px;
   }
 
   #pieChart, #lineChart {
     max-width: 100%;
     height: 100%;
+  }
+  
+  .card-title {
+    font-size: 1.1rem;
+    color: #2d3748;
   }
   </style>

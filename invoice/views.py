@@ -14,13 +14,15 @@ from django_tables2 import SingleTableView
 from django_tables2.export.views import ExportMixin
 
 # Local app imports
+from accounts.models import Company
 from .models import Invoice
 from .tables import InvoiceTable
+from .filters import InvoiceFilter
 
 
 class InvoiceListView(LoginRequiredMixin, ExportMixin, SingleTableView):
     """
-    View for listing invoices with table export functionality.
+    View for listing invoices with table export functionality and filtering.
     """
     model = Invoice
     table_class = InvoiceTable
@@ -28,6 +30,17 @@ class InvoiceListView(LoginRequiredMixin, ExportMixin, SingleTableView):
     context_object_name = 'invoices'
     paginate_by = 10
     table_pagination = False  # Disable table pagination
+    filterset_class = InvoiceFilter
+
+    def get_queryset(self):
+        queryset = super().get_queryset().select_related('item')
+        self.filterset = self.filterset_class(self.request.GET, queryset=queryset)
+        return self.filterset.qs
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['filter'] = self.filterset
+        return context
 
 
 class InvoiceDetailView(DetailView):
@@ -36,6 +49,11 @@ class InvoiceDetailView(DetailView):
     """
     model = Invoice
     template_name = 'invoice/invoicedetail.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['company'] = Company.load()
+        return context
 
     def get_success_url(self):
         """

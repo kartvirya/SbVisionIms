@@ -16,3 +16,12 @@ openpyxl==3.1.5
 phonenumbers==8.13.43
 requests==2.32.3
 tablib==3.6.1
+
+# Production Server
+gunicorn==21.2.0
+
+# Database
+psycopg2-binary==2.9.9
+
+# Environment Variables
+python-decouple==3.8

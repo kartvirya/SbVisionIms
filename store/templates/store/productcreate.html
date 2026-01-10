@@ -5,6 +5,20 @@
     Add Product
 {% endblock title %}
 
+{% block extra_css %}
+<style>
+    .variation-form-row input, .variation-form-row select {
+        width: 100%;
+        padding: 0.375rem 0.75rem;
+        font-size: 0.875rem;
+    }
+    #variation-table th {
+        font-size: 0.875rem;
+        white-space: nowrap;
+    }
+</style>
+{% endblock extra_css %}
+
 {% block content %}
 <div class="container my-5">
     <div class="row justify-content-center">
@@ -42,30 +56,47 @@
                             </div>
                         </div>
                         <div class="row">
-                            <div class="col-md-6 mb-3">
+                            <div class="col-md-4 mb-3">
                                 <label for="{{ form.quantity.id_for_label }}" class="form-label">
                                     Quantity
                                 </label>
                                 {{ form.quantity }}
                                 <div class="text-danger">{{ form.quantity.errors }}</div>
                             </div>
-                            <div class="col-md-6 mb-3">
+                            <div class="col-md-4 mb-3">
+                                <label for="{{ form.cost_price.id_for_label }}" class="form-label">
+                                    Cost Price (Rs)
+                                </label>
+                                {{ form.cost_price }}
+                                <small class="form-text text-muted">Purchase/cost price</small>
+                                <div class="text-danger">{{ form.cost_price.errors }}</div>
+                            </div>
+                            <div class="col-md-4 mb-3">
                                 <label for="{{ form.price.id_for_label }}" class="form-label">
-                                    Selling Price
+                                    Selling Price (Rs)
                                 </label>
                                 {{ form.price }}
+                                <small class="form-text text-muted">Sale price to customers</small>
                                 <div class="text-danger">{{ form.price.errors }}</div>
                             </div>
                         </div>
                         <div class="row">
-                            <div class="col-md-6 mb-3">
+                            <div class="col-md-4 mb-3">
+                                <label for="{{ form.low_stock_threshold.id_for_label }}" class="form-label">
+                                    Low Stock Threshold
+                                </label>
+                                {{ form.low_stock_threshold }}
+                                <small class="form-text text-muted">Alert when stock falls below this</small>
+                                <div class="text-danger">{{ form.low_stock_threshold.errors }}</div>
+                            </div>
+                            <div class="col-md-4 mb-3">
                                 <label for="{{ form.expiring_date.id_for_label }}" class="form-label">
                                     Expiring Date
                                 </label>
                                 {{ form.expiring_date }}
                                 <div class="text-danger">{{ form.expiring_date.errors }}</div>
                             </div>
-                            <div class="col-md-6 mb-3">
+                            <div class="col-md-4 mb-3">
                                 <label for="{{ form.vendor.id_for_label }}" class="form-label">
                                     Vendor
                                 </label>
@@ -73,7 +104,86 @@
                                 <div class="text-danger">{{ form.vendor.errors }}</div>
                             </div>
                         </div>
-                        <div class="form-group text-center">
+                        <div class="row">
+                            <div class="col-md-12 mb-3">
+                                <label for="{{ form.image.id_for_label }}" class="form-label">
+                                    Product Image
+                                </label>
+                                {{ form.image }}
+                                <small class="form-text text-muted">
+                                    Upload a product image (JPEG, PNG, etc.)
+                                </small>
+                                <div class="text-danger">{{ form.image.errors }}</div>
+                            </div>
+                        </div>
+                        
+                        <!-- Product Variations Section -->
+                        <div class="row mt-4">
+                            <div class="col-12">
+                                <h4 class="mb-3">
+                                    <i class="fas fa-palette"></i> Product Variations
+                                </h4>
+                                <p class="text-muted mb-3">
+                                    Add variations like colors, sizes, materials, etc. (Optional)
+                                </p>
+                                
+                                <div id="variation-formset">
+                                    {{ variation_formset.management_form }}
+                                    <div class="table-responsive">
+                                        <table class="table table-bordered" id="variation-table">
+                                            <thead class="table-light">
+                                                <tr>
+                                                    <th>Type</th>
+                                                    <th>Name</th>
+                                                    <th>Value (Optional)</th>
+                                                    <th>Quantity</th>
+                                                    <th>Price Adjustment</th>
+                                                    <th>Active</th>
+                                                    <th>Delete</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {% for form in variation_formset %}
+                                                <tr class="variation-form-row">
+                                                    <td>{{ form.id }}{{ form.variation_type }}</td>
+                                                    <td>{{ form.name }}</td>
+                                                    <td>{{ form.value }}</td>
+                                                    <td>{{ form.quantity }}</td>
+                                                    <td>{{ form.price_adjustment }}</td>
+                                                    <td class="text-center">{{ form.is_active }}</td>
+                                                    <td class="text-center">
+                                                        {% if form.DELETE %}
+                                                            {{ form.DELETE }}
+                                                        {% endif %}
+                                                    </td>
+                                                </tr>
+                                                {% if form.errors %}
+                                                <tr>
+                                                    <td colspan="7">
+                                                        <div class="text-danger">
+                                                            {{ form.errors }}
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                                {% endif %}
+                                                {% endfor %}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    <button type="button" class="btn btn-sm btn-outline-primary mt-2" id="add-variation">
+                                        <i class="fas fa-plus"></i> Add Another Variation
+                                    </button>
+                                </div>
+                                
+                                {% if variation_formset.non_form_errors %}
+                                <div class="alert alert-danger mt-3">
+                                    {{ variation_formset.non_form_errors }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <div class="form-group text-center mt-4">
                             <button class="btn btn-success btn-lg" type="submit">
                                 <i class="fas fa-check"></i> Submit
                             </button>
@@ -84,4 +194,94 @@
         </div>
     </div>
 </div>
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const formset = document.getElementById('variation-formset');
+    const table = document.getElementById('variation-table');
+    const tbody = table.querySelector('tbody');
+    const addButton = document.getElementById('add-variation');
+    const totalForms = document.getElementById('id_variations-TOTAL_FORMS');
+    const maxForms = document.getElementById('id_variations-MAX_NUM_FORMS');
+    
+    let formCount = parseInt(totalForms.value);
+    
+    addButton.addEventListener('click', function() {
+        if (maxForms && formCount >= parseInt(maxForms.value)) {
+            alert('Maximum number of variations reached.');
+            return;
+        }
+        
+        // Find the last empty form row (one without an ID field value)
+        const rows = tbody.querySelectorAll('.variation-form-row');
+        let templateRow = null;
+        
+        // Try to find an empty row (no ID input or ID input is empty)
+        for (let i = rows.length - 1; i >= 0; i--) {
+            const idInput = rows[i].querySelector('input[name$="-id"]');
+            if (!idInput || !idInput.value) {
+                templateRow = rows[i];
+                break;
+            }
+        }
+        
+        // Fallback to last row if no empty row found
+        if (!templateRow && rows.length > 0) {
+            templateRow = rows[rows.length - 1];
+        }
+        
+        if (!templateRow) {
+            alert('Unable to add variation. Please refresh the page.');
+            return;
+        }
+        
+        const newRow = templateRow.cloneNode(true);
+        const inputs = newRow.querySelectorAll('input, select');
+        
+        inputs.forEach(function(input) {
+            if (input.name) {
+                input.name = input.name.replace(/-\d+-/, '-' + formCount + '-');
+                input.id = input.id.replace(/-\d+-/, '-' + formCount + '-');
+            }
+            if (input.type !== 'checkbox' && input.type !== 'hidden') {
+                input.value = '';
+            } else if (input.type === 'checkbox') {
+                input.checked = false;
+            }
+        });
+        
+        // Clear DELETE checkbox
+        const deleteCheckbox = newRow.querySelector('input[name$="-DELETE"]');
+        if (deleteCheckbox) {
+            deleteCheckbox.checked = false;
+        }
+        
+        tbody.appendChild(newRow);
+        formCount++;
+        totalForms.value = formCount;
+    });
+    
+    // Handle delete checkboxes
+    tbody.addEventListener('change', function(e) {
+        if (e.target.name && e.target.name.includes('-DELETE')) {
+            const row = e.target.closest('tr');
+            if (e.target.checked) {
+                row.style.opacity = '0.5';
+                row.querySelectorAll('input, select').forEach(function(input) {
+                    if (input.name && !input.name.includes('-DELETE') && !input.name.includes('-id')) {
+                        input.disabled = true;
+                    }
+                });
+            } else {
+                row.style.opacity = '1';
+                row.querySelectorAll('input, select').forEach(function(input) {
+                    input.disabled = false;
+                });
+            }
+        }
+    });
+});
+</script>
+{% endblock extra_js %}
 {% endblock content %}

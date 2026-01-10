@@ -11,6 +11,9 @@ import os
 
 from django.core.wsgi import get_wsgi_application
 
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'InventoryMS.settings')
+# Use production settings if DJANGO_SETTINGS_MODULE is not set
+# This allows deployment scripts to override settings
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 
+    os.environ.get('DJANGO_SETTINGS_MODULE', 'InventoryMS.settings'))
 
 application = get_wsgi_application()

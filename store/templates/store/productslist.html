@@ -3,6 +3,19 @@
 {% load render_table from django_tables2 %}
 {% load querystring from django_tables2 %}
 {% block title %}Products{% endblock title %}
+{% block extra_css %}
+<style>
+    .variations-badges .badge {
+        font-size: 0.75rem;
+        margin-right: 4px;
+        margin-bottom: 2px;
+        display: inline-block;
+    }
+    .table td {
+        vertical-align: middle;
+    }
+</style>
+{% endblock extra_css %}
 {% block content %}
 <div class="container">
     <!-- Header Section -->
@@ -30,6 +43,59 @@
         </div>
     </div>
 
+    <!-- Filter Section -->
+    <div class="container my-3">
+        <div class="card shadow-sm">
+            <div class="card-header bg-light">
+                <h5 class="mb-0"><i class="fa-solid fa-filter"></i> Filters & Sorting</h5>
+            </div>
+            <div class="card-body">
+                <form method="get" class="row g-3">
+                    <div class="col-md-3">
+                        <label class="form-label">Product Name</label>
+                        {{ filter.form.name }}
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Category</label>
+                        {{ filter.form.category }}
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Vendor</label>
+                        {{ filter.form.vendor }}
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Min Price</label>
+                        {{ filter.form.min_price }}
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Max Price</label>
+                        {{ filter.form.max_price }}
+                    </div>
+                    <div class="col-md-1">
+                        <label class="form-label">Min Qty</label>
+                        {{ filter.form.min_quantity }}
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Expiring After</label>
+                        {{ filter.form.expiring_date }}
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Sort By</label>
+                        {{ filter.form.ordering }}
+                    </div>
+                    <div class="col-md-12">
+                        <button type="submit" class="btn btn-success btn-sm">
+                            <i class="fa-solid fa-filter"></i> Apply Filters
+                        </button>
+                        <a href="{% url 'productslist' %}" class="btn btn-secondary btn-sm">
+                            <i class="fa-solid fa-times"></i> Clear
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <div class="px-4">
         <table class="table table-bordered table-striped table-hover table-sm">
             <thead class="thead-light">
@@ -38,21 +104,72 @@
                     <th scope="col">Name <i class="fa-solid fa-sort"></i></th>
                     <th scope="col">Category <i class="fa-solid fa-sort"></i></th>
                     <th scope="col">Quantity <i class="fa-solid fa-sort"></i></th>
-                    <th scope="col">Price <i class="fa-solid fa-sort"></i></th>
+                    <th scope="col">Cost Price <i class="fa-solid fa-sort"></i></th>
+                    <th scope="col">Selling Price <i class="fa-solid fa-sort"></i></th>
+                    <th scope="col">Profit <i class="fa-solid fa-sort"></i></th>
+                    <th scope="col">Variations</th>
                     <th scope="col">Expiring Date <i class="fa-solid fa-sort"></i></th>
-                    <th scope="col">Vendor <i class="fa-solid fa-sort"></i></th>
+                    <th scope="col">Vendor <i class="fa-solid fa-sort"></i"></th>
                     <th scope="col">Action</th>
                 </tr>
             </thead>
             <tbody>
                 {% for item in items %}
-                <tr>
+                <tr {% if item.is_low_stock %}class="table-warning"{% endif %}>
                     <th scope="row">{{ item.id }}</th>
-                    <td>{{ item.name }}</td>
+                    <td>
+                        {% if item.image %}
+                        <img src="{{ item.image.url }}" alt="{{ item.name }}" class="img-thumbnail" style="width: 40px; height: 40px; object-fit: cover; margin-right: 8px;">
+                        {% endif %}
+                        {{ item.name }}
+                        {% if item.is_low_stock %}
+                            <span class="badge bg-warning text-dark ms-1">
+                                <i class="fa fa-exclamation-triangle"></i> Low Stock
+                            </span>
+                        {% endif %}
+                    </td>
                     <td>{{ item.category }}</td>
-                    <td>{{ item.quantity }}</td>
-                    <td>{{ item.price }}</td>
-                    <td>{{ item.expiring_date }}</td>
+                    <td>
+                        {% if item.quantity == 0 %}
+                            <span class="badge bg-danger">0</span>
+                        {% elif item.is_low_stock %}
+                            <span class="badge bg-warning text-dark">{{ item.quantity }}</span>
+                        {% else %}
+                            {{ item.quantity }}
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if item.cost_price > 0 %}
+                            Rs {{ item.cost_price|floatformat:2 }}
+                        {% else %}
+                            <span class="text-muted">-</span>
+                        {% endif %}
+                    </td>
+                    <td>Rs {{ item.price|floatformat:2 }}</td>
+                    <td>
+                        {% if item.cost_price > 0 %}
+                            <span class="text-success">Rs {{ item.get_profit_amount|floatformat:2 }}</span>
+                            <small class="text-muted d-block">({{ item.get_profit_margin|floatformat:1 }}%)</small>
+                        {% else %}
+                            <span class="text-muted">-</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% with variations=item.variations.all %}
+                        {% if variations %}
+                        <div class="variations-badges">
+                            {% for variation in variations %}
+                            <span class="badge bg-info mb-1" title="{{ variation.get_variation_type_display }}: {{ variation.name }}{% if variation.value %} ({{ variation.value }}){% endif %}">
+                                {{ variation.get_variation_type_display|slice:":1" }}: {{ variation.name }}
+                            </span>
+                            {% endfor %}
+                        </div>
+                        {% else %}
+                        <span class="text-muted">-</span>
+                        {% endif %}
+                        {% endwith %}
+                    </td>
+                    <td>{{ item.expiring_date|date:"Y-m-d" }}</td>
                     <td>{{ item.vendor }}</td>
                     <td>
                         <a class="btn btn-outline-info btn-sm" href="{% url 'product-update' item.slug %}">

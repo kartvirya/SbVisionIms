@@ -2,7 +2,7 @@ from django import forms
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import User
 
-from .models import Profile, Customer, Vendor
+from .models import Profile, Customer, Vendor, Logistics
 
 
 class CreateUserForm(UserCreationForm):
@@ -101,4 +101,45 @@ class VendorForm(forms.ModelForm):
             'address': forms.TextInput(
                 attrs={'class': 'form-control', 'placeholder': 'Address'}
             ),
+        }
+
+
+class LogisticsForm(forms.ModelForm):
+    """Form for creating/updating logistics company information."""
+    class Meta:
+        model = Logistics
+        fields = [
+            'name',
+            'contact_person',
+            'phone_number',
+            'email',
+            'address',
+            'tracking_url',
+            'is_active'
+        ]
+        widgets = {
+            'name': forms.TextInput(
+                attrs={'class': 'form-control', 'placeholder': 'Logistics Company Name'}
+            ),
+            'contact_person': forms.TextInput(
+                attrs={'class': 'form-control', 'placeholder': 'Contact Person Name'}
+            ),
+            'phone_number': forms.TextInput(
+                attrs={'class': 'form-control', 'placeholder': '+977 98XXXXXXXX or 01-XXXXXXX'}
+            ),
+            'email': forms.EmailInput(
+                attrs={'class': 'form-control', 'placeholder': 'Email Address'}
+            ),
+            'address': forms.Textarea(
+                attrs={'class': 'form-control', 'placeholder': 'Company Address', 'rows': 3}
+            ),
+            'tracking_url': forms.URLInput(
+                attrs={'class': 'form-control', 'placeholder': 'https://example.com/track/{tracking_number}'}
+            ),
+            'is_active': forms.CheckboxInput(
+                attrs={'class': 'form-check-input'}
+            ),
+        }
+        labels = {
+            'is_active': 'Active',
         }

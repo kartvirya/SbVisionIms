@@ -142,3 +142,139 @@ class Customer(models.Model):
             "value": self.id
         }
         return item
+
+
+class Logistics(models.Model):
+    """
+    Represents a logistics/shipping company for package deliveries.
+    """
+    name = models.CharField(
+        max_length=100,
+        verbose_name='Logistics Company Name'
+    )
+    slug = AutoSlugField(
+        unique=True,
+        populate_from='name',
+        verbose_name='Slug'
+    )
+    contact_person = models.CharField(
+        max_length=100,
+        blank=True,
+        null=True,
+        verbose_name='Contact Person'
+    )
+    phone_number = models.CharField(
+        max_length=30,
+        blank=True,
+        null=True,
+        verbose_name='Phone Number',
+        help_text='Enter phone number (e.g., +977 98XXXXXXXX or 01-XXXXXXX)'
+    )
+    email = models.EmailField(
+        max_length=255,
+        blank=True,
+        null=True,
+        verbose_name='Email Address'
+    )
+    address = models.TextField(
+        max_length=500,
+        blank=True,
+        null=True,
+        verbose_name='Address'
+    )
+    tracking_url = models.URLField(
+        max_length=500,
+        blank=True,
+        null=True,
+        verbose_name='Tracking URL Template',
+        help_text='URL template for tracking (use {tracking_number} as placeholder)'
+    )
+    is_active = models.BooleanField(
+        default=True,
+        verbose_name='Active',
+        help_text='Whether this logistics company is currently active'
+    )
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name='Created At'
+    )
+    updated_at = models.DateTimeField(
+        auto_now=True,
+        verbose_name='Updated At'
+    )
+
+    class Meta:
+        verbose_name = 'Logistics Company'
+        verbose_name_plural = 'Logistics Companies'
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name
+
+
+class Company(models.Model):
+    """
+    Represents company information for invoices, bills, and receipts.
+    Uses singleton pattern - only one company record should exist.
+    """
+    name = models.CharField(
+        max_length=100,
+        default='SB Vision',
+        verbose_name='Company Name'
+    )
+    address = models.CharField(
+        max_length=255,
+        default='Tom Mboya Street, Tudor',
+        blank=True,
+        null=True,
+        verbose_name='Street Address'
+    )
+    phone = models.CharField(
+        max_length=30,
+        default='+2547 00 000000',
+        blank=True,
+        null=True,
+        verbose_name='Phone Number'
+    )
+    po_box = models.CharField(
+        max_length=100,
+        default='P.O BOX. 90420-80100 MSA',
+        blank=True,
+        null=True,
+        verbose_name='P.O Box'
+    )
+    email = models.EmailField(
+        max_length=255,
+        blank=True,
+        null=True,
+        verbose_name='Email Address'
+    )
+    website = models.URLField(
+        max_length=255,
+        blank=True,
+        null=True,
+        verbose_name='Website'
+    )
+
+    class Meta:
+        verbose_name = 'Company'
+        verbose_name_plural = 'Company Information'
+        ordering = ['id']
+
+    def __str__(self):
+        return self.name
+
+    def save(self, *args, **kwargs):
+        """
+        Override save to ensure only one company record exists.
+        """
+        self.pk = 1
+        super().save(*args, **kwargs)
+
+    @classmethod
+    def load(cls):
+        """
+        Get or create the company instance (singleton pattern).
+        """
+        obj, created = cls.objects.get_or_create(pk=1)
+        return obj

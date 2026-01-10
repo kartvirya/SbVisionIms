@@ -5,51 +5,181 @@
 <style>
     .sidebar {
         width: 250px;
-        background-color: #343a40;
+        background: linear-gradient(180deg, #2d3748 0%, #1a202c 100%);
         color: #fff;
         position: fixed;
         top: 0;
-        bottom: 0; /* Extend to the bottom of the viewport */
+        bottom: 0;
         display: flex;
-        flex-direction: column; /* Stack children vertically */
+        flex-direction: column;
+        box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+        transition: width 0.3s ease;
+        z-index: 1000;
+    }
+
+    .sidebar.collapsed {
+        width: 80px;
+    }
+
+    .sidebar.collapsed .sidebar-text,
+    .sidebar.collapsed .sidebar-badge,
+    .sidebar.collapsed .dropdown-toggle::after {
+        display: none !important;
+    }
+
+    .sidebar.collapsed .sidebar-header .ms-3 {
+        display: none;
+    }
+
+    .sidebar.collapsed .nav-link {
+        justify-content: center;
+        padding: 12px !important;
+    }
+
+    .sidebar.collapsed .nav-link i {
+        margin: 0 !important;
+        font-size: 20px;
+    }
+
+    .sidebar.collapsed .dropdown-menu {
+        position: fixed !important;
+        left: 80px !important;
+        margin-top: 0 !important;
+        min-width: 200px;
     }
 
     .sidebar-header {
-        background-color: #212529;
+        background: linear-gradient(135deg, #2d3748 0%, #1a202c 100%);
+        border-bottom: 1px solid rgba(255,255,255,0.1);
+        position: relative;
+    }
+
+    .sidebar-toggle {
+        position: absolute;
+        top: 50%;
+        right: 10px;
+        transform: translateY(-50%);
+        background: rgba(255,255,255,0.1);
+        border: none;
+        color: #fff;
+        width: 30px;
+        height: 30px;
+        border-radius: 6px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+
+    .sidebar-toggle:hover {
+        background: rgba(135, 206, 235, 0.2);
+        color: #87CEEB;
+    }
+
+    .sidebar.collapsed .sidebar-toggle {
+        right: 50%;
+        transform: translate(50%, -50%);
     }
 
     .nav-container {
-        flex: 1; /* Take up remaining space */
-        overflow-y: auto; /* Enable vertical scrolling */
-        padding: 5px; /* Add some padding */
+        flex: 1;
+        overflow-y: auto;
+        overflow-x: hidden;
+        padding: 10px 8px;
     }
 
     .nav-link {
         color: #adb5bd;
+        border-radius: 8px;
+        margin: 4px 0;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        padding: 12px 16px;
+        white-space: nowrap;
+        position: relative;
+    }
+
+    .nav-link:hover {
+        background-color: rgba(135, 206, 235, 0.1);
+        color: #87CEEB;
+    }
+
+    .sidebar:not(.collapsed) .nav-link:hover {
+        transform: translateX(4px);
     }
 
     .nav-link.active {
-        background-color: #495057;
-        color: #fff;
+        background: linear-gradient(135deg, rgba(135, 206, 235, 0.2) 0%, rgba(107, 182, 214, 0.2) 100%);
+        color: #87CEEB;
+        border-left: 3px solid #87CEEB;
+        font-weight: 600;
+    }
+
+    .sidebar.collapsed .nav-link.active {
+        border-left: none;
+        border-top: 3px solid #87CEEB;
+    }
+
+    .nav-link i {
+        min-width: 24px;
+        text-align: center;
+        margin-right: 12px;
+    }
+
+    .sidebar-text {
+        transition: opacity 0.3s ease;
     }
 
     .dropdown-menu {
         background-color: #495057;
+        border: none;
+        box-shadow: 2px 4px 12px rgba(0,0,0,0.3);
     }
 
     .dropdown-item {
         color: #adb5bd;
+        padding: 10px 20px;
+        transition: all 0.2s ease;
+        display: flex;
+        align-items: center;
+    }
+
+    .dropdown-item i {
+        min-width: 20px;
+        text-align: center;
     }
 
     .dropdown-item.active, .dropdown-item:hover {
-        background-color: #6c757d;
-        color: #fff;
+        background-color: rgba(135, 206, 235, 0.2);
+        color: #87CEEB;
+    }
+
+    .dropdown-item.active i, .dropdown-item:hover i {
+        color: #000000 !important;
     }
 
     .sidebar-footer {
         background-color: #212529;
         text-align: center;
-        padding: 10px;
+        padding: 15px 10px;
+        border-top: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .sidebar.collapsed .sidebar-footer button {
+        width: 100%;
+        padding: 8px;
+    }
+
+    .sidebar.collapsed .sidebar-footer button .me-2 {
+        margin: 0 !important;
+    }
+
+    /* Tooltip for collapsed sidebar */
+    .sidebar.collapsed .nav-link[data-bs-toggle="tooltip"],
+    .sidebar.collapsed .nav-link[title] {
+        cursor: pointer;
     }
 </style>
 <aside class="sidebar position-fixed top-0 left-0 overflow-auto h-100 bg-dark text-light" id="show-side-navigation1">
@@ -60,13 +190,13 @@
 
     <!-- Sidebar Header -->
     <div class="sidebar-header d-flex align-items-center px-3 py-4 border-bottom border-secondary">
-        <a href="{% url 'user-profile' %}" class="d-flex align-items-center text-decoration-none text-light">
-            <img class="rounded-circle img-fluid" id="sidebar-img" width="45" src="{{ request.user.profile.profile_picture.url }}" alt="Profile Picture" />
-            <div class="ms-3">
+        <a href="{% url 'user-profile' %}" class="d-flex align-items-center text-decoration-none text-light w-100">
+            <img class="rounded-circle img-fluid" id="sidebar-img" width="45" src="{{ request.user.profile.profile_picture.url }}" alt="Profile Picture" style="min-width: 45px;" />
+            <div class="ms-3 sidebar-text">
                 <h5 class="fs-6 mb-0">
-                    {{ request.user.username }}{% if request.user.profile.role == 'AD' %} <i class="fa-solid fa-circle-check text-success"></i>{% endif %}
+                    {{ request.user.username }}{% if request.user.profile.role == 'AD' %} <i class="fa-solid fa-circle-check" style="color: #87CEEB;"></i>{% endif %}
                 </h5>
-                <span class="badge bg-success text-light">
+                <span class="badge text-light sidebar-badge" style="background-color: #87CEEB;">
                     {% if request.user.profile.role == 'AD' %}
                         Admin
                     {% elif request.user.profile.role == 'EX' %}
@@ -77,59 +207,71 @@
                 </span>
             </div>
         </a>
+        <button class="sidebar-toggle" id="sidebarToggle" aria-label="Toggle Sidebar">
+            <i class="fa fa-angle-left"></i>
+        </button>
     </div>
 
     <!-- Navigation Container -->
     <div class="nav-container">
         <!-- Navigation Links -->
         <ul class="nav flex-column mt-3">
-            <li class="nav-item mb-2">
-                <a class="nav-link text-light {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}" href="{% url 'dashboard' %}">
-                    <i class="fa fa-tachometer-alt fa-fw me-2"></i> Dashboard
+            <li class="nav-item">
+                <a class="nav-link text-light {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}" href="{% url 'dashboard' %}" data-bs-toggle="tooltip" data-bs-placement="right" title="Dashboard">
+                    <i class="fa-solid fa-gauge-high fa-fw"></i>
+                    <span class="sidebar-text">Dashboard</span>
                 </a>
             </li>
-            <li class="nav-item mb-2 dropdown">
-                <a class="nav-link text-light {% if request.resolver_match.url_name == 'productslist' %}active{% endif %} dropdown-toggle" href="#" id="productsDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                    <i class="fa fa-folder me-2"></i> Products
+            <li class="nav-item dropdown">
+                <a class="nav-link text-light {% if request.resolver_match.url_name == 'productslist' %}active{% endif %} dropdown-toggle" href="#" id="productsDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false" data-bs-toggle-tooltip="tooltip" data-bs-placement="right" title="Products">
+                    <i class="fa fa-folder"></i>
+                    <span class="sidebar-text">Products</span>
                 </a>
                 <ul class="dropdown-menu bg-dark border-0" aria-labelledby="productsDropdown">
-                    <li><a class="dropdown-item text-light {% if request.resolver_match.url_name == 'productslist' %}active{% endif %}" href="{% url 'productslist' %}">All Products</a></li>
-                    <li><a class="dropdown-item text-light" href="{% url 'category-list' %}">Categories</a></li>
+                    <li><a class="dropdown-item text-light {% if request.resolver_match.url_name == 'productslist' %}active{% endif %}" href="{% url 'productslist' %}"><i class="fa-solid fa-box me-2" style="color: #000000;"></i>All Products</a></li>
+                    <li><a class="dropdown-item text-light" href="{% url 'category-list' %}"><i class="fa-solid fa-tags me-2" style="color: #000000;"></i>Categories</a></li>
                 </ul>
             </li>
-            <li class="nav-item mb-2">
-                <a class="nav-link text-light {% if request.resolver_match.url_name == 'saleslist' %}active{% endif %}" href="{% url 'saleslist' %}">
-                    <i class="fa fa-shopping-bag fa-fw me-2"></i> Sales Orders
+            <li class="nav-item">
+                <a class="nav-link text-light {% if request.resolver_match.url_name == 'saleslist' %}active{% endif %}" href="{% url 'saleslist' %}" data-bs-toggle="tooltip" data-bs-placement="right" title="Sales Orders">
+                    <i class="fa fa-shopping-bag fa-fw"></i>
+                    <span class="sidebar-text">Sales Orders</span>
                 </a>
             </li>
-            <li class="nav-item mb-2">
-                <a class="nav-link text-light {% if request.resolver_match.url_name == 'purchaseslist' %}active{% endif %}" href="{% url 'purchaseslist' %}">
-                    <i class="fa fa-shopping-cart me-2"></i> Purchase Orders
+            <li class="nav-item">
+                <a class="nav-link text-light {% if request.resolver_match.url_name == 'purchaseslist' %}active{% endif %}" href="{% url 'purchaseslist' %}" data-bs-toggle="tooltip" data-bs-placement="right" title="Purchase Orders">
+                    <i class="fa fa-shopping-cart"></i>
+                    <span class="sidebar-text">Purchase Orders</span>
                 </a>
             </li>
-            <li class="nav-item mb-2">
-                <a class="nav-link text-light {% if request.resolver_match.url_name == 'deliveries' %}active{% endif %}" href="{% url 'deliveries' %}">
-                    <i class="fa-solid fa-box me-2"></i> Package
+            <li class="nav-item">
+                <a class="nav-link text-light {% if request.resolver_match.url_name == 'deliveries' %}active{% endif %}" href="{% url 'deliveries' %}" data-bs-toggle="tooltip" data-bs-placement="right" title="Package">
+                    <i class="fa-solid fa-box"></i>
+                    <span class="sidebar-text">Package</span>
                 </a>
             </li>
-            <li class="nav-item mb-2">
-                <a class="nav-link text-light {% if request.resolver_match.url_name == 'invoicelist' %}active{% endif %}" href="{% url 'invoicelist' %}">
-                    <i class="fa-solid fa-receipt me-2"></i> Invoices
+            <li class="nav-item">
+                <a class="nav-link text-light {% if request.resolver_match.url_name == 'invoicelist' %}active{% endif %}" href="{% url 'invoicelist' %}" data-bs-toggle="tooltip" data-bs-placement="right" title="Invoices">
+                    <i class="fa-solid fa-receipt"></i>
+                    <span class="sidebar-text">Invoices</span>
                 </a>
             </li>
-            <li class="nav-item mb-2">
-                <a class="nav-link text-light {% if request.resolver_match.url_name == 'bill_list' %}active{% endif %}" href="{% url 'bill_list' %}">
-                    <i class="fa-solid fa-file-invoice me-2"></i> Bills
+            <li class="nav-item">
+                <a class="nav-link text-light {% if request.resolver_match.url_name == 'bill_list' %}active{% endif %}" href="{% url 'bill_list' %}" data-bs-toggle="tooltip" data-bs-placement="right" title="Bills">
+                    <i class="fa-solid fa-file-invoice"></i>
+                    <span class="sidebar-text">Bills</span>
                 </a>
             </li>
-            <li class="nav-item mb-2 dropdown">
-                <a class="nav-link text-light {% if request.resolver_match.url_name == 'profile_list' or request.resolver_match.url_name == 'customer_list' or request.resolver_match.url_name == 'vendor-list' %} active{% endif %} dropdown-toggle" href="#" id="accountsDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                    <i class="fa fa-users me-2"></i> Accounts
+            <li class="nav-item dropdown">
+                <a class="nav-link text-light {% if request.resolver_match.url_name == 'profile_list' or request.resolver_match.url_name == 'customer_list' or request.resolver_match.url_name == 'vendor-list' or request.resolver_match.url_name == 'logistics-list' %} active{% endif %} dropdown-toggle" href="#" id="accountsDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false" data-bs-toggle-tooltip="tooltip" data-bs-placement="right" title="Accounts">
+                    <i class="fa fa-users"></i>
+                    <span class="sidebar-text">Accounts</span>
                 </a>
                 <ul class="dropdown-menu bg-dark border-0" aria-labelledby="accountsDropdown">
-                    <li><a class="dropdown-item text-light {% if request.resolver_match.url_name == 'profile_list' %}active{% endif %}" href="{% url 'profile_list' %}">All Staff</a></li>
-                    <li><a class="dropdown-item text-light {% if request.resolver_match.url_name == 'customer_list' %}active{% endif %}" href="{% url 'customer_list' %}">Customers</a></li>
-                    <li><a class="dropdown-item text-light {% if request.resolver_match.url_name == 'customer_list' %}active{% endif %}" href="{% url 'vendor-list' %}">Vendors</a></li>
+                    <li><a class="dropdown-item text-light {% if request.resolver_match.url_name == 'profile_list' %}active{% endif %}" href="{% url 'profile_list' %}"><i class="fa-solid fa-user-tie me-2" style="color: #000000;"></i>All Staff</a></li>
+                    <li><a class="dropdown-item text-light {% if request.resolver_match.url_name == 'customer_list' %}active{% endif %}" href="{% url 'customer_list' %}"><i class="fa-solid fa-users me-2" style="color: #000000;"></i>Customers</a></li>
+                    <li><a class="dropdown-item text-light {% if request.resolver_match.url_name == 'vendor-list' %}active{% endif %}" href="{% url 'vendor-list' %}"><i class="fa-solid fa-building me-2" style="color: #000000;"></i>Vendors</a></li>
+                    <li><a class="dropdown-item text-light {% if request.resolver_match.url_name == 'logistics-list' %}active{% endif %}" href="{% url 'logistics-list' %}"><i class="fa-solid fa-truck me-2" style="color: #000000;"></i>Logistics</a></li>
                 </ul>
             </li>
         </ul>
@@ -139,8 +281,9 @@
     <div class="sidebar-footer position-absolute bottom-0 w-100 text-center py-3 bg-dark border-top border-secondary">
         <form method="post" action="{% url 'user-logout' %}">
             {% csrf_token %}
-            <button type="submit" class="btn btn-danger btn-sm w-75">
-                <i class="fa fa-sign-out me-2"></i> Logout
+            <button type="submit" class="btn btn-danger btn-sm w-75" data-bs-toggle="tooltip" data-bs-placement="right" title="Logout">
+                <i class="fa fa-sign-out me-2"></i>
+                <span class="sidebar-text">Logout</span>
             </button>
         </form>
     </div>
@@ -149,8 +292,94 @@
 <!-- Bootstrap Bundle with Popper.js -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-    // Explicitly initializing Bootstrap dropdowns if needed
-    document.querySelectorAll('.dropdown-toggle').forEach(function(element) {
-        new bootstrap.Dropdown(element);
+    // Sidebar Toggle Functionality
+    document.addEventListener('DOMContentLoaded', function() {
+        const sidebar = document.getElementById('show-side-navigation1');
+        const sidebarToggle = document.getElementById('sidebarToggle');
+        const wrapper = document.getElementById('wrapper');
+        
+        // Check localStorage for saved state
+        const isCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
+        if (isCollapsed) {
+            sidebar.classList.add('collapsed');
+            if (wrapper) wrapper.style.marginLeft = '80px';
+        }
+        
+        // Update toggle icon
+        function updateToggleIcon() {
+            const icon = sidebarToggle.querySelector('i');
+            if (sidebar.classList.contains('collapsed')) {
+                icon.className = 'fa fa-angle-right';
+            } else {
+                icon.className = 'fa fa-angle-left';
+            }
+        }
+        
+        // Toggle sidebar
+        sidebarToggle.addEventListener('click', function() {
+            sidebar.classList.toggle('collapsed');
+            const collapsed = sidebar.classList.contains('collapsed');
+            
+            // Update wrapper margin
+            if (wrapper) {
+                wrapper.style.marginLeft = collapsed ? '80px' : '250px';
+                wrapper.style.transition = 'margin-left 0.3s ease';
+            }
+            
+            // Save state to localStorage
+            localStorage.setItem('sidebarCollapsed', collapsed);
+            
+            // Update toggle icon
+            updateToggleIcon();
+            
+            // Initialize tooltips when collapsed
+            if (collapsed) {
+                initializeTooltips();
+            } else {
+                destroyTooltips();
+            }
+        });
+        
+        // Initialize Bootstrap dropdowns
+        document.querySelectorAll('.dropdown-toggle').forEach(function(element) {
+            new bootstrap.Dropdown(element);
+        });
+        
+        // Initialize tooltips if sidebar is collapsed
+        function initializeTooltips() {
+            const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+            tooltipTriggerList.map(function (tooltipTriggerEl) {
+                return new bootstrap.Tooltip(tooltipTriggerEl);
+            });
+        }
+        
+        function destroyTooltips() {
+            const tooltipList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+            tooltipList.forEach(function(tooltipEl) {
+                const tooltip = bootstrap.Tooltip.getInstance(tooltipEl);
+                if (tooltip) tooltip.dispose();
+            });
+        }
+        
+        // Initialize tooltips on page load if collapsed
+        if (sidebar.classList.contains('collapsed')) {
+            setTimeout(initializeTooltips, 100);
+        }
+        
+        // Update toggle icon on load
+        updateToggleIcon();
+        
+        // Handle dropdown positioning when collapsed
+        sidebar.addEventListener('show.bs.dropdown', function(e) {
+            if (sidebar.classList.contains('collapsed')) {
+                const dropdownMenu = e.target.nextElementSibling;
+                if (dropdownMenu) {
+                    dropdownMenu.style.position = 'fixed';
+                    const rect = e.target.getBoundingClientRect();
+                    dropdownMenu.style.left = '80px';
+                    dropdownMenu.style.top = rect.top + 'px';
+                }
+            }
+        });
     });
 </script>

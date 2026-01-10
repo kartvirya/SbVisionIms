@@ -1,3 +1,185 @@
-<div>
-    Product Page
+{% extends "store/base.html" %}
+{% load static %}
+
+{% block title %}
+    {{ object.name }} - Product Details
+{% endblock title %}
+
+{% block content %}
+<div class="container my-5">
+    <div class="row">
+        <div class="col-md-12 mb-3">
+            <a href="{% url 'productslist' %}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left"></i> Back to Products
+            </a>
+            {% if user.is_superuser %}
+            <a href="{% url 'product-update' object.slug %}" class="btn btn-outline-primary">
+                <i class="fas fa-edit"></i> Edit Product
+            </a>
+            {% endif %}
+        </div>
+    </div>
+    
+    <div class="row">
+        <!-- Product Image -->
+        <div class="col-md-4 mb-4">
+            <div class="card shadow-sm">
+                <div class="card-body text-center">
+                    {% if object.image %}
+                    <img src="{{ object.image.url }}" alt="{{ object.name }}" class="img-fluid rounded mb-3" style="max-height: 400px;">
+                    {% else %}
+                    <div class="bg-light d-flex align-items-center justify-content-center" style="height: 300px;">
+                        <i class="fas fa-image fa-5x text-muted"></i>
+                    </div>
+                    <p class="text-muted mt-2">No image available</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Product Details -->
+        <div class="col-md-8">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <h1 class="card-title mb-3">{{ object.name }}</h1>
+                    
+                    <div class="mb-3">
+                        <span class="badge bg-primary">{{ object.category.name }}</span>
+                        {% if object.vendor %}
+                        <span class="badge bg-secondary">{{ object.vendor.name }}</span>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="mb-4">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h5 class="text-muted mb-2">Selling Price</h5>
+                                <h3 class="text-success mb-0">Rs {{ object.price|floatformat:2 }}</h3>
+                            </div>
+                            {% if object.cost_price > 0 %}
+                            <div class="col-md-6">
+                                <h5 class="text-muted mb-2">Cost Price</h5>
+                                <h4 class="text-info mb-0">Rs {{ object.cost_price|floatformat:2 }}</h4>
+                                <div class="mt-2">
+                                    <span class="badge bg-success">Profit: Rs {{ object.get_profit_amount|floatformat:2 }}</span>
+                                    <span class="badge bg-primary">Margin: {{ object.get_profit_margin|floatformat:1 }}%</span>
+                                </div>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <h5>Description</h5>
+                        <p class="text-muted">{{ object.description }}</p>
+                    </div>
+                    
+                    <div class="row mb-4">
+                        <div class="col-md-4">
+                            <h5>Quantity Available</h5>
+                            <p class="fs-4">
+                                {% if object.quantity > 0 %}
+                                    {% if object.is_low_stock %}
+                                        <span class="badge bg-warning text-dark">{{ object.quantity }}</span>
+                                        <small class="text-danger d-block mt-1">
+                                            <i class="fa fa-exclamation-triangle"></i> Low Stock!
+                                        </small>
+                                    {% else %}
+                                        <span class="text-success">{{ object.quantity }}</span>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="text-danger">Out of Stock</span>
+                                {% endif %}
+                            </p>
+                        </div>
+                        <div class="col-md-4">
+                            <h5>Low Stock Threshold</h5>
+                            <p class="text-muted">{{ object.low_stock_threshold }}</p>
+                        </div>
+                        {% if object.expiring_date %}
+                        <div class="col-md-4">
+                            <h5>Expiring Date</h5>
+                            <p class="text-muted">{{ object.expiring_date|date:"F d, Y" }}</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Product Variations -->
+    {% if variations %}
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-header bg-light">
+                    <h4 class="mb-0">
+                        <i class="fas fa-palette"></i> Product Variations
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Type</th>
+                                    <th>Name</th>
+                                    <th>Value</th>
+                                    <th>Quantity</th>
+                                    <th>Price Adjustment</th>
+                                    <th>Final Price</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for variation in variations %}
+                                <tr>
+                                    <td>
+                                        <span class="badge bg-info">{{ variation.get_variation_type_display }}</span>
+                                    </td>
+                                    <td><strong>{{ variation.name }}</strong></td>
+                                    <td>
+                                        {% if variation.value %}
+                                        {% if variation.variation_type == 'color' and variation.value|first == '#' %}
+                                        <span class="d-inline-block" style="width: 20px; height: 20px; background-color: {{ variation.value }}; border: 1px solid #ddd; border-radius: 3px;"></span>
+                                        {{ variation.value }}
+                                        {% else %}
+                                        {{ variation.value }}
+                                        {% endif %}
+                                        {% else %}
+                                        <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ variation.quantity }}</td>
+                                    <td>
+                                        {% if variation.price_adjustment > 0 %}
+                                        <span class="text-success">+Rs {{ variation.price_adjustment|floatformat:2 }}</span>
+                                        {% elif variation.price_adjustment < 0 %}
+                                        <span class="text-danger">Rs {{ variation.price_adjustment|floatformat:2 }}</span>
+                                        {% else %}
+                                        <span class="text-muted">Rs 0.00</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <strong>Rs {{ variation.final_price|floatformat:2 }}</strong>
+                                    </td>
+                                    <td>
+                                        {% if variation.is_active %}
+                                        <span class="badge bg-success">Active</span>
+                                        {% else %}
+                                        <span class="badge bg-secondary">Inactive</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
 </div>
+{% endblock content %}
