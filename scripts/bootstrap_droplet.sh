@@ -107,7 +107,6 @@ inj = """
 
     location /ims/ {
         rewrite ^/ims/(.*)$ /$1 break;
-        include proxy_params;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
