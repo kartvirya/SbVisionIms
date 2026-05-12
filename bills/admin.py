@@ -7,26 +7,25 @@ class BillAdmin(admin.ModelAdmin):
     """Admin interface for managing Bill instances."""
 
     fields = (
-        'date',
-        'institution_name',
-        'phone_number',
-        'email',
-        'address',
-        'description',
-        'payment_details',
-        'amount',
-        'status'
+        "date",
+        "institution_name",
+        "phone_number",
+        "email",
+        "address",
+        "description",
+        "payment_details",
+        "amount",
+        "status",
+        "linked_purchase",
+        "linked_inventory_transaction",
     )
 
     list_display = (
-        'slug',
-        'date',
-        'institution_name',
-        'phone_number',
-        'email',
-        'address',
-        'description',
-        'payment_details',
-        'amount',
-        'status'
+        "slug",
+        "date",
+        "institution_name",
+        "phone_number",
+        "amount",
+        "status",
+        "linked_purchase",
     )

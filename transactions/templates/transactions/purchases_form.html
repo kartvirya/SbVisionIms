@@ -1,24 +1,26 @@
 {% extends "store/base.html" %}
 {% load static %}{% load crispy_forms_tags %}
-{% block title %}Update purchase transaction{% endblock %}
+{% block title %}{% if object %}Update Purchase{% else %}Record Purchase{% endif %}{% endblock %}
 {% block content %}
 <div class="container p-5">
-    <h2>Create or Update Purchase</h2>
+    <h2>{% if object %}Update Purchase{% else %}Record New Purchase{% endif %}</h2>
+    <p class="text-muted small mb-3">
+        Receipt status <strong>Received</strong> posts stock and inventory ledger. <strong>Pending</strong> records the order only.
+        Use <em>Vendor payments</em> in admin to record AP cash/bank settlements (optional ledger).
+    </p>
     <form method="post">
         {% csrf_token %}
         {{ form.non_field_errors }}
-        <div class="row mt-5">
-            <div class="form-group col-md-4">
-                {{ form.item.label_tag }}
-                {{ form.item }}
-                {{ form.item.errors }}
-            </div>
+        {% if line_formset.non_form_errors %}
+        <div class="alert alert-danger">{{ line_formset.non_form_errors }}</div>
+        {% endif %}
+        <div class="row mt-3">
             <div class="form-group col-md-4">
                 {{ form.vendor.label_tag }}
                 {{ form.vendor }}
                 {{ form.vendor.errors }}
             </div>
-            <div class="form-group col-md-4">
+            <div class="form-group col-md-8">
                 {{ form.description.label_tag }}
                 {{ form.description }}
                 {{ form.description.errors }}
@@ -26,28 +28,83 @@
         </div>
         <div class="row">
             <div class="form-group col-md-6">
-                {{ form.delivery_date.label_tag }}
-                {{ form.delivery_date }}
-                {{ form.delivery_date.errors }}
+                {{ form.receipt_date.label_tag }}
+                {{ form.receipt_date }}
+                {{ form.receipt_date.errors }}
             </div>
             <div class="form-group col-md-6">
-                {{ form.quantity.label_tag }}
-                {{ form.quantity }}
-                {{ form.quantity.errors }}
+                {{ form.receipt_status.label_tag }}
+                {{ form.receipt_status }}
+                {{ form.receipt_status.errors }}
             </div>
         </div>
-        <div class="row">
-            <div class="form-group col-md-4">
-                {{ form.delivery_status.label_tag }}
-                {{ form.delivery_status }}
-                {{ form.delivery_status.errors }}
+
+        <h5 class="mt-4">Line items</h5>
+        {{ line_formset.management_form }}
+        {% for f in line_formset.forms %}
+        <div class="row g-2 align-items-end border rounded p-2 mb-2">
+            <div class="col-md-5">
+                {{ f.id }}
+                {{ f.item.label_tag }}
+                {{ f.item }}
+                {{ f.item.errors }}
             </div>
-            <div class="form-group col-md-4">
-                {{ form.price.label_tag }}
-                {{ form.price }}
-                {{ form.price.errors }}
+            <div class="col-md-3">
+                {{ f.quantity.label_tag }}
+                {{ f.quantity }}
+                {{ f.quantity.errors }}
+            </div>
+            <div class="col-md-3">
+                {{ f.unit_price.label_tag }}
+                {{ f.unit_price }}
+                {{ f.unit_price.errors }}
+            </div>
+            <div class="col-md-1">
+                {% if f.DELETE %}<div class="form-check mt-4">{{ f.DELETE }} <label for="{{ f.DELETE.id_for_label }}">Del</label>{% endif %}</div>
             </div>
         </div>
+        {% endfor %}
+
+        <div class="row mt-3">
+            <div class="form-group col-md-4">
+                {{ form.discount_amount.label_tag }}
+                {{ form.discount_amount }}
+                {{ form.discount_amount.errors }}
+            </div>
+            <div class="form-group col-md-4">
+                {{ form.vat_percentage.label_tag }}
+                {{ form.vat_percentage }}
+                {{ form.vat_percentage.errors }}
+            </div>
+            <div class="form-group col-md-4">
+                {{ form.vat_amount.label_tag }}
+                {{ form.vat_amount }}
+                {{ form.vat_amount.errors }}
+            </div>
+        </div>
+
+        {% if object %}
+        <div class="row mt-2">
+            <div class="form-group col-md-3"><label class="form-label">Sub total</label>
+                <input class="form-control" type="text" value="{{ object.sub_total }}" readonly></div>
+            <div class="form-group col-md-3"><label class="form-label">Net amount</label>
+                <input class="form-control" type="text" value="{{ object.net_amount }}" readonly></div>
+            <div class="form-group col-md-3"><label class="form-label">Amount remaining</label>
+                <input class="form-control" type="text" value="{{ object.amount_remaining }}" readonly></div>
+            <div class="form-group col-md-3"><label class="form-label">Payment status</label>
+                <input class="form-control" type="text" value="{{ object.get_payment_status_display }}" readonly></div>
+        </div>
+        {% endif %}
+
+        <div class="row mt-3">
+            <div class="form-group col-md-6">
+                {{ form.amount_paid.label_tag }}
+                {{ form.amount_paid }}
+                {{ form.amount_paid.help_text }}
+                {{ form.amount_paid.errors }}
+            </div>
+        </div>
+
         <button type="submit" class="mt-3 btn btn-primary">
             <i class="fas fa-save"></i> Save
         </button>

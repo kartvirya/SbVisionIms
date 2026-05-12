@@ -1,10 +1,24 @@
+from decimal import Decimal
+
 from django.db import models
+from django.db.models import Sum
+from django.core.exceptions import ValidationError
 from django_extensions.db.fields import AutoSlugField
 
 from store.models import Item
 from accounts.models import Vendor, Customer
 
-DELIVERY_CHOICES = [("P", "Pending"), ("S", "Successful")]
+RECEIPT_STATUS_CHOICES = [("P", "Pending"), ("S", "Received")]
+
+
+def _d(value):
+    return Decimal(str(value or 0))
+PAYMENT_STATUS_CHOICES = [
+    ("U", "Unpaid"),
+    ("T", "Partial"),
+    ("D", "Paid"),
+    ("X", "Overpaid"),
+]
 
 
 class Sale(models.Model):
@@ -47,11 +61,27 @@ class Sale(models.Model):
         decimal_places=2,
         default=0.0
     )
+    inventory_transaction = models.OneToOneField(
+        "InventoryTransaction",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="legacy_sale",
+    )
 
     class Meta:
         db_table = "sales"
         verbose_name = "Sale"
         verbose_name_plural = "Sales"
+
+    def save(self, *args, **kwargs):
+        """When CustomerPayment rows exist, amount_paid is derived from those rows."""
+        if self.pk:
+            qs = getattr(self, "customer_payments", None)
+            if qs is not None and qs.exists():
+                agg = qs.aggregate(s=Sum("amount"))
+                self.amount_paid = _d(agg["s"])
+        super().save(*args, **kwargs)
 
     def __str__(self):
         """
@@ -111,26 +141,32 @@ class SaleDetail(models.Model):
 
 class Purchase(models.Model):
     """
-    Represents a purchase of an item,
-    including vendor details and delivery status.
+    Purchase order / bill header. Line items live on PurchaseLine; legacy item/qty/price
+    columns remain for migrated rows until fully served by lines only.
     """
 
     slug = AutoSlugField(unique=True, populate_from="vendor")
-    item = models.ForeignKey(Item, on_delete=models.CASCADE)
+    item = models.ForeignKey(
+        Item,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        help_text="Deprecated: use Purchase lines.",
+    )
     description = models.TextField(max_length=300, blank=True, null=True)
     vendor = models.ForeignKey(
         Vendor, related_name="purchases", on_delete=models.CASCADE
     )
     order_date = models.DateTimeField(auto_now_add=True)
-    delivery_date = models.DateTimeField(
-        blank=True, null=True, verbose_name="Delivery Date"
+    receipt_date = models.DateTimeField(
+        blank=True, null=True, verbose_name="Receipt Date"
     )
     quantity = models.PositiveIntegerField(default=0)
-    delivery_status = models.CharField(
-        choices=DELIVERY_CHOICES,
+    receipt_status = models.CharField(
+        choices=RECEIPT_STATUS_CHOICES,
         max_length=1,
         default="P",
-        verbose_name="Delivery Status",
+        verbose_name="Receipt Status",
     )
     price = models.DecimalField(
         max_digits=10,
@@ -138,23 +174,314 @@ class Purchase(models.Model):
         default=0.0,
         verbose_name="Price per item (Rs)",
     )
-    total_value = models.DecimalField(max_digits=10, decimal_places=2)
+    sub_total = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    discount_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    vat_percentage = models.FloatField(default=0.0)
+    vat_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    net_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    amount_paid = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    amount_remaining = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    payment_status = models.CharField(
+        max_length=1,
+        choices=PAYMENT_STATUS_CHOICES,
+        default="U",
+    )
+    total_value = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    inventory_transaction = models.OneToOneField(
+        "InventoryTransaction",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="legacy_purchase",
+    )
+
+    @property
+    def total_line_quantity(self):
+        if self.pk and self.lines.exists():
+            agg = self.lines.aggregate(s=Sum("quantity"))
+            return int(agg["s"] or 0)
+        return int(self.quantity or 0)
 
     def save(self, *args, **kwargs):
         """
         Calculates the total value before saving the Purchase instance.
         """
-        self.total_value = self.price * self.quantity
+        unit_price = Decimal(str(self.price or 0))
+        quantity = Decimal(str(self.quantity or 0))
+        discount_amount = Decimal(str(self.discount_amount or 0))
+        amount_paid = Decimal(str(self.amount_paid or 0))
+        if self.pk and self.vendor_payments.exists():
+            agg = self.vendor_payments.aggregate(s=Sum("amount"))
+            amount_paid = _d(agg["s"])
+        vat_amount = Decimal(str(self.vat_amount or 0))
+
+        if self.pk and self.lines.exists():
+            agg = self.lines.aggregate(total=Sum("line_total"))
+            line_sub = agg["total"] or Decimal("0")
+            self.sub_total = line_sub
+        else:
+            self.sub_total = unit_price * quantity
+        taxable_amount = self.sub_total - discount_amount
+        if taxable_amount < 0:
+            taxable_amount = 0
+
+        vat_percentage = Decimal(str(self.vat_percentage or 0))
+        if vat_percentage > 0:
+            self.vat_amount = taxable_amount * (vat_percentage / Decimal("100"))
+        else:
+            self.vat_amount = vat_amount
+
+        self.net_amount = taxable_amount + self.vat_amount
+        self.amount_paid = amount_paid
+        if self.amount_paid < 0:
+            raise ValidationError("Amount paid cannot be negative.")
+
+        self.amount_remaining = self.net_amount - self.amount_paid
+        if self.amount_paid == 0:
+            self.payment_status = "U"
+        elif self.amount_remaining > 0:
+            self.payment_status = "T"
+        elif self.amount_remaining == 0:
+            self.payment_status = "D"
+        else:
+            self.payment_status = "X"
+        self.total_value = self.net_amount
         super().save(*args, **kwargs)
-        # Update the item quantity
-        self.item.quantity += self.quantity
-        self.item.save()
 
     def __str__(self):
         """
         Returns a string representation of the Purchase instance.
         """
-        return str(self.item.name)
+        if self.item_id:
+            return str(self.item.name)
+        first = self.lines.select_related("item").first()
+        return first.item.name if first else f"Purchase #{self.pk}"
 
     class Meta:
         ordering = ["order_date"]
+
+
+class PurchaseLine(models.Model):
+    """One line item on a multi-SKU purchase (order/receipt bill)."""
+
+    purchase = models.ForeignKey(
+        Purchase,
+        on_delete=models.CASCADE,
+        related_name="lines",
+    )
+    item = models.ForeignKey(Item, on_delete=models.PROTECT)
+    quantity = models.PositiveIntegerField()
+    unit_price = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    line_total = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+
+    class Meta:
+        ordering = ["id"]
+
+    def save(self, *args, **kwargs):
+        qty = Decimal(str(self.quantity or 0))
+        up = Decimal(str(self.unit_price or 0))
+        self.line_total = qty * up
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.purchase_id} — {self.item.name}"
+
+
+PAYMENT_METHOD_CHOICES = [
+    ("cash", "Cash"),
+    ("bank", "Bank transfer"),
+]
+
+
+class VendorPayment(models.Model):
+    """Records a supplier payment affecting AP and optionally cash/bank ledger."""
+
+    purchase = models.ForeignKey(
+        Purchase,
+        on_delete=models.CASCADE,
+        related_name="vendor_payments",
+    )
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    paid_at = models.DateTimeField(auto_now_add=True)
+    method = models.CharField(max_length=20, choices=PAYMENT_METHOD_CHOICES, default="cash")
+    notes = models.TextField(blank=True)
+    inventory_transaction = models.OneToOneField(
+        "InventoryTransaction",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="vendor_payment",
+    )
+
+    class Meta:
+        ordering = ["-paid_at"]
+
+    def __str__(self):
+        return f"Vendor payment #{self.pk} ({self.amount})"
+
+
+class CustomerPayment(models.Model):
+    """Records customer receipt against AR with optional cash/bank ledger."""
+
+    sale = models.ForeignKey(
+        "Sale",
+        on_delete=models.CASCADE,
+        related_name="customer_payments",
+    )
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    received_at = models.DateTimeField(auto_now_add=True)
+    method = models.CharField(max_length=20, choices=PAYMENT_METHOD_CHOICES, default="cash")
+    notes = models.TextField(blank=True)
+    inventory_transaction = models.OneToOneField(
+        "InventoryTransaction",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="customer_payment",
+    )
+
+    class Meta:
+        ordering = ["-received_at"]
+
+    def __str__(self):
+        return f"Customer payment #{self.pk} ({self.amount})"
+
+
+class InventoryTransaction(models.Model):
+    """Unified transaction header for inventory and accounting events."""
+
+    class TransactionType(models.TextChoices):
+        PURCHASE = "purchase", "Purchase"
+        SALE = "sale", "Sale"
+        RETURN = "return", "Return"
+        ADJUSTMENT = "adjustment", "Adjustment"
+        PAYMENT = "payment", "Payment"
+
+    class TransactionStatus(models.TextChoices):
+        DRAFT = "draft", "Draft"
+        POSTED = "posted", "Posted"
+        CANCELLED = "cancelled", "Cancelled"
+
+    date = models.DateTimeField(auto_now_add=True)
+    transaction_type = models.CharField(max_length=20, choices=TransactionType.choices)
+    status = models.CharField(
+        max_length=20,
+        choices=TransactionStatus.choices,
+        default=TransactionStatus.POSTED,
+    )
+    vendor = models.ForeignKey(
+        Vendor,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="inventory_transactions",
+    )
+    customer = models.ForeignKey(
+        Customer,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="inventory_transactions",
+    )
+    notes = models.TextField(blank=True, null=True)
+    total_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    source_ref = models.CharField(max_length=100, null=True, blank=True, unique=True)
+
+    class Meta:
+        db_table = "inventory_transactions"
+        ordering = ["-date", "-id"]
+
+    def __str__(self):
+        return f"{self.transaction_type} #{self.id}"
+
+
+class InventoryTransactionItem(models.Model):
+    """Line items for the unified inventory transaction."""
+
+    transaction = models.ForeignKey(
+        InventoryTransaction,
+        on_delete=models.CASCADE,
+        related_name="items",
+    )
+    item = models.ForeignKey(Item, on_delete=models.PROTECT, related_name="transaction_items")
+    quantity = models.DecimalField(max_digits=12, decimal_places=3)
+    unit_price = models.DecimalField(max_digits=12, decimal_places=2)
+    line_total = models.DecimalField(max_digits=12, decimal_places=2)
+
+    class Meta:
+        db_table = "inventory_transaction_items"
+        constraints = [
+            models.CheckConstraint(
+                check=models.Q(quantity__gt=0),
+                name="inv_txn_item_quantity_gt_zero",
+            ),
+            models.CheckConstraint(
+                check=models.Q(unit_price__gte=0),
+                name="inv_txn_item_unit_price_gte_zero",
+            ),
+            models.CheckConstraint(
+                check=models.Q(line_total__gte=0),
+                name="inv_txn_item_line_total_gte_zero",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.transaction_id} - {self.item.name}"
+
+
+class StockMovement(models.Model):
+    """Append-only stock movement log used to compute current stock."""
+
+    class MovementType(models.TextChoices):
+        IN = "IN", "Stock In"
+        OUT = "OUT", "Stock Out"
+
+    item = models.ForeignKey(Item, on_delete=models.PROTECT, related_name="stock_movements")
+    transaction = models.ForeignKey(
+        InventoryTransaction,
+        on_delete=models.CASCADE,
+        related_name="stock_movements",
+    )
+    movement_type = models.CharField(max_length=3, choices=MovementType.choices)
+    quantity = models.DecimalField(max_digits=12, decimal_places=3)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "stock_movements"
+        ordering = ["-created_at", "-id"]
+        indexes = [
+            models.Index(fields=["item", "movement_type"]),
+            models.Index(fields=["transaction"]),
+            models.Index(fields=["item", "created_at"]),
+        ]
+        constraints = [
+            models.CheckConstraint(
+                check=models.Q(quantity__gt=0),
+                name="stock_move_quantity_gt_zero",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.item_id} {self.movement_type} {self.quantity}"
+
+
+class LedgerEntry(models.Model):
+    """Double-entry accounting rows generated from inventory transactions."""
+
+    transaction = models.ForeignKey(
+        InventoryTransaction,
+        on_delete=models.CASCADE,
+        related_name="ledger_entries",
+    )
+    account = models.CharField(max_length=100)
+    debit = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    credit = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "ledger_entries"
+        ordering = ["id"]
+        indexes = [models.Index(fields=["transaction", "account"])]
+
+    def __str__(self):
+        return f"{self.transaction_id} {self.account}"

@@ -24,7 +24,31 @@ SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-g_n2+2bznu6e@1wel!i(&
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get('DEBUG', 'False') == 'True'
 
-ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '').split(',')
+ALLOWED_HOSTS = [
+    h.strip()
+    for h in os.environ.get('ALLOWED_HOSTS', '').split(',')
+    if h.strip()
+]
+
+# Subpath deployment (e.g. nginx location /ims/ with URI rewrite to backend)
+_script = os.environ.get('FORCE_SCRIPT_NAME', '').strip().rstrip('/')
+FORCE_SCRIPT_NAME = _script if _script else None
+if _script:
+    STATIC_URL = f'{_script}/static/'
+    MEDIA_URL = f'{_script}/media/'
+    _cp = f'{_script}/'
+    SESSION_COOKIE_PATH = _cp
+    CSRF_COOKIE_PATH = _cp
+else:
+    STATIC_URL = '/static/'
+    MEDIA_URL = '/media/'
+
+_csrf = os.environ.get('CSRF_TRUSTED_ORIGINS', '')
+CSRF_TRUSTED_ORIGINS = [x.strip() for x in _csrf.split(',') if x.strip()]
+
+# Behind nginx TLS termination
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+USE_X_FORWARDED_HOST = True
 
 # Database configuration
 DATABASES = {

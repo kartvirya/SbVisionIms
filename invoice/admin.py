@@ -7,11 +7,24 @@ class InvoiceAdmin(admin.ModelAdmin):
     Admin interface configuration for the Invoice model.
     """
     fields = (
-        'customer_name', 'contact_number', 'item',
-        'price_per_item', 'quantity'
+        "customer_name",
+        "contact_number",
+        "item",
+        "price_per_item",
+        "quantity",
+        "shipping",
+        "linked_sale",
+        "linked_inventory_transaction",
     )
     list_display = (
-        'date', 'customer_name', 'contact_number', 'item',
-        'price_per_item', 'quantity', 'shipping', 'total',
-        'grand_total'
+        "date",
+        "customer_name",
+        "contact_number",
+        "item",
+        "price_per_item",
+        "quantity",
+        "shipping",
+        "total",
+        "grand_total",
+        "linked_sale",
     )

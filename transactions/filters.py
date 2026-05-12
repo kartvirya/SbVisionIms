@@ -76,23 +76,28 @@ class PurchaseFilter(django_filters.FilterSet):
     item = django_filters.ModelChoiceFilter(
         queryset=Item.objects.all(),
         widget=forms.Select,
-        field_name='item'
+        field_name="lines__item",
     )
     item_name = django_filters.CharFilter(
-        field_name='item__name',
-        lookup_expr='icontains',
+        field_name="lines__item__name",
+        lookup_expr="icontains",
         widget=forms.TextInput,
-        label='Item Name'
+        label="Item Name",
     )
     vendor = django_filters.ModelChoiceFilter(
         queryset=Vendor.objects.all(),
         widget=forms.Select,
         field_name='vendor'
     )
-    delivery_status = django_filters.ChoiceFilter(
-        choices=[("P", "Pending"), ("S", "Successful")],
+    receipt_status = django_filters.ChoiceFilter(
+        choices=[("P", "Pending"), ("S", "Received")],
         widget=forms.Select,
-        field_name='delivery_status'
+        field_name='receipt_status'
+    )
+    payment_status = django_filters.ChoiceFilter(
+        choices=[("U", "Unpaid"), ("T", "Partial"), ("D", "Paid"), ("X", "Overpaid")],
+        widget=forms.Select,
+        field_name='payment_status',
     )
     order_date_from = django_filters.DateFilter(
         field_name='order_date',
@@ -106,26 +111,26 @@ class PurchaseFilter(django_filters.FilterSet):
         widget=forms.DateInput,
         label='Order Date To'
     )
-    delivery_date_from = django_filters.DateFilter(
-        field_name='delivery_date',
+    receipt_date_from = django_filters.DateFilter(
+        field_name='receipt_date',
         lookup_expr='gte',
         widget=forms.DateInput,
-        label='Delivery Date From'
+        label='Receipt Date From'
     )
-    delivery_date_to = django_filters.DateFilter(
-        field_name='delivery_date',
+    receipt_date_to = django_filters.DateFilter(
+        field_name='receipt_date',
         lookup_expr='lte',
         widget=forms.DateInput,
-        label='Delivery Date To'
+        label='Receipt Date To'
     )
     min_total = django_filters.NumberFilter(
-        field_name='total_value',
+        field_name='net_amount',
         lookup_expr='gte',
         widget=forms.NumberInput,
         label='Min Total'
     )
     max_total = django_filters.NumberFilter(
-        field_name='total_value',
+        field_name='net_amount',
         lookup_expr='lte',
         widget=forms.NumberInput,
         label='Max Total'
@@ -133,8 +138,8 @@ class PurchaseFilter(django_filters.FilterSet):
     ordering = django_filters.OrderingFilter(
         fields=(
             ('order_date', 'order_date'),
-            ('delivery_date', 'delivery_date'),
-            ('total_value', 'total_value'),
+            ('receipt_date', 'receipt_date'),
+            ('net_amount', 'net_amount'),
             ('vendor', 'vendor'),
         ),
         widget=forms.Select
@@ -142,7 +147,10 @@ class PurchaseFilter(django_filters.FilterSet):
 
     class Meta:
         model = Purchase
-        fields = ['item', 'vendor', 'delivery_status']
+        fields = ['item', 'vendor', 'receipt_status', 'payment_status']
+
+    def filter_queryset(self, queryset):
+        return super().filter_queryset(queryset).distinct()
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -150,11 +158,12 @@ class PurchaseFilter(django_filters.FilterSet):
         self.filters['item'].field.widget.attrs.update({'class': 'form-control'})
         self.filters['item_name'].field.widget.attrs.update({'class': 'form-control', 'placeholder': 'Search by item name'})
         self.filters['vendor'].field.widget.attrs.update({'class': 'form-control'})
-        self.filters['delivery_status'].field.widget.attrs.update({'class': 'form-control'})
+        self.filters['receipt_status'].field.widget.attrs.update({'class': 'form-control'})
+        self.filters['payment_status'].field.widget.attrs.update({'class': 'form-control'})
         self.filters['order_date_from'].field.widget.attrs.update({'class': 'form-control', 'type': 'date'})
         self.filters['order_date_to'].field.widget.attrs.update({'class': 'form-control', 'type': 'date'})
-        self.filters['delivery_date_from'].field.widget.attrs.update({'class': 'form-control', 'type': 'date'})
-        self.filters['delivery_date_to'].field.widget.attrs.update({'class': 'form-control', 'type': 'date'})
+        self.filters['receipt_date_from'].field.widget.attrs.update({'class': 'form-control', 'type': 'date'})
+        self.filters['receipt_date_to'].field.widget.attrs.update({'class': 'form-control', 'type': 'date'})
         self.filters['min_total'].field.widget.attrs.update({'class': 'form-control', 'placeholder': 'Min total', 'step': '0.01'})
         self.filters['max_total'].field.widget.attrs.update({'class': 'form-control', 'placeholder': 'Max total', 'step': '0.01'})
         self.filters['ordering'].field.widget.attrs.update({'class': 'form-control'})

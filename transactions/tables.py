@@ -29,9 +29,9 @@ class PurchaseTable(tables.Table):
             'item',
             'vendor',
             'order_date',
-            'delivery_date',
+            'receipt_date',
             'quantity',
-            'delivery_status',
+            'receipt_status',
             'price',
             'total_value'
         )

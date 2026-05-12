@@ -1,12 +1,14 @@
 # Standard library imports
 import json
 import logging
+from decimal import Decimal
 
 # Django core imports
-from django.http import JsonResponse, HttpResponse
+from django.http import JsonResponse, HttpResponse, HttpResponseRedirect
 from django.urls import reverse
 from django.shortcuts import render
 from django.db import transaction
+from django.contrib import messages
 
 # Class-based views
 from django.views.generic import DetailView, ListView
@@ -21,9 +23,16 @@ from openpyxl import Workbook
 # Local app imports
 from store.models import Item
 from accounts.models import Customer, Company
-from .models import Sale, Purchase, SaleDetail
-from .forms import PurchaseForm
+from .models import CustomerPayment, Purchase, Sale, SaleDetail
+from .forms import PurchaseForm, PurchaseLineFormSet
 from .filters import SaleFilter, PurchaseFilter
+from .services import (
+    create_sale_transaction,
+    delete_inventory_transaction_and_sync,
+    get_payables_aging,
+    get_stock_ledger_rows,
+    sync_purchase_inventory_transaction,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -90,36 +99,51 @@ def export_purchases_to_excel(request):
     # Define the column headers
     columns = [
         'ID', 'Item', 'Description', 'Vendor', 'Order Date',
-        'Delivery Date', 'Quantity', 'Delivery Status',
-        'Price per item (Rs)', 'Total Value'
+        'Receipt Date', 'Quantity', 'Receipt Status',
+        'Price per item (Rs)', 'Sub Total', 'Discount',
+        'VAT %', 'VAT Amount', 'Net Amount', 'Amount Paid', 'Amount Remaining'
     ]
     worksheet.append(columns)
 
     # Fetch purchases data
     purchases = Purchase.objects.all()
 
-    for purchase in purchases:
-        # Convert timezone-aware datetime to naive datetime
-        delivery_tzinfo = purchase.delivery_date.tzinfo
-        order_tzinfo = purchase.order_date.tzinfo
-
-        if delivery_tzinfo or order_tzinfo is not None:
-            delivery_date = purchase.delivery_date.replace(tzinfo=None)
-            order_date = purchase.order_date.replace(tzinfo=None)
-        else:
-            delivery_date = purchase.delivery_date
-            order_date = purchase.order_date
+    for purchase in purchases.prefetch_related("lines__item"):
+        names = []
+        qty_sum = 0
+        lines = purchase.lines.all()
+        if lines:
+            for line in lines:
+                names.append(line.item.name)
+                qty_sum += line.quantity
+        elif purchase.item_id:
+            names.append(purchase.item.name)
+            qty_sum = purchase.quantity
+        summary = "; ".join(names)
+        # Convert timezone-aware datetime to naive datetime, handling null receipt date.
+        receipt_date = purchase.receipt_date
+        order_date = purchase.order_date
+        if receipt_date is not None and receipt_date.tzinfo is not None:
+            receipt_date = receipt_date.replace(tzinfo=None)
+        if order_date is not None and order_date.tzinfo is not None:
+            order_date = order_date.replace(tzinfo=None)
         worksheet.append([
             purchase.id,
-            purchase.item.name,
+            summary,
             purchase.description,
             purchase.vendor.name,
             order_date,
-            delivery_date,
-            purchase.quantity,
-            purchase.get_delivery_status_display(),
-            purchase.price,
-            purchase.total_value
+            receipt_date,
+            qty_sum,
+            purchase.get_receipt_status_display(),
+            (purchase.lines.first().unit_price if purchase.lines.exists() else purchase.price),
+            purchase.sub_total,
+            purchase.discount_amount,
+            purchase.vat_percentage,
+            purchase.vat_amount,
+            purchase.net_amount,
+            purchase.amount_paid,
+            purchase.amount_remaining
         ])
 
     # Set up the response to send the file
@@ -238,8 +262,6 @@ def SaleCreateView(request):
                             raise ValueError("Item is missing required fields")
 
                         item_instance = Item.objects.get(id=int(item["id"]))
-                        if item_instance.quantity < int(item["quantity"]):
-                            raise ValueError(f"Not enough stock for item: {item_instance.name}")
 
                         detail_attributes = {
                             "sale": new_sale,
@@ -251,9 +273,29 @@ def SaleCreateView(request):
                         SaleDetail.objects.create(**detail_attributes)
                         logger.info(f"Sale detail created: {detail_attributes}")
 
-                        # Reduce item quantity
-                        item_instance.quantity -= int(item["quantity"])
-                        item_instance.save()
+                    inventory_transaction = create_sale_transaction(
+                        customer=sale_attributes["customer"],
+                        items=[
+                            {
+                                "item": int(item["id"]),
+                                "quantity": item["quantity"],
+                                "unit_price": item["price"],
+                            }
+                            for item in items
+                        ],
+                        notes=f"Sale #{new_sale.id}",
+                    )
+                    new_sale.inventory_transaction = inventory_transaction
+                    new_sale.save(update_fields=["inventory_transaction"])
+
+                    paid = Decimal(str(data["amount_paid"]))
+                    if paid > 0:
+                        CustomerPayment.objects.create(
+                            sale=new_sale,
+                            amount=paid,
+                            method="cash",
+                            notes="POS",
+                        )
 
                 return JsonResponse(
                     {
@@ -316,6 +358,11 @@ class SaleDeleteView(LoginRequiredMixin, UserPassesTestMixin, DeleteView):
         """
         return reverse("saleslist")
 
+    def delete(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        delete_inventory_transaction_and_sync(self.object.inventory_transaction)
+        return super().delete(request, *args, **kwargs)
+
     def test_func(self):
         """
         Allow deletion only for superusers.
@@ -335,13 +382,27 @@ class PurchaseListView(LoginRequiredMixin, ListView):
     filterset_class = PurchaseFilter
 
     def get_queryset(self):
-        queryset = super().get_queryset().select_related('item', 'vendor').prefetch_related('item__variations')
+        queryset = (
+            super()
+            .get_queryset()
+            .select_related("vendor")
+            .prefetch_related(
+                "lines__item",
+                "lines__item__variations",
+                "item",
+                "item__variations",
+            )
+            .distinct()
+        )
         self.filterset = self.filterset_class(self.request.GET, queryset=queryset)
         return self.filterset.qs
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['filter'] = self.filterset
+        context["total_outstanding"] = sum(
+            [purchase.amount_remaining for purchase in context["purchases"]]
+        )
         return context
 
 
@@ -352,6 +413,9 @@ class PurchaseDetailView(LoginRequiredMixin, DetailView):
 
     model = Purchase
     template_name = "transactions/purchasedetail.html"
+
+    def get_queryset(self):
+        return super().get_queryset().prefetch_related("lines__item", "vendor")
 
 
 class PurchaseCreateView(LoginRequiredMixin, CreateView):
@@ -369,6 +433,40 @@ class PurchaseCreateView(LoginRequiredMixin, CreateView):
         """
         return reverse("purchaseslist")
 
+    def get_context_data(self, **kwargs):
+        kwargs.setdefault(
+            "line_formset",
+            PurchaseLineFormSet(self.request.POST) if self.request.method == "POST" else PurchaseLineFormSet(),
+        )
+        return super().get_context_data(**kwargs)
+
+    def post(self, request, *args, **kwargs):
+        self.object = None
+        form_class = self.get_form_class()
+        form = form_class(request.POST)
+        line_formset = PurchaseLineFormSet(request.POST)
+        if form.is_valid() and line_formset.is_valid():
+            with transaction.atomic():
+                purchase = form.save()
+                line_formset.instance = purchase
+                line_formset.save()
+                purchase.save()
+                sync_purchase_inventory_transaction(purchase=purchase)
+            if purchase.receipt_status == "S":
+                messages.success(
+                    request,
+                    "Purchase saved and inventory posted (received).",
+                )
+            else:
+                messages.success(
+                    request,
+                    "Purchase saved. Stock posts only when Receipt status is Received.",
+                )
+            return HttpResponseRedirect(self.get_success_url())
+        return self.render_to_response(
+            self.get_context_data(form=form, line_formset=line_formset)
+        )
+
 
 class PurchaseUpdateView(LoginRequiredMixin, UpdateView):
     """
@@ -385,6 +483,44 @@ class PurchaseUpdateView(LoginRequiredMixin, UpdateView):
         """
         return reverse("purchaseslist")
 
+    def get_context_data(self, **kwargs):
+        kwargs.setdefault(
+            "line_formset",
+            PurchaseLineFormSet(
+                self.request.POST,
+                instance=self.object,
+            )
+            if self.request.method == "POST"
+            else PurchaseLineFormSet(instance=self.object),
+        )
+        return super().get_context_data(**kwargs)
+
+    def post(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        form_class = self.get_form_class()
+        form = form_class(request.POST, instance=self.object)
+        line_formset = PurchaseLineFormSet(request.POST, instance=self.object)
+        if form.is_valid() and line_formset.is_valid():
+            with transaction.atomic():
+                purchase = form.save()
+                line_formset.instance = purchase
+                line_formset.save()
+                purchase.save()
+                sync_purchase_inventory_transaction(purchase=purchase, notes_suffix=" (updated)")
+            if purchase.receipt_status == "S":
+                messages.success(
+                    request,
+                    "Purchase updated and inventory posted (received).",
+                )
+            else:
+                messages.success(
+                    request,
+                    "Purchase updated. Stock stays unposted while receipt is Pending.",
+                )
+            return HttpResponseRedirect(self.get_success_url())
+        ctx = super().get_context_data(form=form, line_formset=line_formset)
+        return self.render_to_response(ctx)
+
 
 class PurchaseDeleteView(LoginRequiredMixin, UserPassesTestMixin, DeleteView):
     """
@@ -400,8 +536,42 @@ class PurchaseDeleteView(LoginRequiredMixin, UserPassesTestMixin, DeleteView):
         """
         return reverse("purchaseslist")
 
+    def delete(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        delete_inventory_transaction_and_sync(self.object.inventory_transaction)
+        return super().delete(request, *args, **kwargs)
+
     def test_func(self):
         """
         Allow deletion only for superusers.
         """
         return self.request.user.is_superuser
+
+
+class StockLedgerView(LoginRequiredMixin, ListView):
+    template_name = "transactions/stock_ledger.html"
+    context_object_name = "rows"
+    paginate_by = 50
+
+    def get_queryset(self):
+        item_id = self.request.GET.get("item")
+        date_from = self.request.GET.get("date_from")
+        date_to = self.request.GET.get("date_to")
+        item = Item.objects.filter(pk=item_id).first() if item_id else None
+        return get_stock_ledger_rows(item=item, date_from=date_from, date_to=date_to)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["items"] = Item.objects.order_by("name")
+        context["selected_item"] = self.request.GET.get("item", "")
+        context["date_from"] = self.request.GET.get("date_from", "")
+        context["date_to"] = self.request.GET.get("date_to", "")
+        return context
+
+
+class PayablesAgingView(LoginRequiredMixin, ListView):
+    template_name = "transactions/payables_aging.html"
+    context_object_name = "vendors"
+
+    def get_queryset(self):
+        return get_payables_aging()

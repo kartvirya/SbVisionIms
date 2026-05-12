@@ -1,4 +1,6 @@
-# Django Packages
+# Aligned with pyproject.toml — used by install-windows.bat (pip/venv).
+# Python 3.12.x required.
+
 Django==5.1
 django-autoslug==1.9.9
 django-crispy-forms==2.3
@@ -7,21 +9,13 @@ django-filter==24.3
 django-imagekit==5.0.0
 django-phonenumber-field==8.0.0
 django-tables2==2.7.0
-
-# Bootstrap Packages
 crispy-bootstrap5==2024.2
-
-# Utility Packages
 openpyxl==3.1.5
 phonenumbers==8.13.43
 requests==2.32.3
 tablib==3.6.1
-
-# Production Server
 gunicorn==21.2.0
-
-# Database
 psycopg2-binary==2.9.9
-
-# Environment Variables
 python-decouple==3.8
+# Windows-friendly WSGI (gunicorn is not used on Windows)
+waitress==3.0.2

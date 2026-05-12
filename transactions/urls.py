@@ -14,6 +14,8 @@ from .views import (
     SaleDetailView,
     SaleCreateView,
     SaleDeleteView,
+    StockLedgerView,
+    PayablesAgingView,
 
     export_sales_to_excel,
     export_purchases_to_excel
@@ -45,7 +47,7 @@ urlpatterns = [
     path('sale/<int:pk>/', SaleDetailView.as_view(), name='sale-detail'),
     path('new-sale/', SaleCreateView, name='sale-create'),
     path(
-         'sale/<slug:slug>/delete/', SaleDeleteView.as_view(),
+         'sale/<int:pk>/delete/', SaleDeleteView.as_view(),
          name='sale-delete'
      ),
 
@@ -53,6 +55,8 @@ urlpatterns = [
     path('sales/export/', export_sales_to_excel, name='sales-export'),
     path('purchases/export/', export_purchases_to_excel,
          name='purchases-export'),
+    path('reports/stock-ledger/', StockLedgerView.as_view(), name='stock-ledger'),
+    path('reports/payables-aging/', PayablesAgingView.as_view(), name='payables-aging'),
 ]
 
 # Static media files configuration for development

@@ -3,7 +3,11 @@ from autoslug import AutoSlugField
 
 
 class Bill(models.Model):
-    """Model representing a bill with various details and payment status."""
+    """
+    Legacy vendor bill stub.
+
+    Prefer ``transactions.Purchase`` for AP and inventory. Link optionally for auditing.
+    """
 
     slug = AutoSlugField(unique=True, populate_from='date')
     date = models.DateTimeField(
@@ -51,6 +55,21 @@ class Bill(models.Model):
         default=False,
         verbose_name='Paid',
         help_text='Payment status of the bill'
+    )
+    linked_purchase = models.ForeignKey(
+        "transactions.Purchase",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="standalone_bills",
+        help_text="Canonical purchase in transactions app.",
+    )
+    linked_inventory_transaction = models.ForeignKey(
+        "transactions.InventoryTransaction",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="legacy_bill_documents",
     )
 
     def __str__(self):

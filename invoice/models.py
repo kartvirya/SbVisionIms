@@ -6,7 +6,10 @@ from store.models import Item
 
 class Invoice(models.Model):
     """
-    Represents an invoice for a purchased item.
+    Legacy standalone invoice (customer-facing totals only).
+
+    Prefer ``transactions.Sale`` + inventory transactions for stock and ledger.
+    Optionally link rows here for reference.
 
     Attributes:
         slug (str): Unique slug based on the date.
@@ -37,6 +40,22 @@ class Invoice(models.Model):
     )
     grand_total = models.FloatField(
         verbose_name='Grand Total (Rs)', editable=False
+    )
+    linked_sale = models.ForeignKey(
+        "transactions.Sale",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="standalone_invoices",
+        help_text="Canonical sale in transactions app (recommended).",
+    )
+    linked_inventory_transaction = models.ForeignKey(
+        "transactions.InventoryTransaction",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="legacy_invoice_documents",
+        help_text="Optional link to unified inventory/accounting txn.",
     )
 
     def save(self, *args, **kwargs):

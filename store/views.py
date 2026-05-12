@@ -30,7 +30,6 @@ from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.views.generic import (
     DetailView, CreateView, UpdateView, DeleteView, ListView
 )
-from django.views.generic.edit import FormMixin
 
 # Third-party packages
 from django_tables2 import SingleTableView
@@ -39,7 +38,7 @@ from django_tables2.export.views import ExportMixin
 
 # Local app imports
 from accounts.models import Profile, Vendor, Customer
-from transactions.models import Sale, SaleDetail, Purchase
+from transactions.models import Sale, SaleDetail, Purchase, StockMovement
 from .models import Category, Item, Delivery, ProductVariation
 from .forms import ItemForm, CategoryForm, DeliveryForm, ProductVariationFormSet
 from .tables import ItemTable
@@ -54,11 +53,31 @@ def dashboard(request):
     profiles = Profile.objects.all()
     Category.objects.annotate(nitem=Count("item"))
     items = Item.objects.all()
-    total_items = (
-        Item.objects.all()
-        .aggregate(Sum("quantity"))
-        .get("quantity__sum", 0.00) or 0
+    stock_totals_by_item = {}
+    movement_sums = (
+        StockMovement.objects.values("item_id", "movement_type")
+        .annotate(total_qty=Sum("quantity"))
     )
+    for row in movement_sums:
+        item_id = row["item_id"]
+        movement_type = row["movement_type"]
+        total_qty = row["total_qty"] or 0
+        if item_id not in stock_totals_by_item:
+            stock_totals_by_item[item_id] = {"IN": 0, "OUT": 0}
+        stock_totals_by_item[item_id][movement_type] = total_qty
+
+    total_items = 0
+    item_stock_by_id = {}
+    for item in items:
+        if item.id in stock_totals_by_item:
+            stock_in = stock_totals_by_item[item.id].get("IN", 0)
+            stock_out = stock_totals_by_item[item.id].get("OUT", 0)
+            current_stock = stock_in - stock_out
+        else:
+            # Legacy fallback while older data is being backfilled.
+            current_stock = item.quantity
+        item_stock_by_id[item.id] = current_stock
+        total_items += current_stock
     items_count = items.count()
     profiles_count = profiles.count()
     
@@ -86,7 +105,7 @@ def dashboard(request):
     # Low stock items (using low_stock_threshold per item)
     low_stock_items_list = [
         item for item in items 
-        if item.quantity <= item.low_stock_threshold
+        if item_stock_by_id.get(item.id, item.quantity) <= item.low_stock_threshold
     ]
     low_stock_items = len(low_stock_items_list)
     
@@ -223,7 +242,7 @@ class ItemSearchListView(ProductListView):
         return result
 
 
-class ProductDetailView(LoginRequiredMixin, FormMixin, DetailView):
+class ProductDetailView(LoginRequiredMixin, DetailView):
     """
     View class to display detailed information about a product.
 

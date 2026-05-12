@@ -1,0 +1,25 @@
+{% extends "store/base.html" %}
+{% block title %}Payables Aging{% endblock %}
+{% block content %}
+<div class="container my-4">
+    <h4 class="text-success">Outstanding Payables</h4>
+    <table class="table table-sm table-striped table-bordered">
+        <thead>
+            <tr>
+                <th>Vendor</th>
+                <th>Total Outstanding</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for vendor in vendors %}
+            <tr>
+                <td>{{ vendor.name }}</td>
+                <td>{{ vendor.total_outstanding|default:0 }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="2" class="text-center">No outstanding payables.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

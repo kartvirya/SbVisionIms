@@ -15,6 +15,12 @@
                 <a class="btn btn-success btn-sm rounded-pill shadow-sm" href="{% url 'purchases-export' %}">
                     <i class="fa-solid fa-download"></i> Export to Excel
                 </a>
+                <a class="btn btn-outline-success btn-sm rounded-pill shadow-sm" href="{% url 'stock-ledger' %}">
+                    <i class="fa-solid fa-boxes-stacked"></i> Stock Ledger
+                </a>
+                <a class="btn btn-outline-success btn-sm rounded-pill shadow-sm" href="{% url 'payables-aging' %}">
+                    <i class="fa-solid fa-file-invoice-dollar"></i> Payables Aging
+                </a>
             </div>
         </div>
     </div>
@@ -42,7 +48,11 @@
                 </div>
                 <div class="col-md-2">
                     <label class="form-label">Status</label>
-                    {{ filter.form.delivery_status }}
+                    {{ filter.form.receipt_status }}
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Payment</label>
+                    {{ filter.form.payment_status }}
                 </div>
                 <div class="col-md-2">
                     <label class="form-label">Order Date From</label>
@@ -53,12 +63,12 @@
                     {{ filter.form.order_date_to }}
                 </div>
                 <div class="col-md-2">
-                    <label class="form-label">Delivery Date From</label>
-                    {{ filter.form.delivery_date_from }}
+                    <label class="form-label">Receipt Date From</label>
+                    {{ filter.form.receipt_date_from }}
                 </div>
                 <div class="col-md-2">
-                    <label class="form-label">Delivery Date To</label>
-                    {{ filter.form.delivery_date_to }}
+                    <label class="form-label">Receipt Date To</label>
+                    {{ filter.form.receipt_date_to }}
                 </div>
                 <div class="col-md-2">
                     <label class="form-label">Min Total</label>
@@ -97,9 +107,14 @@
                 <th scope="col">ID <i class="fa-solid fa-sort"></i></th>
                 <th scope="col">Name <i class="fa-solid fa-sort"></i></th>
                 <th scope="col">Quantity <i class="fa-solid fa-sort"></i></th>
-                <th scope="col">Price <i class="fa-solid fa-sort"></i></th>
-                <th scope="col">Delivery Status <i class="fa-solid fa-sort"></i></th>
-                <th scope="col">Delivery Date <i class="fa-solid fa-sort"></i></th>
+                <th scope="col">Sub Total <i class="fa-solid fa-sort"></i></th>
+                <th scope="col">VAT <i class="fa-solid fa-sort"></i></th>
+                <th scope="col">Net Amount <i class="fa-solid fa-sort"></i></th>
+                <th scope="col">Paid <i class="fa-solid fa-sort"></i></th>
+                <th scope="col">Remaining <i class="fa-solid fa-sort"></i></th>
+                <th scope="col">Payment Status <i class="fa-solid fa-sort"></i></th>
+                <th scope="col">Receipt Status <i class="fa-solid fa-sort"></i></th>
+                <th scope="col">Receipt Date <i class="fa-solid fa-sort"></i></th>
                 <th scope="col">Vendor <i class="fa-solid fa-sort"></i></th>
                 <th scope="col">Action</th>
             </tr>
@@ -109,6 +124,26 @@
             <tr>
                 <th scope="row">{{ purchase.id }}</th>
                 <td>
+                    {% with line=purchase.lines.first %}
+                    {% if line %}
+                    {% if line.item.image %}
+                    <img src="{{ line.item.image.url }}" alt="{{ line.item.name }}" class="img-thumbnail" style="width: 30px; height: 30px; object-fit: cover; margin-right: 5px;">
+                    {% endif %}
+                    {% for l in purchase.lines.all %}
+                    <span class="d-inline-block">{{ l.item.name }}</span>{% if not forloop.last %}, {% endif %}
+                    {% endfor %}
+                    {% with variations=line.item.variations.all %}
+                    {% if variations %}
+                    <div style="margin-top: 4px;">
+                        {% for variation in variations %}
+                        <span class="badge bg-info" style="font-size: 9px;" title="{{ variation.get_variation_type_display }}: {{ variation.name }}{% if variation.value %} ({{ variation.value }}){% endif %}">
+                            {{ variation.get_variation_type_display|slice:":1" }}: {{ variation.name }}
+                        </span>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                    {% endwith %}
+                    {% elif purchase.item %}
                     {% if purchase.item.image %}
                     <img src="{{ purchase.item.image.url }}" alt="{{ purchase.item.name }}" class="img-thumbnail" style="width: 30px; height: 30px; object-fit: cover; margin-right: 5px;">
                     {% endif %}
@@ -124,21 +159,40 @@
                     </div>
                     {% endif %}
                     {% endwith %}
+                    {% else %}
+                    —
+                    {% endif %}
+                    {% endwith %}
                 </td>
-                <td>{{ purchase.quantity }}</td>
-                <td>{{ purchase.total_value }}</td>
+                <td>{{ purchase.total_line_quantity }}</td>
+                <td>{{ purchase.sub_total }}</td>
+                <td>{{ purchase.vat_amount }}</td>
+                <td>{{ purchase.net_amount }}</td>
+                <td>{{ purchase.amount_paid }}</td>
+                <td>{{ purchase.amount_remaining }}</td>
                 <td>
-                    {% if purchase.delivery_status == 'P' %}
+                    {% if purchase.payment_status == 'U' %}
+                        <span class="badge bg-danger">Unpaid</span>
+                    {% elif purchase.payment_status == 'T' %}
+                        <span class="badge bg-warning text-dark">Partial</span>
+                    {% elif purchase.payment_status == 'D' %}
+                        <span class="badge bg-success">Paid</span>
+                    {% else %}
+                        <span class="badge bg-dark">Overpaid</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if purchase.receipt_status == 'P' %}
                         <span class="badge badge-pill bg-soft-danger text-danger me-2">
                             Pending
                         </span>
                     {% else %}
                         <span class="badge badge-pill bg-soft-success text-success me-2">
-                            Successful
+                            Received
                         </span>
                     {% endif %}
                 </td>
-                <td>{{ purchase.delivery_date }}</td>
+                <td>{{ purchase.receipt_date }}</td>
                 <td>{{ purchase.vendor.name }}</td>
                 <td>
                     <a class="text-info" href="{% url 'purchase-update' purchase.id %}">

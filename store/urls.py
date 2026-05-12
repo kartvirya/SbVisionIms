@@ -42,6 +42,11 @@ urlpatterns = [
         name='product-detail'
     ),
     path(
+        'item/<slug:slug>/',
+        ProductDetailView.as_view(),
+        name='item-detail'
+    ),
+    path(
         'new-product/',
         ProductCreateView.as_view(),
         name='product-create'
