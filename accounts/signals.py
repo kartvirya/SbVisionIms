@@ -11,8 +11,22 @@ def handle_user_profile(sender, instance, created, **kwargs):
     Signal handler to create or update a Profile when a User is saved.
     """
     if created:
-        Profile.objects.create(user=instance)
+        Profile.objects.create(
+            user=instance,
+            email=instance.email or None,
+        )
         print('Profile created!')
     else:
-        instance.profile.save()
+        try:
+            profile = instance.profile
+        except Profile.DoesNotExist:
+            Profile.objects.create(
+                user=instance,
+                email=instance.email or None,
+            )
+            print('Profile created!')
+            return
+        if instance.email and profile.email != instance.email:
+            profile.email = instance.email
+        profile.save()
         print('Profile updated!')
