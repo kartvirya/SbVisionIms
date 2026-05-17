@@ -8,7 +8,9 @@ from transactions.models import InventoryTransaction, LedgerEntry, Purchase, Ven
 from transactions.services import (
     create_sale_transaction,
     get_payables_aging,
+    get_payables_aging_report,
     sync_purchase_inventory_transaction,
+    update_vendor_payables_adjustment,
 )
 
 
@@ -70,11 +72,36 @@ class PurchaseInventorySyncTests(TestCase):
 
     def test_payables_aging_returns_vendor_totals(self):
         self._create_purchase(amount_paid=10)
+        self.item.quantity = 12
+        self.item.cost_price = 10
+        self.item.save(update_fields=["quantity", "cost_price"])
 
         rows = list(get_payables_aging())
         self.assertEqual(len(rows), 1)
         self.assertEqual(rows[0].id, self.vendor.id)
         self.assertEqual(Decimal(rows[0].total_outstanding), Decimal("40"))
+        self.assertEqual(int(rows[0].total_stock), 12)
+        self.assertEqual(Decimal(rows[0].total_stock_value), Decimal("120"))
+        self.assertIsNotNone(rows[0].last_transaction_date)
+        self.assertEqual(Decimal(rows[0].balance_due), Decimal("40"))
+
+    def test_payables_adjustment_updates_balance_due(self):
+        self._create_purchase(amount_paid=10)
+        update_vendor_payables_adjustment(self.vendor.id, "5", sign="-")
+        row = get_payables_aging().get(pk=self.vendor.id)
+        self.assertEqual(Decimal(row.payables_adjustment), Decimal("-5"))
+        self.assertEqual(Decimal(row.balance_due), Decimal("35"))
+
+    def test_payables_aging_report_includes_bill_and_dates(self):
+        purchase = self._create_purchase(amount_paid=10)
+        purchase.bill_number = "INV-1001"
+        purchase.save(update_fields=["bill_number"])
+        groups = get_payables_aging_report()
+        self.assertEqual(len(groups), 1)
+        bill = groups[0]["bills"][0]
+        self.assertEqual(bill["bill_number"], "INV-1001")
+        self.assertIsNotNone(bill["billed_date"])
+        self.assertIsNotNone(bill["last_transaction_date"])
 
 
 class PaymentAndCogsTests(TestCase):

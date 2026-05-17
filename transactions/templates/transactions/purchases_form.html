@@ -1,113 +1,271 @@
 {% extends "store/base.html" %}
-{% load static %}{% load crispy_forms_tags %}
-{% block title %}{% if object %}Update Purchase{% else %}Record Purchase{% endif %}{% endblock %}
+{% load static %}
+{% block title %}{% if object %}Edit purchase book entry{% else %}New purchase book entry{% endif %}{% endblock %}
 {% block content %}
-<div class="container p-5">
-    <h2>{% if object %}Update Purchase{% else %}Record New Purchase{% endif %}</h2>
-    <p class="text-muted small mb-3">
-        Receipt status <strong>Received</strong> posts stock and inventory ledger. <strong>Pending</strong> records the order only.
-        Use <em>Vendor payments</em> in admin to record AP cash/bank settlements (optional ledger).
-    </p>
-    <form method="post">
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h2 class="text-success mb-1">{% if object %}Edit purchase book entry{% else %}New purchase book entry{% endif %}</h2>
+            <p class="text-muted small mb-0">Record goods bought from a supplier. Set <strong>Received</strong> to add products to inventory.</p>
+        </div>
+        <a href="{% url 'purchaseslist' %}" class="btn btn-outline-secondary btn-sm">Back to purchase book</a>
+    </div>
+
+    <form method="post" id="purchase-form">
         {% csrf_token %}
         {{ form.non_field_errors }}
         {% if line_formset.non_form_errors %}
         <div class="alert alert-danger">{{ line_formset.non_form_errors }}</div>
         {% endif %}
-        <div class="row mt-3">
-            <div class="form-group col-md-4">
-                {{ form.vendor.label_tag }}
-                {{ form.vendor }}
-                {{ form.vendor.errors }}
-            </div>
-            <div class="form-group col-md-8">
-                {{ form.description.label_tag }}
-                {{ form.description }}
-                {{ form.description.errors }}
-            </div>
-        </div>
-        <div class="row">
-            <div class="form-group col-md-6">
-                {{ form.receipt_date.label_tag }}
-                {{ form.receipt_date }}
-                {{ form.receipt_date.errors }}
-            </div>
-            <div class="form-group col-md-6">
-                {{ form.receipt_status.label_tag }}
-                {{ form.receipt_status }}
-                {{ form.receipt_status.errors }}
+
+        <div class="card shadow-sm mb-3">
+            <div class="card-header bg-light"><strong>1. Supplier &amp; bill</strong></div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label class="form-label" for="{{ form.vendor.id_for_label }}">{{ form.vendor.label }}</label>
+                        {{ form.vendor }}
+                        {% if form.vendor.errors %}<div class="text-danger small">{{ form.vendor.errors }}</div>{% endif %}
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label" for="{{ form.bill_number.id_for_label }}">{{ form.bill_number.label }}</label>
+                        {{ form.bill_number }}
+                        {% if form.bill_number.help_text %}<div class="form-text">{{ form.bill_number.help_text }}</div>{% endif %}
+                        {{ form.bill_number.errors }}
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label" for="{{ form.order_date.id_for_label }}">{{ form.order_date.label }}</label>
+                        {{ form.order_date }}
+                        {{ form.order_date.errors }}
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label" for="{{ form.receipt_status.id_for_label }}">{{ form.receipt_status.label }}</label>
+                        {{ form.receipt_status }}
+                        {% if form.receipt_status.help_text %}<div class="form-text">{{ form.receipt_status.help_text }}</div>{% endif %}
+                        {{ form.receipt_status.errors }}
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label" for="{{ form.receipt_date.id_for_label }}">{{ form.receipt_date.label }}</label>
+                        {{ form.receipt_date }}
+                        {{ form.receipt_date.errors }}
+                    </div>
+                    <div class="col-md-12">
+                        <label class="form-label" for="{{ form.description.id_for_label }}">{{ form.description.label }}</label>
+                        {{ form.description }}
+                        {{ form.description.errors }}
+                    </div>
+                </div>
             </div>
         </div>
 
-        <h5 class="mt-4">Line items</h5>
-        {{ line_formset.management_form }}
-        {% for f in line_formset.forms %}
-        <div class="row g-2 align-items-end border rounded p-2 mb-2">
-            <div class="col-md-5">
-                {{ f.id }}
-                {{ f.item.label_tag }}
-                {{ f.item }}
-                {{ f.item.errors }}
+        <div class="card shadow-sm mb-3">
+            <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                <strong>2. Products purchased</strong>
+                <span class="text-muted small" id="vendor-filter-hint">Select a vendor to filter products</span>
             </div>
-            <div class="col-md-3">
-                {{ f.quantity.label_tag }}
-                {{ f.quantity }}
-                {{ f.quantity.errors }}
-            </div>
-            <div class="col-md-3">
-                {{ f.unit_price.label_tag }}
-                {{ f.unit_price }}
-                {{ f.unit_price.errors }}
-            </div>
-            <div class="col-md-1">
-                {% if f.DELETE %}<div class="form-check mt-4">{{ f.DELETE }} <label for="{{ f.DELETE.id_for_label }}">Del</label>{% endif %}</div>
-            </div>
-        </div>
-        {% endfor %}
-
-        <div class="row mt-3">
-            <div class="form-group col-md-4">
-                {{ form.discount_amount.label_tag }}
-                {{ form.discount_amount }}
-                {{ form.discount_amount.errors }}
-            </div>
-            <div class="form-group col-md-4">
-                {{ form.vat_percentage.label_tag }}
-                {{ form.vat_percentage }}
-                {{ form.vat_percentage.errors }}
-            </div>
-            <div class="form-group col-md-4">
-                {{ form.vat_amount.label_tag }}
-                {{ form.vat_amount }}
-                {{ form.vat_amount.errors }}
-            </div>
-        </div>
-
-        {% if object %}
-        <div class="row mt-2">
-            <div class="form-group col-md-3"><label class="form-label">Sub total</label>
-                <input class="form-control" type="text" value="{{ object.sub_total }}" readonly></div>
-            <div class="form-group col-md-3"><label class="form-label">Net amount</label>
-                <input class="form-control" type="text" value="{{ object.net_amount }}" readonly></div>
-            <div class="form-group col-md-3"><label class="form-label">Amount remaining</label>
-                <input class="form-control" type="text" value="{{ object.amount_remaining }}" readonly></div>
-            <div class="form-group col-md-3"><label class="form-label">Payment status</label>
-                <input class="form-control" type="text" value="{{ object.get_payment_status_display }}" readonly></div>
-        </div>
-        {% endif %}
-
-        <div class="row mt-3">
-            <div class="form-group col-md-6">
-                {{ form.amount_paid.label_tag }}
-                {{ form.amount_paid }}
-                {{ form.amount_paid.help_text }}
-                {{ form.amount_paid.errors }}
+            <div class="card-body">
+                {{ line_formset.management_form }}
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="min-width: 14rem;">Product</th>
+                                <th class="text-end" style="width: 6rem;">In stock</th>
+                                <th class="text-end" style="width: 7rem;">Qty</th>
+                                <th class="text-end" style="width: 8rem;">Unit cost</th>
+                                <th class="text-end" style="width: 8rem;">Line total</th>
+                                <th style="width: 3rem;"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="line-items-body">
+                            {% for f in line_formset.forms %}
+                            <tr class="purchase-line-row" data-form-prefix="{{ f.prefix }}">
+                                <td>
+                                    {{ f.id }}
+                                    {{ f.item }}
+                                    {{ f.item.errors }}
+                                </td>
+                                <td class="text-end text-muted line-stock">—</td>
+                                <td>{{ f.quantity }}{{ f.quantity.errors }}</td>
+                                <td>{{ f.unit_price }}{{ f.unit_price.errors }}</td>
+                                <td class="text-end fw-semibold line-total">0.00</td>
+                                <td class="text-center">
+                                    {% if f.DELETE %}
+                                    <div class="form-check">{{ f.DELETE }} <label class="form-check-label small" for="{{ f.DELETE.id_for_label }}">Del</label></div>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
 
-        <button type="submit" class="mt-3 btn btn-primary">
-            <i class="fas fa-save"></i> Save
+        <div class="card shadow-sm mb-3">
+            <div class="card-header bg-light"><strong>3. Bill totals &amp; tax</strong></div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label class="form-label" for="{{ form.discount_amount.id_for_label }}">{{ form.discount_amount.label }}</label>
+                        {{ form.discount_amount }}
+                        {{ form.discount_amount.errors }}
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label" for="{{ form.vat_percentage.id_for_label }}">{{ form.vat_percentage.label }}</label>
+                        {{ form.vat_percentage }}
+                        {{ form.vat_percentage.errors }}
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label" for="{{ form.vat_amount.id_for_label }}">{{ form.vat_amount.label }}</label>
+                        {{ form.vat_amount }}
+                        <div class="form-text">Leave VAT % set to auto-calculate, or enter amount manually.</div>
+                        {{ form.vat_amount.errors }}
+                    </div>
+                </div>
+                <div class="row mt-3">
+                    <div class="col-md-4">
+                        <label class="form-label text-muted">Estimated subtotal (lines)</label>
+                        <input type="text" class="form-control" id="preview-subtotal" readonly value="0.00">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label text-muted">Estimated net bill</label>
+                        <input type="text" class="form-control fw-semibold" id="preview-net" readonly value="0.00">
+                    </div>
+                    {% if object %}
+                    <div class="col-md-4">
+                        <label class="form-label text-muted">Saved net / remaining</label>
+                        <input type="text" class="form-control" readonly value="{{ object.net_amount }} / {{ object.amount_remaining }}">
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-light"><strong>4. Payment to supplier</strong></div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label class="form-label" for="{{ form.amount_paid.id_for_label }}">{{ form.amount_paid.label }}</label>
+                        {{ form.amount_paid }}
+                        {% if form.amount_paid.help_text %}<div class="form-text">{{ form.amount_paid.help_text }}</div>{% endif %}
+                        {{ form.amount_paid.errors }}
+                    </div>
+                    {% if object %}
+                    <div class="col-md-4">
+                        <label class="form-label text-muted">Payment status</label>
+                        <input type="text" class="form-control" readonly value="{{ object.get_payment_status_display }}">
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <button type="submit" class="btn btn-success">
+            <i class="fa-solid fa-save"></i> Save purchase
         </button>
     </form>
 </div>
+
+{{ items_catalog|json_script:"items-catalog" }}
+<script>
+(function () {
+    const catalog = JSON.parse(document.getElementById("items-catalog").textContent || "[]");
+    const byId = Object.fromEntries(catalog.map((i) => [String(i.id), i]));
+    const vendorSelect = document.getElementById("id_vendor");
+    const hint = document.getElementById("vendor-filter-hint");
+
+    function selectedVendorId() {
+        return vendorSelect && vendorSelect.value ? vendorSelect.value : null;
+    }
+
+    function filterProductOptions() {
+        const vid = selectedVendorId();
+        document.querySelectorAll(".item-select").forEach((sel) => {
+            Array.from(sel.options).forEach((opt) => {
+                if (!opt.value) return;
+                const item = byId[opt.value];
+                if (!item) return;
+                const match = !vid || String(item.vendor_id) === String(vid);
+                opt.hidden = !match;
+                opt.disabled = !match;
+            });
+            if (sel.value) {
+                const item = byId[sel.value];
+                if (item && vid && String(item.vendor_id) !== String(vid)) {
+                    sel.value = "";
+                }
+            }
+        });
+        if (hint) {
+            hint.textContent = vid
+                ? "Showing products linked to this vendor"
+                : "Select a vendor to filter products (or pick any product)";
+        }
+    }
+
+    function lineTotal(row) {
+        const qty = parseFloat(row.querySelector(".line-qty")?.value || "0");
+        const price = parseFloat(row.querySelector(".line-unit-price")?.value || "0");
+        return qty * price;
+    }
+
+    function updateRow(row) {
+        const sel = row.querySelector(".item-select");
+        const stockCell = row.querySelector(".line-stock");
+        const totalCell = row.querySelector(".line-total");
+        const priceInput = row.querySelector(".line-unit-price");
+        if (sel && sel.value && byId[sel.value]) {
+            const item = byId[sel.value];
+            if (stockCell) stockCell.textContent = item.stock;
+            if (priceInput && (!priceInput.value || parseFloat(priceInput.value) === 0)) {
+                priceInput.value = item.cost.toFixed(2);
+            }
+        } else if (stockCell) {
+            stockCell.textContent = "—";
+        }
+        if (totalCell) totalCell.textContent = lineTotal(row).toFixed(2);
+    }
+
+    function updatePreview() {
+        let sub = 0;
+        document.querySelectorAll(".purchase-line-row").forEach((row) => {
+            const del = row.querySelector('input[type="checkbox"][name$="-DELETE"]');
+            if (del && del.checked) return;
+            sub += lineTotal(row);
+        });
+        const discount = parseFloat(document.getElementById("id_discount_amount")?.value || "0");
+        const vatPct = parseFloat(document.getElementById("id_vat_percentage")?.value || "0");
+        const vatAmtField = document.getElementById("id_vat_amount");
+        let taxable = Math.max(0, sub - discount);
+        let vat = vatPct > 0 ? taxable * (vatPct / 100) : parseFloat(vatAmtField?.value || "0");
+        if (vatPct > 0 && vatAmtField) vatAmtField.value = vat.toFixed(2);
+        const net = taxable + vat;
+        const subEl = document.getElementById("preview-subtotal");
+        const netEl = document.getElementById("preview-net");
+        if (subEl) subEl.value = sub.toFixed(2);
+        if (netEl) netEl.value = net.toFixed(2);
+    }
+
+    function bindRow(row) {
+        row.querySelectorAll(".item-select, .line-qty, .line-unit-price").forEach((el) => {
+            el.addEventListener("change", () => { updateRow(row); updatePreview(); });
+            el.addEventListener("input", () => { updateRow(row); updatePreview(); });
+        });
+        const del = row.querySelector('input[type="checkbox"][name$="-DELETE"]');
+        if (del) del.addEventListener("change", updatePreview);
+        updateRow(row);
+    }
+
+    document.querySelectorAll(".purchase-line-row").forEach(bindRow);
+    ["id_discount_amount", "id_vat_percentage", "id_vat_amount"].forEach((id) => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener("input", updatePreview);
+    });
+    if (vendorSelect) vendorSelect.addEventListener("change", filterProductOptions);
+    filterProductOptions();
+    updatePreview();
+})();
+</script>
 {% endblock %}

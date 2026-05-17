@@ -1,4 +1,4 @@
-{% extends "store/base.html" %}{% load static %}{% load render_table from django_tables2 %}{% load querystring from django_tables2 %}{% block title %}Purchases{%endblock title%}
+{% extends "store/base.html" %}{% load static %}{% load render_table from django_tables2 %}{% load querystring from django_tables2 %}{% block title %}Purchase Book{%endblock title%}
 
 {% block content %}
 <!-- Header Section -->
@@ -6,20 +6,21 @@
     <div class="card shadow-sm rounded p-3">
         <div class="row align-items-center">
             <div class="col-md-6">
-                <h4 class="display-6 mb-0 text-success">Purchases</h4>
+                <h4 class="display-6 mb-0 text-success">Purchase Book</h4>
+                <small class="text-muted">Stock bought from suppliers</small>
             </div>
             <div class="col-md-6 d-flex justify-content-end gap-2">
                 <a class="btn btn-success btn-sm rounded-pill shadow-sm" href="{% url 'purchase-create' %}">
-                    <i class="fa-solid fa-plus"></i> Add Purchase Order
+                    <i class="fa-solid fa-plus"></i> New purchase entry
                 </a>
                 <a class="btn btn-success btn-sm rounded-pill shadow-sm" href="{% url 'purchases-export' %}">
                     <i class="fa-solid fa-download"></i> Export to Excel
                 </a>
                 <a class="btn btn-outline-success btn-sm rounded-pill shadow-sm" href="{% url 'stock-ledger' %}">
-                    <i class="fa-solid fa-boxes-stacked"></i> Stock Ledger
+                    <i class="fa-solid fa-clipboard-list"></i> Stock ledger
                 </a>
                 <a class="btn btn-outline-success btn-sm rounded-pill shadow-sm" href="{% url 'payables-aging' %}">
-                    <i class="fa-solid fa-file-invoice-dollar"></i> Payables Aging
+                    <i class="fa-solid fa-hand-holding-dollar"></i> Payables book
                 </a>
             </div>
         </div>
@@ -105,6 +106,8 @@
         <thead class="thead-light">
             <tr>
                 <th scope="col">ID <i class="fa-solid fa-sort"></i></th>
+                <th scope="col">Bill number</th>
+                <th scope="col">Billed date</th>
                 <th scope="col">Name <i class="fa-solid fa-sort"></i></th>
                 <th scope="col">Quantity <i class="fa-solid fa-sort"></i></th>
                 <th scope="col">Sub Total <i class="fa-solid fa-sort"></i></th>
@@ -123,6 +126,10 @@
             {% for purchase in purchases %}
             <tr>
                 <th scope="row">{{ purchase.id }}</th>
+                <td>
+                    <a href="{% url 'purchase-detail' slug=purchase.slug %}">{{ purchase.display_bill_number }}</a>
+                </td>
+                <td>{{ purchase.order_date|date:"Y-m-d H:i" }}</td>
                 <td>
                     {% with line=purchase.lines.first %}
                     {% if line %}

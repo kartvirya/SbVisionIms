@@ -9,6 +9,8 @@
         <div class="card-body">
             <div class="row g-3">
                 <div class="col-md-6"><strong>Vendor:</strong> {{ object.vendor.name }}</div>
+                <div class="col-md-6"><strong>Bill number:</strong> {{ object.display_bill_number }}</div>
+                <div class="col-md-6"><strong>Billed date:</strong> {{ object.order_date|date:"Y-m-d H:i" }}</div>
                 <div class="col-md-6"><strong>Receipt status:</strong> {{ object.get_receipt_status_display }}</div>
                 <div class="col-md-6"><strong>Receipt date:</strong> {{ object.receipt_date|default:"-" }}</div>
                 <div class="col-md-6"><strong>Inventory txn:</strong>

@@ -246,6 +246,37 @@ def get_customers(request):
     return JsonResponse({'error': 'Invalid request method'}, status=400)
 
 
+@require_POST
+@login_required
+def create_customer_quick(request):
+    """Create a customer from the sale page without leaving the form."""
+    first_name = (request.POST.get("first_name") or "").strip()
+    if not first_name:
+        return JsonResponse(
+            {"status": "error", "message": "First name is required."},
+            status=400,
+        )
+    last_name = (request.POST.get("last_name") or "").strip() or None
+    phone = (request.POST.get("phone") or "").strip() or None
+    email = (request.POST.get("email") or "").strip() or None
+    customer = Customer.objects.create(
+        first_name=first_name,
+        last_name=last_name,
+        phone=phone,
+        email=email or None,
+    )
+    full_name = customer.get_full_name().strip()
+    return JsonResponse(
+        {
+            "status": "success",
+            "id": customer.id,
+            "name": full_name,
+            "label": full_name,
+            "value": customer.id,
+        }
+    )
+
+
 class VendorListView(LoginRequiredMixin, ListView):
     model = Vendor
     template_name = 'accounts/vendor_list.html'

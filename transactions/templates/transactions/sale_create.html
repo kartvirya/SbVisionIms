@@ -1,7 +1,7 @@
 {% extends "store/base.html" %}
 {% load static %}
 <!-- Page title  -->
-{% block title %}Create sale{% endblock title %}
+{% block title %}New sales book entry{% endblock title %}
 
 <!-- Specific Page CSS goes HERE  -->
 {% block stylesheets %}
@@ -89,13 +89,46 @@
                     <div class="card-body">
                         {% csrf_token %}
                         <div class="mb-3">
-                            <label for="customer" class="form-label">Customer</label>
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <label for="customer" class="form-label mb-0">Customer</label>
+                                <button type="button" class="btn btn-link btn-sm p-0 text-success" id="toggle_new_customer" aria-expanded="false" aria-controls="new_customer_panel">
+                                    <i class="fas fa-user-plus me-1"></i> New customer
+                                </button>
+                            </div>
                             <select name="customer" class="form-select" id="customer" aria-label="Customer" required>
                                 <option value="" selected disabled hidden>Select the customer</option>
                                 {% for customer in customers %}
                                 <option value="{{ customer.value }}">{{ customer.label }}</option>
                                 {% endfor %}
                             </select>
+                            <div id="new_customer_panel" class="border rounded p-3 mt-2 bg-light d-none">
+                                <p class="small text-muted mb-2 mb-md-3">Add a customer who is not in the list yet.</p>
+                                <div class="row g-2">
+                                    <div class="col-12 col-sm-6">
+                                        <label for="new_customer_first_name" class="form-label small mb-0">First name <span class="text-danger">*</span></label>
+                                        <input type="text" class="form-control form-control-sm" id="new_customer_first_name" autocomplete="given-name">
+                                    </div>
+                                    <div class="col-12 col-sm-6">
+                                        <label for="new_customer_last_name" class="form-label small mb-0">Last name</label>
+                                        <input type="text" class="form-control form-control-sm" id="new_customer_last_name" autocomplete="family-name">
+                                    </div>
+                                    <div class="col-12 col-sm-6">
+                                        <label for="new_customer_phone" class="form-label small mb-0">Phone</label>
+                                        <input type="text" class="form-control form-control-sm" id="new_customer_phone" autocomplete="tel">
+                                    </div>
+                                    <div class="col-12 col-sm-6">
+                                        <label for="new_customer_email" class="form-label small mb-0">Email</label>
+                                        <input type="email" class="form-control form-control-sm" id="new_customer_email" autocomplete="email">
+                                    </div>
+                                </div>
+                                <div class="d-flex flex-wrap gap-2 mt-3">
+                                    <button type="button" class="btn btn-success btn-sm" id="save_new_customer">
+                                        <i class="fas fa-check me-1"></i> Save &amp; select
+                                    </button>
+                                    <button type="button" class="btn btn-outline-secondary btn-sm" id="cancel_new_customer">Cancel</button>
+                                </div>
+                                <div id="new_customer_error" class="text-danger small mt-2 d-none"></div>
+                            </div>
                         </div>
                         <div class="mb-3">
                             <label for="sub_total" class="form-label">Subtotal</label>
@@ -321,31 +354,88 @@
             sale.calculate_sale();
         });
 
-        // Select2 customers
-        $('#searchbox_customers').select2({
-            delay: 250,
-            placeholder: "Select a customer",
-            allowClear: true,
-            minimumInputLength: 1,
-            ajax: {
-                url: "{% url 'get_customers' %}",
-                type: 'POST',
-                data: function (params) {
-                    return {
-                        term: params.term,
-                        csrfmiddlewaretoken: $('input[name="csrfmiddlewaretoken"]').val() // Include CSRF token
-                    };
-                },
-                processResults: function (data) {
-                    return {
-                        results: data
-                    };
-                }
+        var $newCustomerPanel = $('#new_customer_panel');
+        var $newCustomerError = $('#new_customer_error');
+
+        function showNewCustomerPanel(show) {
+            if (show) {
+                $newCustomerPanel.removeClass('d-none');
+                $('#toggle_new_customer').attr('aria-expanded', 'true');
+                $('#new_customer_first_name').trigger('focus');
+            } else {
+                $newCustomerPanel.addClass('d-none');
+                $('#toggle_new_customer').attr('aria-expanded', 'false');
+                $newCustomerError.addClass('d-none').text('');
             }
-        }).on('select2:select', function (e) {
-            // When a customer is selected
-            var data = e.params.data;
-            sale.products.customer = data.id;
+        }
+
+        function resetNewCustomerFields() {
+            $('#new_customer_first_name, #new_customer_last_name, #new_customer_phone, #new_customer_email').val('');
+        }
+
+        function selectCustomerOption(id, label) {
+            var $select = $('#customer');
+            if ($select.find('option[value="' + id + '"]').length === 0) {
+                $select.append($('<option>', { value: id, text: label }));
+            }
+            $select.val(String(id));
+            sale.products.customer = id;
+        }
+
+        $('#toggle_new_customer').on('click', function () {
+            showNewCustomerPanel($newCustomerPanel.hasClass('d-none'));
+        });
+
+        $('#cancel_new_customer').on('click', function () {
+            resetNewCustomerFields();
+            showNewCustomerPanel(false);
+        });
+
+        $('#save_new_customer').on('click', function () {
+            var firstName = $('#new_customer_first_name').val().trim();
+            if (!firstName) {
+                $newCustomerError.removeClass('d-none').text('First name is required.');
+                return;
+            }
+            $newCustomerError.addClass('d-none').text('');
+            var $btn = $(this).prop('disabled', true);
+            $.ajax({
+                url: "{% url 'customer-quick-create' %}",
+                type: 'POST',
+                data: {
+                    first_name: firstName,
+                    last_name: $('#new_customer_last_name').val().trim(),
+                    phone: $('#new_customer_phone').val().trim(),
+                    email: $('#new_customer_email').val().trim(),
+                    csrfmiddlewaretoken: $('input[name="csrfmiddlewaretoken"]').val()
+                },
+                success: function (response) {
+                    selectCustomerOption(response.id, response.name);
+                    resetNewCustomerFields();
+                    showNewCustomerPanel(false);
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Customer added',
+                        text: response.name + ' is selected for this sale.',
+                        timer: 2000,
+                        showConfirmButton: false
+                    });
+                },
+                error: function (xhr) {
+                    var msg = 'Could not create customer.';
+                    if (xhr.responseJSON && xhr.responseJSON.message) {
+                        msg = xhr.responseJSON.message;
+                    }
+                    $newCustomerError.removeClass('d-none').text(msg);
+                },
+                complete: function () {
+                    $btn.prop('disabled', false);
+                }
+            });
+        });
+
+        $('#customer').on('change', function () {
+            sale.products.customer = $(this).val();
         });
 
         // Select2 items searchbox
@@ -510,6 +600,16 @@
         // On form submit
         $('form#form_sale').on('submit', function (event) {
             event.preventDefault();
+
+            var customerId = $('select[name="customer"]').val();
+            if (!customerId) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Customer required',
+                    text: 'Select a customer or add a new one before completing the sale.'
+                });
+                return;
+            }
 
             // Gather sale details
             var amountPaid = parseFloat($('input[name="amount_paid"]').val());

@@ -3,6 +3,7 @@ from decimal import Decimal
 from django.db import models
 from django.db.models import Sum
 from django.core.exceptions import ValidationError
+from django.utils import timezone
 from django_extensions.db.fields import AutoSlugField
 
 from store.models import Item
@@ -154,10 +155,16 @@ class Purchase(models.Model):
         help_text="Deprecated: use Purchase lines.",
     )
     description = models.TextField(max_length=300, blank=True, null=True)
+    bill_number = models.CharField(
+        max_length=64,
+        blank=True,
+        verbose_name="Bill number",
+        help_text="Supplier invoice or bill reference number.",
+    )
     vendor = models.ForeignKey(
         Vendor, related_name="purchases", on_delete=models.CASCADE
     )
-    order_date = models.DateTimeField(auto_now_add=True)
+    order_date = models.DateTimeField(default=timezone.now, verbose_name="Billed date")
     receipt_date = models.DateTimeField(
         blank=True, null=True, verbose_name="Receipt Date"
     )
@@ -201,6 +208,15 @@ class Purchase(models.Model):
             agg = self.lines.aggregate(s=Sum("quantity"))
             return int(agg["s"] or 0)
         return int(self.quantity or 0)
+
+    @property
+    def display_bill_number(self):
+        number = (self.bill_number or "").strip()
+        if number:
+            return number
+        if self.pk:
+            return f"PUR-{self.pk}"
+        return "—"
 
     def save(self, *args, **kwargs):
         """

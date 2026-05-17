@@ -106,6 +106,13 @@ class Vendor(models.Model):
     address = models.CharField(
         max_length=50, blank=True, null=True, verbose_name='Address'
     )
+    payables_adjustment = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=0,
+        verbose_name='Payables adjustment',
+        help_text='Manual adjustment (+/-) applied on the payables aging report.',
+    )
 
     def __str__(self):
         """

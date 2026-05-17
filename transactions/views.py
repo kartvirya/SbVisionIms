@@ -11,6 +11,7 @@ from django.db import transaction
 from django.contrib import messages
 
 # Class-based views
+from django.views import View
 from django.views.generic import DetailView, ListView
 from django.views.generic.edit import CreateView, UpdateView, DeleteView
 
@@ -22,16 +23,19 @@ from openpyxl import Workbook
 
 # Local app imports
 from store.models import Item
-from accounts.models import Customer, Company
+from accounts.models import Customer, Company, Vendor
 from .models import CustomerPayment, Purchase, Sale, SaleDetail
-from .forms import PurchaseForm, PurchaseLineFormSet
+from .forms import PayablesQuickEntryForm, PurchaseForm, PurchaseLineFormSet
 from .filters import SaleFilter, PurchaseFilter
 from .services import (
     create_sale_transaction,
     delete_inventory_transaction_and_sync,
     get_payables_aging,
+    create_payable_quick_entry,
+    get_payables_aging_report,
     get_stock_ledger_rows,
     sync_purchase_inventory_transaction,
+    update_vendor_payables_adjustment,
 )
 
 
@@ -98,7 +102,7 @@ def export_purchases_to_excel(request):
 
     # Define the column headers
     columns = [
-        'ID', 'Item', 'Description', 'Vendor', 'Order Date',
+        'ID', 'Bill Number', 'Item', 'Description', 'Vendor', 'Order Date',
         'Receipt Date', 'Quantity', 'Receipt Status',
         'Price per item (Rs)', 'Sub Total', 'Discount',
         'VAT %', 'VAT Amount', 'Net Amount', 'Amount Paid', 'Amount Remaining'
@@ -129,6 +133,7 @@ def export_purchases_to_excel(request):
             order_date = order_date.replace(tzinfo=None)
         worksheet.append([
             purchase.id,
+            purchase.display_bill_number,
             summary,
             purchase.description,
             purchase.vendor.name,
@@ -418,6 +423,38 @@ class PurchaseDetailView(LoginRequiredMixin, DetailView):
         return super().get_queryset().prefetch_related("lines__item", "vendor")
 
 
+def _purchase_vendor_id(request, purchase=None):
+    if request.method == "POST":
+        raw = request.POST.get("vendor")
+        return int(raw) if raw else None
+    if purchase is not None:
+        return purchase.vendor_id
+    return None
+
+
+def _purchase_form_context(request, purchase=None, form=None, line_formset=None):
+    vendor_id = _purchase_vendor_id(request, purchase)
+    if line_formset is None:
+        if request.method == "POST":
+            line_formset = PurchaseLineFormSet(request.POST, instance=purchase, vendor_id=vendor_id)
+        else:
+            line_formset = PurchaseLineFormSet(instance=purchase, vendor_id=vendor_id)
+    items = Item.objects.select_related("vendor").order_by("name")
+    return {
+        "line_formset": line_formset,
+        "items_catalog": [
+            {
+                "id": i.id,
+                "vendor_id": i.vendor_id,
+                "name": i.name,
+                "stock": i.quantity,
+                "cost": float(i.cost_price or 0),
+            }
+            for i in items
+        ],
+    }
+
+
 class PurchaseCreateView(LoginRequiredMixin, CreateView):
     """
     View to create a new purchase.
@@ -434,17 +471,16 @@ class PurchaseCreateView(LoginRequiredMixin, CreateView):
         return reverse("purchaseslist")
 
     def get_context_data(self, **kwargs):
-        kwargs.setdefault(
-            "line_formset",
-            PurchaseLineFormSet(self.request.POST) if self.request.method == "POST" else PurchaseLineFormSet(),
-        )
-        return super().get_context_data(**kwargs)
+        ctx = super().get_context_data(**kwargs)
+        ctx.update(_purchase_form_context(self.request, purchase=None, form=ctx.get("form")))
+        return ctx
 
     def post(self, request, *args, **kwargs):
         self.object = None
         form_class = self.get_form_class()
         form = form_class(request.POST)
-        line_formset = PurchaseLineFormSet(request.POST)
+        vendor_id = _purchase_vendor_id(request)
+        line_formset = PurchaseLineFormSet(request.POST, vendor_id=vendor_id)
         if form.is_valid() and line_formset.is_valid():
             with transaction.atomic():
                 purchase = form.save()
@@ -484,22 +520,18 @@ class PurchaseUpdateView(LoginRequiredMixin, UpdateView):
         return reverse("purchaseslist")
 
     def get_context_data(self, **kwargs):
-        kwargs.setdefault(
-            "line_formset",
-            PurchaseLineFormSet(
-                self.request.POST,
-                instance=self.object,
-            )
-            if self.request.method == "POST"
-            else PurchaseLineFormSet(instance=self.object),
-        )
-        return super().get_context_data(**kwargs)
+        ctx = super().get_context_data(**kwargs)
+        ctx.update(_purchase_form_context(self.request, purchase=self.object, form=ctx.get("form")))
+        return ctx
 
     def post(self, request, *args, **kwargs):
         self.object = self.get_object()
         form_class = self.get_form_class()
         form = form_class(request.POST, instance=self.object)
-        line_formset = PurchaseLineFormSet(request.POST, instance=self.object)
+        vendor_id = _purchase_vendor_id(request, self.object)
+        line_formset = PurchaseLineFormSet(
+            request.POST, instance=self.object, vendor_id=vendor_id
+        )
         if form.is_valid() and line_formset.is_valid():
             with transaction.atomic():
                 purchase = form.save()
@@ -569,9 +601,94 @@ class StockLedgerView(LoginRequiredMixin, ListView):
         return context
 
 
-class PayablesAgingView(LoginRequiredMixin, ListView):
+class PayablesAgingView(LoginRequiredMixin, View):
     template_name = "transactions/payables_aging.html"
-    context_object_name = "vendors"
+    http_method_names = ["get", "post", "head", "options"]
 
-    def get_queryset(self):
-        return get_payables_aging()
+    def _build_totals(self, vendor_groups):
+        totals = {
+            "stock_units": 0,
+            "stock_value": Decimal("0"),
+            "outstanding": Decimal("0"),
+            "adjustment": Decimal("0"),
+            "balance_due": Decimal("0"),
+        }
+        seen_vendors = set()
+        for group in vendor_groups:
+            vendor_id = group["vendor"].id
+            if vendor_id not in seen_vendors:
+                seen_vendors.add(vendor_id)
+                totals["stock_units"] += int(group["total_stock"] or 0)
+                totals["stock_value"] += Decimal(str(group["total_stock_value"] or 0))
+                totals["adjustment"] += Decimal(str(group["payables_adjustment"] or 0))
+            totals["outstanding"] += Decimal(str(group["total_outstanding"] or 0))
+            totals["balance_due"] += Decimal(str(group["balance_due"] or 0))
+        return totals
+
+    def _render_page(self, request, vendor_groups=None, quick_form=None):
+        if vendor_groups is None:
+            vendor_groups = get_payables_aging_report()
+        if quick_form is None:
+            quick_form = PayablesQuickEntryForm()
+        return render(
+            request,
+            self.template_name,
+            {
+                "vendor_groups": vendor_groups,
+                "totals": self._build_totals(vendor_groups),
+                "quick_entry_form": quick_form,
+            },
+        )
+
+    def get(self, request, *args, **kwargs):
+        return self._render_page(request)
+
+    def post(self, request, *args, **kwargs):
+        action = request.POST.get("action", "adjustment")
+        if action == "add_record":
+            return self._post_add_record(request)
+        return self._post_adjustment(request)
+
+    def _post_add_record(self, request):
+        form = PayablesQuickEntryForm(request.POST)
+        if not form.is_valid():
+            messages.error(request, "Could not add payable. Please check the form.")
+            return self._render_page(request, quick_form=form)
+        try:
+            purchase = create_payable_quick_entry(
+                form.cleaned_data["vendor"],
+                bill_number=form.cleaned_data.get("bill_number") or "",
+                order_date=form.cleaned_data.get("order_date"),
+                net_amount=form.cleaned_data["net_amount"],
+                amount_paid=form.cleaned_data.get("amount_paid") or 0,
+                description=form.cleaned_data.get("description") or "",
+            )
+            messages.success(
+                request,
+                f"Payable recorded: {purchase.display_bill_number} "
+                f"(Rs {purchase.amount_remaining} outstanding).",
+            )
+        except Exception as exc:
+            messages.error(request, f"Could not add payable: {exc}")
+            return self._render_page(request, quick_form=form)
+        return HttpResponseRedirect(reverse("payables-aging"))
+
+    def _post_adjustment(self, request):
+        vendor_id = request.POST.get("vendor_id")
+        adjustment_amount = request.POST.get("adjustment_amount", "0")
+        adjustment_sign = request.POST.get("adjustment_sign", "+")
+        if adjustment_sign not in ("+", "-"):
+            adjustment_sign = "+"
+        if not vendor_id:
+            messages.error(request, "Vendor is required.")
+            return HttpResponseRedirect(reverse("payables-aging"))
+        try:
+            update_vendor_payables_adjustment(
+                vendor_id, adjustment_amount, sign=adjustment_sign
+            )
+            messages.success(request, "Payables adjustment saved.")
+        except Vendor.DoesNotExist:
+            messages.error(request, "Vendor not found.")
+        except Exception as exc:
+            messages.error(request, f"Could not save adjustment: {exc}")
+        return HttpResponseRedirect(reverse("payables-aging"))

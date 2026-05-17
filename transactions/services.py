@@ -1,7 +1,20 @@
 from decimal import Decimal
 
 from django.db import transaction as db_transaction
-from django.db.models import Sum, Case, When, DecimalField
+from django.utils import timezone
+from django.db.models import (
+    Sum,
+    Max,
+    Case,
+    When,
+    DecimalField,
+    F,
+    OuterRef,
+    Subquery,
+    ExpressionWrapper,
+    Value,
+)
+from django.db.models.functions import Coalesce
 
 from accounts.models import Customer, Vendor
 from store.models import Item
@@ -437,8 +450,167 @@ def get_stock_ledger_rows(*, item=None, date_from=None, date_to=None):
 
 
 def get_payables_aging():
-    return (
-        Vendor.objects.filter(purchases__amount_remaining__gt=0)
-        .annotate(total_outstanding=Sum("purchases__amount_remaining"))
-        .order_by("-total_outstanding")
+    """
+    Vendors with outstanding purchase balances, plus stock on hand and last purchase date.
+    """
+    outstanding_subq = (
+        Purchase.objects.filter(
+            vendor_id=OuterRef("pk"),
+            amount_remaining__gt=0,
+        )
+        .values("vendor_id")
+        .annotate(total=Sum("amount_remaining"))
+        .values("total")[:1]
     )
+    last_txn_subq = (
+        Purchase.objects.filter(vendor_id=OuterRef("pk"))
+        .order_by("-order_date")
+        .values("order_date")[:1]
+    )
+    stock_qty_subq = (
+        Item.objects.filter(vendor_id=OuterRef("pk"))
+        .values("vendor_id")
+        .annotate(total=Sum("quantity"))
+        .values("total")[:1]
+    )
+    stock_value_subq = (
+        Item.objects.filter(vendor_id=OuterRef("pk"))
+        .annotate(
+            line_value=ExpressionWrapper(
+                F("quantity") * F("cost_price"),
+                output_field=DecimalField(max_digits=14, decimal_places=2),
+            )
+        )
+        .values("vendor_id")
+        .annotate(total=Sum("line_value"))
+        .values("total")[:1]
+    )
+    zero = Value(0, output_field=DecimalField(max_digits=12, decimal_places=2))
+    return (
+        Vendor.objects.annotate(
+            total_outstanding=Coalesce(
+                Subquery(outstanding_subq, output_field=DecimalField(max_digits=12, decimal_places=2)),
+                zero,
+            ),
+            last_transaction_date=Subquery(last_txn_subq),
+            total_stock=Coalesce(Subquery(stock_qty_subq), Value(0)),
+            total_stock_value=Coalesce(
+                Subquery(stock_value_subq, output_field=DecimalField(max_digits=14, decimal_places=2)),
+                zero,
+            ),
+            balance_due=ExpressionWrapper(
+                F("total_outstanding") + F("payables_adjustment"),
+                output_field=DecimalField(max_digits=12, decimal_places=2),
+            ),
+        )
+        .filter(total_outstanding__gt=0)
+        .order_by("-balance_due")
+    )
+
+
+def _vendor_stock_stats(vendor_id):
+    stock_qty = (
+        Item.objects.filter(vendor_id=vendor_id).aggregate(total=Sum("quantity"))["total"] or 0
+    )
+    stock_value = Item.objects.filter(vendor_id=vendor_id).aggregate(
+        total=Sum(
+            ExpressionWrapper(
+                F("quantity") * F("cost_price"),
+                output_field=DecimalField(max_digits=14, decimal_places=2),
+            )
+        )
+    )["total"] or Decimal("0")
+    return {"total_stock": int(stock_qty), "total_stock_value": _to_decimal(stock_value)}
+
+
+def _purchase_last_transaction_date(purchase):
+    last_payment = purchase.vendor_payments.aggregate(last_paid=Max("paid_at"))["last_paid"]
+    if last_payment:
+        return last_payment
+    if purchase.receipt_date:
+        return purchase.receipt_date
+    return purchase.order_date
+
+
+def get_payables_aging_report():
+    """
+    Outstanding purchases grouped by vendor for the payables aging report.
+    """
+    purchases = (
+        Purchase.objects.filter(amount_remaining__gt=0)
+        .select_related("vendor")
+        .prefetch_related("vendor_payments")
+        .order_by("vendor__name", "-order_date")
+    )
+    by_vendor = {}
+    for purchase in purchases:
+        vendor = purchase.vendor
+        if vendor.id not in by_vendor:
+            stats = _vendor_stock_stats(vendor.id)
+            adjustment = _to_decimal(vendor.payables_adjustment)
+            by_vendor[vendor.id] = {
+                "vendor": vendor,
+                "bills": [],
+                "total_stock": stats["total_stock"],
+                "total_stock_value": stats["total_stock_value"],
+                "payables_adjustment": adjustment,
+                "adjustment_sign": "+" if adjustment >= 0 else "-",
+                "adjustment_amount": abs(adjustment),
+            }
+        by_vendor[vendor.id]["bills"].append(
+            {
+                "purchase": purchase,
+                "bill_number": purchase.display_bill_number,
+                "billed_date": purchase.order_date,
+                "last_transaction_date": _purchase_last_transaction_date(purchase),
+                "outstanding": _to_decimal(purchase.amount_remaining),
+            }
+        )
+
+    groups = []
+    for group in by_vendor.values():
+        group["total_outstanding"] = sum(b["outstanding"] for b in group["bills"])
+        group["balance_due"] = group["total_outstanding"] + group["payables_adjustment"]
+        groups.append(group)
+    groups.sort(key=lambda g: g["balance_due"], reverse=True)
+    return groups
+
+
+def update_vendor_payables_adjustment(vendor_id, amount, sign="+"):
+    """Persist a manual payables adjustment (+ increases balance, - reduces it)."""
+    vendor = Vendor.objects.get(pk=vendor_id)
+    value = abs(_to_decimal(amount))
+    if sign == "-":
+        value = -value
+    vendor.payables_adjustment = value
+    vendor.save(update_fields=["payables_adjustment"])
+    return vendor
+
+
+def create_payable_quick_entry(
+    vendor,
+    *,
+    bill_number="",
+    order_date=None,
+    net_amount=0,
+    amount_paid=0,
+    description="",
+):
+    """
+    Create a purchase bill for the payables book (no stock posted until marked Received).
+    """
+    purchase = Purchase(
+        vendor=vendor,
+        bill_number=(bill_number or "").strip(),
+        order_date=order_date or timezone.now(),
+        quantity=1,
+        price=_to_decimal(net_amount),
+        discount_amount=Decimal("0"),
+        vat_percentage=0,
+        vat_amount=Decimal("0"),
+        amount_paid=_to_decimal(amount_paid),
+        receipt_status="P",
+        description=(description or "").strip() or None,
+    )
+    purchase.save()
+    return purchase
