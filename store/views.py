@@ -12,6 +12,7 @@ and querying functionalities.
 
 # Standard library imports
 import operator
+from decimal import Decimal
 from functools import reduce
 
 # Django core imports
@@ -109,12 +110,20 @@ def dashboard(request):
     ]
     low_stock_items = len(low_stock_items_list)
     
-    # Calculate profit statistics
-    total_cost = sum(item.cost_price * item.quantity for item in items if item.cost_price > 0)
-    total_profit = 0
+    # Calculate profit statistics (coerce floats to Decimal for sale line prices)
+    total_cost = sum(
+        Decimal(str(item.cost_price or 0)) * item.quantity
+        for item in items
+        if item.cost_price and item.cost_price > 0
+    )
+    total_profit = Decimal("0")
     for sale in sales:
         for detail in sale.saledetail_set.all():
-            item_cost = detail.item.cost_price if detail.item.cost_price > 0 else 0
+            item_cost = (
+                Decimal(str(detail.item.cost_price))
+                if detail.item.cost_price and detail.item.cost_price > 0
+                else Decimal("0")
+            )
             total_profit += (detail.price - item_cost) * detail.quantity
     
     # Recent sales (last 5)

@@ -199,10 +199,14 @@ class SaleDetailView(LoginRequiredMixin, DetailView):
         context['sale_details'] = sale_details
         
         # Calculate profit for this sale
-        total_profit = 0
-        total_cost = 0
+        total_profit = Decimal("0")
+        total_cost = Decimal("0")
         for detail in sale_details:
-            item_cost = detail.item.cost_price if detail.item.cost_price > 0 else 0
+            item_cost = (
+                Decimal(str(detail.item.cost_price))
+                if detail.item.cost_price and detail.item.cost_price > 0
+                else Decimal("0")
+            )
             detail_profit = (detail.price - item_cost) * detail.quantity
             total_profit += detail_profit
             total_cost += item_cost * detail.quantity
