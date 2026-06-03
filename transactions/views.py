@@ -42,6 +42,16 @@ from .services import (
 logger = logging.getLogger(__name__)
 
 
+def user_can_delete_transactions(user):
+    """Admins and superusers may delete sales/purchases."""
+    if not user.is_authenticated:
+        return False
+    if user.is_superuser:
+        return True
+    profile = getattr(user, "profile", None)
+    return profile is not None and getattr(profile, "role", None) == "AD"
+
+
 def is_ajax(request):
     return request.META.get('HTTP_X_REQUESTED_WITH') == 'XMLHttpRequest'
 
@@ -182,6 +192,7 @@ class SaleListView(LoginRequiredMixin, ListView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['filter'] = self.filterset
+        context['can_delete_sales'] = user_can_delete_transactions(self.request.user)
         return context
 
 
@@ -370,13 +381,12 @@ class SaleDeleteView(LoginRequiredMixin, UserPassesTestMixin, DeleteView):
     def delete(self, request, *args, **kwargs):
         self.object = self.get_object()
         delete_inventory_transaction_and_sync(self.object.inventory_transaction)
+        for payment in self.object.customer_payments.all():
+            delete_inventory_transaction_and_sync(payment.inventory_transaction)
         return super().delete(request, *args, **kwargs)
 
     def test_func(self):
-        """
-        Allow deletion only for superusers.
-        """
-        return self.request.user.is_superuser
+        return user_can_delete_transactions(self.request.user)
 
 
 class PurchaseListView(LoginRequiredMixin, ListView):
@@ -411,6 +421,9 @@ class PurchaseListView(LoginRequiredMixin, ListView):
         context['filter'] = self.filterset
         context["total_outstanding"] = sum(
             [purchase.amount_remaining for purchase in context["purchases"]]
+        )
+        context["can_delete_purchases"] = user_can_delete_transactions(
+            self.request.user
         )
         return context
 
@@ -578,10 +591,7 @@ class PurchaseDeleteView(LoginRequiredMixin, UserPassesTestMixin, DeleteView):
         return super().delete(request, *args, **kwargs)
 
     def test_func(self):
-        """
-        Allow deletion only for superusers.
-        """
-        return self.request.user.is_superuser
+        return user_can_delete_transactions(self.request.user)
 
 
 class StockLedgerView(LoginRequiredMixin, ListView):

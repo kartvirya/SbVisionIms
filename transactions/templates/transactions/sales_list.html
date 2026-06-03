@@ -33,12 +33,8 @@
         <div class="card-body">
             <form method="get" class="row g-3">
                 <div class="col-md-3">
-                    <label class="form-label">Customer</label>
+                    <label class="form-label">{{ filter.form.customer.label }}</label>
                     {{ filter.form.customer }}
-                </div>
-                <div class="col-md-3">
-                    <label class="form-label">Customer Name</label>
-                    {{ filter.form.customer_name }}
                 </div>
                 <div class="col-md-2">
                     <label class="form-label">Date From</label>
@@ -57,7 +53,7 @@
                     {{ filter.form.max_total }}
                 </div>
                 <div class="col-md-3">
-                    <label class="form-label">Sort By</label>
+                    <label class="form-label">{{ filter.form.ordering.label }}</label>
                     {{ filter.form.ordering }}
                 </div>
                 <div class="col-md-12">
@@ -111,10 +107,15 @@
                     <td>{{ sale.tax_percentage }}%</td>
                     <td>Rs {{ sale.amount_paid }}</td>
                     <td>Rs {{ sale.amount_change }}</td>
-                    <td>
+                    <td class="text-nowrap">
                         <a class="btn btn-outline-info btn-sm" href="{% url 'sale-detail' sale.id %}" title="View Bill/Receipt">
-                            <i class="fa-solid fa-eye"></i> View Bill
+                            <i class="fa-solid fa-eye"></i>
                         </a>
+                        {% if can_delete_sales %}
+                        <a class="btn btn-outline-danger btn-sm" href="{% url 'sale-delete' sale.id %}" title="Delete sale">
+                            <i class="fa-solid fa-trash"></i>
+                        </a>
+                        {% endif %}
                     </td>
                 </tr>
                 {% endfor %}

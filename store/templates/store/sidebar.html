@@ -255,17 +255,19 @@
             </li>
 
             <li class="nav-item mt-2">
-                <span class="nav-link disabled text-uppercase py-1 px-3 sidebar-text text-secondary" style="font-size:0.68rem;letter-spacing:0.06em;opacity:0.85;">Ledgers</span>
+                <span class="nav-link disabled text-uppercase py-1 px-3 sidebar-text text-secondary" style="font-size:0.68rem;letter-spacing:0.06em;opacity:0.85;">Reports</span>
             </li>
-            <li class="nav-item dropdown">
-                <a class="nav-link text-light {% with u=','|add:request.resolver_match.url_name|add:',' %}{% if u in ',stock-ledger,payables-aging,' %}active{% endif %}{% endwith %} dropdown-toggle" href="#" id="ledgersDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false" data-bs-toggle="tooltip" data-bs-placement="right" title="Ledgers &amp; reports">
-                    <i class="fa-solid fa-clipboard-list fa-fw"></i>
-                    <span class="sidebar-text">Ledgers</span>
+            <li class="nav-item">
+                <a class="nav-link text-light {% if request.resolver_match.url_name == 'stock-ledger' %}active{% endif %}" href="{% url 'stock-ledger' %}" data-bs-toggle="tooltip" data-bs-placement="right" title="Stock Ledger">
+                    <i class="fa-solid fa-warehouse fa-fw"></i>
+                    <span class="sidebar-text">Stock Ledger</span>
                 </a>
-                <ul class="dropdown-menu bg-dark border-0" aria-labelledby="ledgersDropdown">
-                    <li><a class="dropdown-item text-light {% if request.resolver_match.url_name == 'stock-ledger' %}active{% endif %}" href="{% url 'stock-ledger' %}"><i class="fa-solid fa-warehouse me-2" style="color: #000000;"></i>Stock Ledger</a></li>
-                    <li><a class="dropdown-item text-light {% if request.resolver_match.url_name == 'payables-aging' %}active{% endif %}" href="{% url 'payables-aging' %}"><i class="fa-solid fa-hand-holding-dollar me-2" style="color: #000000;"></i>Payables Book</a></li>
-                </ul>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link text-light {% if request.resolver_match.url_name == 'payables-aging' %}active{% endif %}" href="{% url 'payables-aging' %}" data-bs-toggle="tooltip" data-bs-placement="right" title="Payables Book">
+                    <i class="fa-solid fa-hand-holding-dollar fa-fw"></i>
+                    <span class="sidebar-text">Payables Book</span>
+                </a>
             </li>
 
             <li class="nav-item mt-2">
