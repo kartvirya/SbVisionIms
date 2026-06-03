@@ -258,6 +258,9 @@
         list_item: function () {
             // Calculate the sale
             this.calculate_sale();
+            this.products.items.forEach(function (item, idx) {
+                item.cartIndex = idx;
+            });
 
             tblItems = $("#table_items").DataTable({
                 destroy: true,
@@ -508,9 +511,9 @@
 
         // Tables Events
         $('#table_items tbody').on('click', 'a[rel="delete"]', function () {
-            // When an item is deleted
-            var tr = tblItems.cell($(this).closest('td, li')).index();
-            item_name = (tblItems.row(tr.row).data().name);
+            var rowData = tblItems.row($(this).closest('tr')).data();
+            var cartIndex = rowData.cartIndex;
+            var item_name = rowData.name;
 
             Swal.fire({
                 customClass: {
@@ -528,39 +531,36 @@
             }).then((result) => {
                 // If confirmed
                 if (result.isConfirmed) {
-                    // Delete the item
-                    sale.products.items.splice(tr.row, 1);
-                    // List the table again
+                    sale.products.items.splice(cartIndex, 1);
                     sale.list_item();
                     Swal.fire('The item was eliminated!', '', 'success');
                 }
             });
         }).on('change keyup', 'input[name="quantity"]', function () {
-            // When an item changes its quantity
-            var quantity = parseInt($(this).val());
-            var tr = tblItems.cell($(this).closest('td, li')).index();
-            // Update the item quantity in the sale object
-            sale.products.items[tr.row].quantity = quantity;
-            // Calculate the sale with the new quantity
+            var quantity = parseInt($(this).val(), 10);
+            var rowData = tblItems.row($(this).closest('tr')).data();
+            var cartIndex = rowData.cartIndex;
+            sale.products.items[cartIndex].quantity = quantity;
             sale.calculate_sale();
-            // Find the row to update the item total
-            $('td:eq(5)', tblItems.row(tr.row).node()).html(sale.products.items[tr.row].total_item + ' Rs');
+            var rowNode = tblItems.row($(this).closest('tr')).node();
+            $('td:eq(5)', rowNode).html(sale.products.items[cartIndex].total_item + ' Rs');
         }).on('change', 'select[name="variant"]', function () {
             var variantId = $(this).val();
-            var tr = tblItems.cell($(this).closest('td, li')).index();
-            var rowIndex = tr.row;
-            var item = sale.products.items[rowIndex];
+            var rowData = tblItems.row($(this).closest('tr')).data();
+            var cartIndex = rowData.cartIndex;
+            var item = sale.products.items[cartIndex];
             item.selected_variant = variantId ? parseInt(variantId, 10) : null;
             sale.calculate_sale();
             var displayPrice = item.current_price || item.price;
-            $('td:eq(3)', tblItems.row(rowIndex).node()).html(parseFloat(displayPrice).toFixed(2) + ' Rs');
-            $('td:eq(5)', tblItems.row(rowIndex).node()).html(item.total_item + ' Rs');
+            var rowNode = tblItems.row($(this).closest('tr')).node();
+            $('td:eq(3)', rowNode).html(parseFloat(displayPrice).toFixed(2) + ' Rs');
+            $('td:eq(5)', rowNode).html(item.total_item + ' Rs');
             var maxQty = parseInt(item.stock, 10) || 9999;
             if (item.selected_variant && item.variations) {
                 var sel = item.variations.find(function (v) { return v.id == item.selected_variant; });
                 if (sel) maxQty = parseInt(sel.quantity, 10) || maxQty;
             }
-            var $qtyInput = $(tblItems.row(rowIndex).node()).find("input[name='quantity']");
+            var $qtyInput = $(rowNode).find("input[name='quantity']");
             if ($qtyInput.data('TouchSpin')) {
                 $qtyInput.trigger('touchspin.updatesettings', { max: maxQty });
             }
@@ -650,6 +650,15 @@
                 return;
             }
 
+            if (!sale.products.items.length) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'No items',
+                    text: 'Add at least one product before completing the sale.'
+                });
+                return;
+            }
+
             // Gather sale details
             var amountPaid = parseFloat($('input[name="amount_paid"]').val());
             var grandTotal = parseFloat($('input[name="grand_total"]').val());
@@ -700,7 +709,10 @@
                 },
                 data: JSON.stringify(formData),
                 success: function (response) {
-                    // Handle success response
+                    if (response.redirect) {
+                        window.location.href = response.redirect;
+                        return;
+                    }
                     sale.products.items = [];
                     sale.list_item();
                     $('form#form_sale').trigger('reset');

@@ -5,10 +5,15 @@ from django.test import TestCase
 from accounts.models import Customer, Vendor
 from store.models import Category, Item
 from transactions.models import InventoryTransaction, LedgerEntry, Purchase, VendorPayment
+from store.models import ProductVariation
+from store.stock_utils import get_ledger_stock, get_sellable_stock
 from transactions.services import (
+    create_payable_quick_entry,
     create_sale_transaction,
     get_payables_aging,
     get_payables_aging_report,
+    post_vendor_payment_ledger,
+    reconcile_ledger_stock_to_target,
     sync_purchase_inventory_transaction,
     update_vendor_payables_adjustment,
 )
@@ -173,4 +178,102 @@ class PaymentAndCogsTests(TestCase):
                 account="Inventory",
                 credit=Decimal("20"),
             ).exists()
+        )
+
+
+class StockAndPayablesFixTests(TestCase):
+    def setUp(self):
+        self.vendor = Vendor.objects.create(name="Vendor C")
+        self.category = Category.objects.create(name="General")
+        self.item = Item.objects.create(
+            name="Variant Shirt",
+            description="Test",
+            category=self.category,
+            quantity=0,
+            price=100,
+            cost_price=40,
+            vendor=self.vendor,
+        )
+        self.customer = Customer.objects.create(first_name="Alex", last_name=None)
+        self.variation = ProductVariation.objects.create(
+            item=self.item,
+            variation_type="size",
+            name="M",
+            quantity=5,
+            is_active=True,
+        )
+        purchase = Purchase.objects.create(
+            item=self.item,
+            vendor=self.vendor,
+            quantity=10,
+            price=10,
+            receipt_status="S",
+            discount_amount=0,
+            vat_percentage=0,
+            amount_paid=0,
+        )
+        sync_purchase_inventory_transaction(purchase=purchase)
+
+    def test_customer_name_without_last_name(self):
+        self.assertEqual(str(self.customer), "Alex")
+        self.assertEqual(self.customer.get_full_name(), "Alex")
+
+    def test_reconcile_ledger_adjustment_is_idempotent(self):
+        reconcile_ledger_stock_to_target(self.item, 7, notes="first")
+        reconcile_ledger_stock_to_target(self.item, 9, notes="second")
+        self.assertEqual(get_ledger_stock(self.item), 9)
+        self.assertEqual(
+            InventoryTransaction.objects.filter(
+                source_ref=f"adjustment:item:{self.item.id}"
+            ).count(),
+            1,
+        )
+
+    def test_variant_sale_deducts_variant_not_ledger(self):
+        ledger_before = get_ledger_stock(self.item)
+        create_sale_transaction(
+            customer=self.customer,
+            items=[
+                {
+                    "item": self.item.pk,
+                    "quantity": 2,
+                    "unit_price": Decimal("120"),
+                    "variation_id": self.variation.pk,
+                }
+            ],
+        )
+        self.variation.refresh_from_db()
+        self.assertEqual(self.variation.quantity, 3)
+        self.assertEqual(get_ledger_stock(self.item), ledger_before)
+        self.assertEqual(get_sellable_stock(self.item), ledger_before)
+
+    def test_base_sale_uses_ledger_not_variant_pool(self):
+        self.assertEqual(get_sellable_stock(self.item), get_ledger_stock(self.item))
+
+    def test_payable_quick_entry_creates_vendor_payment(self):
+        purchase = create_payable_quick_entry(
+            self.vendor,
+            bill_number="QB-1",
+            net_amount=Decimal("500"),
+            amount_paid=Decimal("100"),
+        )
+        self.assertEqual(purchase.vendor_payments.count(), 1)
+        self.assertEqual(purchase.amount_paid, Decimal("100"))
+        payment = purchase.vendor_payments.first()
+        self.assertTrue(
+            LedgerEntry.objects.filter(
+                account="Cash",
+                credit=Decimal("100"),
+            ).exists()
+        )
+        post_vendor_payment_ledger(payment=payment)
+        payment.amount = Decimal("150")
+        payment.save()
+        post_vendor_payment_ledger(payment=payment)
+        self.assertEqual(
+            LedgerEntry.objects.filter(
+                account="Cash",
+                credit=Decimal("150"),
+            ).count(),
+            1,
         )

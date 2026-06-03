@@ -8,6 +8,7 @@ from django.http import JsonResponse, HttpResponse, HttpResponseRedirect
 from django.urls import reverse
 from django.shortcuts import render
 from django.db import transaction
+from django.db.models import Sum
 from django.contrib import messages
 
 # Class-based views
@@ -16,6 +17,7 @@ from django.views.generic import DetailView, ListView
 from django.views.generic.edit import CreateView, UpdateView, DeleteView
 
 # Authentication and permissions
+from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 
 # Third-party packages
@@ -61,6 +63,7 @@ def is_ajax(request):
     return request.META.get('HTTP_X_REQUESTED_WITH') == 'XMLHttpRequest'
 
 
+@login_required
 def export_sales_to_excel(request):
     # Create a workbook and select the active worksheet.
     workbook = Workbook()
@@ -85,10 +88,11 @@ def export_sales_to_excel(request):
         else:
             date_added = sale.date_added
 
+        customer = sale.customer
         worksheet.append([
             sale.id,
             date_added,
-            sale.customer.phone,
+            customer.get_full_name() if customer else "",
             sale.sub_total,
             sale.grand_total,
             sale.tax_amount,
@@ -109,6 +113,7 @@ def export_sales_to_excel(request):
     return response
 
 
+@login_required
 def export_purchases_to_excel(request):
     # Create a workbook and select the active worksheet.
     workbook = Workbook()
@@ -285,6 +290,7 @@ class SaleUpdateView(LoginRequiredMixin, UpdateView):
         return reverse("sale-detail", kwargs={"pk": self.object.pk})
 
 
+@login_required
 def SaleCreateView(request):
     context = {
         "active_icon": "sales",
@@ -452,10 +458,21 @@ class SaleDeleteView(LoginRequiredMixin, UserPassesTestMixin, DeleteView):
         return reverse("saleslist")
 
     def delete(self, request, *args, **kwargs):
+        from transactions.services import sync_item_quantity_cache
+
         self.object = self.get_object()
+        affected_items = []
+        for detail in self.object.saledetail_set.select_related("variation", "item"):
+            if detail.variation_id:
+                variation = detail.variation
+                variation.quantity = int(variation.quantity or 0) + int(detail.quantity)
+                variation.save(update_fields=["quantity"])
+                affected_items.append(detail.item)
         delete_inventory_transaction_and_sync(self.object.inventory_transaction)
         for payment in self.object.customer_payments.all():
             delete_inventory_transaction_and_sync(payment.inventory_transaction)
+        if affected_items:
+            sync_item_quantity_cache(affected_items)
         return super().delete(request, *args, **kwargs)
 
     def test_func(self):
@@ -492,9 +509,10 @@ class PurchaseListView(LoginRequiredMixin, ListView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['filter'] = self.filterset
-        context["total_outstanding"] = sum(
-            [purchase.amount_remaining for purchase in context["purchases"]]
-        )
+        outstanding = self.filterset.qs.aggregate(
+            total=Sum("amount_remaining")
+        )["total"]
+        context["total_outstanding"] = outstanding or Decimal("0")
         context["can_delete_purchases"] = user_can_delete_transactions(
             self.request.user
         )

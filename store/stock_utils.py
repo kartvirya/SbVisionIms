@@ -66,7 +66,11 @@ def get_item_current_stock(item):
 
 
 def get_sellable_stock(item, variation_id=None):
-    """Stock available for a sale line (variant row or combined total)."""
+    """
+    Stock available for a sale line.
+    Variant sales use that variant's quantity; base sales use ledger only
+    (variant pools are not sold without selecting a variant).
+    """
     if variation_id:
         from store.models import ProductVariation
 
@@ -75,4 +79,5 @@ def get_sellable_stock(item, variation_id=None):
         ).first()
         if variation:
             return int(variation.quantity or 0)
-    return get_item_current_stock(item)
+        return 0
+    return get_ledger_stock(item)

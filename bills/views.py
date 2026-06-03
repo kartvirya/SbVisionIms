@@ -17,7 +17,6 @@ from django_tables2.export.views import ExportMixin
 
 # Local app imports
 from .models import Bill
-from accounts.models import Profile
 from .filters import BillFilter
 
 
@@ -76,8 +75,8 @@ class BillUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
     ]
 
     def test_func(self):
-        """Check if the user has the required permissions."""
-        return self.request.user.profile in Profile.objects.all()
+        """Only superusers may edit bills."""
+        return self.request.user.is_superuser
 
     def get_success_url(self):
         """Redirect to the list of bills after a successful update."""

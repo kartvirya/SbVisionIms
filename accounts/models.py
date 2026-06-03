@@ -137,11 +137,14 @@ class Customer(models.Model):
     class Meta:
         db_table = 'Customers'
 
-    def __str__(self) -> str:
-        return self.first_name + " " + self.last_name
-
     def get_full_name(self):
-        return self.first_name + " " + self.last_name
+        last = (self.last_name or "").strip()
+        if last:
+            return f"{self.first_name} {last}"
+        return self.first_name
+
+    def __str__(self) -> str:
+        return self.get_full_name()
 
     def to_select2(self):
         item = {

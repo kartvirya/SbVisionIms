@@ -43,7 +43,7 @@ class InvoiceListView(LoginRequiredMixin, ExportMixin, SingleTableView):
         return context
 
 
-class InvoiceDetailView(DetailView):
+class InvoiceDetailView(LoginRequiredMixin, DetailView):
     """
     View for displaying invoice details.
     """

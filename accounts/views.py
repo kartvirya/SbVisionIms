@@ -105,7 +105,7 @@ class ProfileListView(LoginRequiredMixin, ExportMixin, SingleTableView):
     table_pagination = False
 
 
-class ProfileCreateView(LoginRequiredMixin, CreateView):
+class ProfileCreateView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
     """
     Create a new profile.
     Requires user to be logged in and have superuser status.

@@ -146,9 +146,14 @@ class Item(models.Model):
         product['text'] = self.name
         product['category'] = self.category.name
         product['price'] = float(self.price or 0)
-        on_hand = self.get_current_stock()
-        product['stock'] = on_hand
-        product['base_stock'] = on_hand
+        from store.stock_utils import get_ledger_stock, get_item_current_stock
+
+        has_variations = bool(variations)
+        product['stock'] = (
+            get_ledger_stock(self) if has_variations else get_item_current_stock(self)
+        )
+        product['base_stock'] = product['stock']
+        product['total_stock'] = get_item_current_stock(self)
         product['quantity'] = 1
         product['total_product'] = 0
         return product

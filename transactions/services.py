@@ -60,6 +60,7 @@ def get_available_stock(item: Item) -> Decimal:
     return (totals["stock_in"] or Decimal("0")) - (totals["stock_out"] or Decimal("0"))
 
 
+@db_transaction.atomic
 def delete_inventory_transaction_and_sync(transaction_obj):
     """Remove a posted inventory transaction and refresh affected item quantity caches."""
     if not transaction_obj:
@@ -90,7 +91,17 @@ def reconcile_ledger_stock_to_target(item, target_ledger_qty, notes="Stock adjus
     """
     from store.stock_utils import get_ledger_stock
 
-    target = int(target_ledger_qty)
+    source_ref = f"adjustment:item:{item.id}"
+    existing = InventoryTransaction.objects.filter(
+        source_ref=source_ref,
+        transaction_type=InventoryTransaction.TransactionType.ADJUSTMENT,
+    ).first()
+    if existing:
+        StockMovement.objects.filter(transaction=existing).delete()
+        InventoryTransactionItem.objects.filter(transaction=existing).delete()
+        existing.delete()
+
+    target = int(_to_decimal(target_ledger_qty))
     current = int(get_ledger_stock(item))
     delta = target - current
     if delta == 0:
@@ -104,7 +115,7 @@ def reconcile_ledger_stock_to_target(item, target_ledger_qty, notes="Stock adjus
         transaction_type=InventoryTransaction.TransactionType.ADJUSTMENT,
         status=InventoryTransaction.TransactionStatus.POSTED,
         notes=notes,
-        source_ref=f"adjustment:item:{item.id}",
+        source_ref=source_ref,
     )
     qty = abs(delta)
     line = InventoryTransactionItem.objects.create(
@@ -304,11 +315,21 @@ def create_sale_transaction(*, customer: Customer, items, notes=""):
                 "item": item,
                 "quantity": quantity,
                 "unit_price": _to_decimal(row["unit_price"]),
+                "variation_id": variation_id,
             }
         )
 
     created_items = _build_items(transaction_obj, normalized_items)
-    _create_stock_movements(transaction_obj, created_items, StockMovement.MovementType.OUT)
+    ledger_lines = [
+        line
+        for line, row in zip(created_items, normalized_items)
+        if not row.get("variation_id")
+    ]
+    if ledger_lines:
+        _create_stock_movements(
+            transaction_obj, ledger_lines, StockMovement.MovementType.OUT
+        )
+    sync_item_quantity_cache([row["item"] for row in normalized_items])
 
     cogs_total = Decimal("0")
     for line in created_items:
@@ -400,10 +421,22 @@ def post_vendor_payment_ledger(*, payment: VendorPayment):
         source_ref=source_ref,
         transaction_type=InventoryTransaction.TransactionType.PAYMENT,
     ).first()
+    credit_account = "Cash" if payment.method == "cash" else "Bank"
+    ledger_rows = [
+        {"account": "Accounts Payable", "debit": payment.amount, "credit": 0},
+        {"account": credit_account, "debit": 0, "credit": payment.amount},
+    ]
     if existing:
+        existing.total_amount = payment.amount
+        existing.vendor = payment.purchase.vendor
+        existing.notes = (
+            f"Vendor payment #{payment.id} (Purchase #{payment.purchase_id})"
+        )
+        existing.save(update_fields=["total_amount", "vendor", "notes"])
+        LedgerEntry.objects.filter(transaction=existing).delete()
+        _create_ledger_entries(existing, ledger_rows)
         return existing
 
-    credit_account = "Cash" if payment.method == "cash" else "Bank"
     txn = InventoryTransaction.objects.create(
         transaction_type=InventoryTransaction.TransactionType.PAYMENT,
         status=InventoryTransaction.TransactionStatus.POSTED,
@@ -412,13 +445,7 @@ def post_vendor_payment_ledger(*, payment: VendorPayment):
         source_ref=source_ref,
         total_amount=payment.amount,
     )
-    _create_ledger_entries(
-        txn,
-        [
-            {"account": "Accounts Payable", "debit": payment.amount, "credit": 0},
-            {"account": credit_account, "debit": 0, "credit": payment.amount},
-        ],
-    )
+    _create_ledger_entries(txn, ledger_rows)
     VendorPayment.objects.filter(pk=payment.pk).update(inventory_transaction=txn)
     return txn
 
@@ -431,10 +458,22 @@ def post_customer_payment_ledger(*, payment: CustomerPayment):
         source_ref=source_ref,
         transaction_type=InventoryTransaction.TransactionType.PAYMENT,
     ).first()
+    debit_account = "Cash" if payment.method == "cash" else "Bank"
+    ledger_rows = [
+        {"account": debit_account, "debit": payment.amount, "credit": 0},
+        {"account": "Accounts Receivable", "debit": 0, "credit": payment.amount},
+    ]
     if existing:
+        existing.total_amount = payment.amount
+        existing.customer = payment.sale.customer
+        existing.notes = (
+            f"Customer payment #{payment.id} (Sale #{payment.sale_id})"
+        )
+        existing.save(update_fields=["total_amount", "customer", "notes"])
+        LedgerEntry.objects.filter(transaction=existing).delete()
+        _create_ledger_entries(existing, ledger_rows)
         return existing
 
-    debit_account = "Cash" if payment.method == "cash" else "Bank"
     txn = InventoryTransaction.objects.create(
         transaction_type=InventoryTransaction.TransactionType.PAYMENT,
         status=InventoryTransaction.TransactionStatus.POSTED,
@@ -443,13 +482,7 @@ def post_customer_payment_ledger(*, payment: CustomerPayment):
         source_ref=source_ref,
         total_amount=payment.amount,
     )
-    _create_ledger_entries(
-        txn,
-        [
-            {"account": debit_account, "debit": payment.amount, "credit": 0},
-            {"account": "Accounts Receivable", "debit": 0, "credit": payment.amount},
-        ],
-    )
+    _create_ledger_entries(txn, ledger_rows)
     CustomerPayment.objects.filter(pk=payment.pk).update(inventory_transaction=txn)
     return txn
 
@@ -660,10 +693,12 @@ def create_payable_quick_entry(
     net_amount=0,
     amount_paid=0,
     description="",
+    payment_method="cash",
 ):
     """
     Create a purchase bill for the payables book (no stock posted until marked Received).
     """
+    amount_paid_dec = _to_decimal(amount_paid)
     purchase = Purchase(
         vendor=vendor,
         bill_number=(bill_number or "").strip(),
@@ -673,9 +708,16 @@ def create_payable_quick_entry(
         discount_amount=Decimal("0"),
         vat_percentage=0,
         vat_amount=Decimal("0"),
-        amount_paid=_to_decimal(amount_paid),
+        amount_paid=Decimal("0"),
         receipt_status="P",
         description=(description or "").strip() or None,
     )
     purchase.save()
+    if amount_paid_dec > 0:
+        VendorPayment.objects.create(
+            purchase=purchase,
+            amount=amount_paid_dec,
+            method=payment_method if payment_method in ("cash", "bank") else "cash",
+        )
+        purchase.refresh_from_db()
     return purchase
