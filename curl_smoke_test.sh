@@ -2,6 +2,7 @@
 set -euo pipefail
 
 BASE_URL="${1:-http://127.0.0.1:8000}"
+BASE_URL="${BASE_URL%/}"
 USERNAME="${2:-qa_admin}"
 PASSWORD="${3:-qa-pass-123}"
 COOKIE_JAR="$(mktemp)"

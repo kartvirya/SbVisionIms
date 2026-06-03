@@ -3,8 +3,11 @@
 set -euo pipefail
 
 BASE_URL="${1:-http://127.0.0.1:8000}"
+BASE_URL="${BASE_URL%/}"
 USERNAME="${2:-admin}"
 PASSWORD="${3:-admin}"
+PROD_SSH_HOST="${PROD_SSH_HOST:-root@157.230.234.42}"
+PROD_APP_DIR="${PROD_APP_DIR:-/var/www/inventory_ms}"
 COOKIE_JAR="$(mktemp)"
 BODY="$(mktemp)"
 FAILURES=0
@@ -17,26 +20,33 @@ pass() { echo "PASS: $1"; PASSES=$((PASSES + 1)); }
 fail() { echo "FAIL: $1"; FAILURES=$((FAILURES + 1)); }
 
 db() {
-  uv run manage.py shell -c "$1" 2>/dev/null | tr -d '\r' | tail -n 1
+  local out=""
+  if [[ "$BASE_URL" == *sbvision.com.np* ]]; then
+    out="$(ssh -o BatchMode=yes "$PROD_SSH_HOST" "cd '$PROD_APP_DIR' && source venv/bin/activate && set -a && source .env && set +a && python manage.py shell --settings=InventoryMS.settings_production -c $(printf '%q' "$1")" 2>/dev/null | tr -d '\r' | tail -n 1)" || true
+  else
+    out="$(uv run manage.py shell -c "$1" 2>/dev/null | tr -d '\r' | tail -n 1)" || true
+  fi
+  printf '%s' "$out"
 }
 
 curl_get() {
-  curl -sS -b "$COOKIE_JAR" -c "$COOKIE_JAR" -o "$BODY" -w "%{http_code}" "$1"
+  curl -sS -b "$COOKIE_JAR" -c "$COOKIE_JAR" -o "$BODY" -w "%{http_code}" \
+    -e "${BASE_URL}/" "$1"
 }
 
 curl_post_form() {
   curl -sS -b "$COOKIE_JAR" -c "$COOKIE_JAR" -o "$BODY" -w "%{http_code}" \
-    -X POST -H "Content-Type: application/x-www-form-urlencoded" --data "$2" "$1"
+    -X POST -e "$1" -H "Content-Type: application/x-www-form-urlencoded" --data "$2" "$1"
 }
 
 curl_post_json() {
   curl -sS -b "$COOKIE_JAR" -c "$COOKIE_JAR" -o "$BODY" -w "%{http_code}" \
-    -X POST -H "Content-Type: application/json" -H "X-Requested-With: XMLHttpRequest" \
+    -X POST -e "$1" -H "Content-Type: application/json" -H "X-Requested-With: XMLHttpRequest" \
     -H "X-CSRFToken: ${CSRF_TOKEN}" -d "$2" "$1"
 }
 
 login() {
-  curl -sS -c "$COOKIE_JAR" "${BASE_URL}/accounts/login/" -o /dev/null
+  curl -sS -c "$COOKIE_JAR" -e "${BASE_URL}/accounts/login/" "${BASE_URL}/accounts/login/" -o /dev/null
   CSRF_TOKEN="$(awk '$6 == "csrftoken" {print $7}' "$COOKIE_JAR" | tail -n 1)"
   local code
   code="$(curl_post_form "${BASE_URL}/accounts/login/" \
@@ -146,6 +156,7 @@ echo
 echo "-- Item search (AJAX) --"
 CSRF_TOKEN="$(awk '$6 == "csrftoken" {print $7}' "$COOKIE_JAR" | tail -n 1)"
 code="$(curl -sS -b "$COOKIE_JAR" -o "$BODY" -w "%{http_code}" -X POST \
+  -e "${BASE_URL}/transactions/new-sale/" \
   -H "X-Requested-With: XMLHttpRequest" \
   -H "Content-Type: application/x-www-form-urlencoded" \
   --data "term=a&csrfmiddlewaretoken=${CSRF_TOKEN}" \
@@ -156,7 +167,19 @@ else
   fail "Item search (HTTP $code, body=$(head -c 120 "$BODY"))"
 fi
 
-ITEM_ID="$(db "from store.models import Item; o=Item.objects.order_by('id').first(); print(o.id if o else '')")"
+ITEM_ID="$(db "
+from store.models import Item
+from store.stock_utils import get_sellable_stock
+chosen = ''
+for item in Item.objects.order_by('id'):
+    if get_sellable_stock(item) > 0:
+        chosen = str(item.id)
+        break
+if not chosen:
+    o = Item.objects.order_by('id').first()
+    chosen = str(o.id) if o else ''
+print(chosen)
+")"
 if [[ -n "$ITEM_ID" ]]; then
   python3 -c "
 import json
