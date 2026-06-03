@@ -41,7 +41,7 @@ import django_tables2 as tables
 from django_tables2.export.views import ExportMixin
 
 # Local app imports
-from accounts.models import Profile, Vendor, Customer
+from accounts.models import Vendor, Customer
 from transactions.models import Sale, SaleDetail, Purchase
 from .models import Category, Item, Delivery, ProductVariation
 from .forms import ItemForm, CategoryForm, DeliveryForm, ProductVariationFormSet
@@ -55,13 +55,11 @@ def dashboard(request):
     from django.utils import timezone
     from datetime import timedelta
     
-    profiles = Profile.objects.all()
     Category.objects.annotate(nitem=Count("item"))
     items = list(Item.objects.all())
     item_stock_by_id = build_item_stock_map(items)
     total_items = sum(item_stock_by_id.values())
-    items_count = items.count()
-    profiles_count = profiles.count()
+    items_count = len(items)
     
     # Sales statistics
     sales = Sale.objects.all()
@@ -94,7 +92,8 @@ def dashboard(request):
     
     # Calculate profit statistics (coerce floats to Decimal for sale line prices)
     total_cost = sum(
-        Decimal(str(item.cost_price or 0)) * item.quantity
+        Decimal(str(item.cost_price or 0))
+        * item_stock_by_id.get(item.id, item.quantity)
         for item in items
         if item.cost_price and item.cost_price > 0
     )
@@ -149,8 +148,6 @@ def dashboard(request):
 
     context = {
         "items": items,
-        "profiles": profiles,
-        "profiles_count": profiles_count,
         "items_count": items_count,
         "total_items": total_items,
         "vendors": Vendor.objects.all(),

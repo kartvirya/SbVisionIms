@@ -229,7 +229,9 @@ class SaleEditForm(BootstrapMixin, forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["customer"].queryset = Customer.objects.order_by("name")
+        self.fields["customer"].queryset = Customer.objects.order_by(
+            "first_name", "last_name"
+        )
         if self.instance and self.instance.pk and self.instance.customer_payments.exists():
             self.fields["amount_paid"].disabled = True
             self.fields["amount_paid"].help_text = (
