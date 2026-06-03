@@ -303,9 +303,9 @@
                 <ul class="dropdown-menu bg-dark border-0" aria-labelledby="contactsDropdown">
                     <li><a class="dropdown-item text-light {% if request.resolver_match.url_name == 'customer_list' %}active{% endif %}" href="{% url 'customer_list' %}"><i class="fa-solid fa-users me-2" style="color: #000000;"></i>Customers</a></li>
                     <li><a class="dropdown-item text-light {% if request.resolver_match.url_name == 'vendor-list' %}active{% endif %}" href="{% url 'vendor-list' %}"><i class="fa-solid fa-truck-field me-2" style="color: #000000;"></i>Suppliers</a></li>
-                    {# Logistics partners — temporarily hidden
+                    {% comment %}Logistics partners — temporarily hidden
                     <li><a class="dropdown-item text-light {% if request.resolver_match.url_name == 'logistics-list' %}active{% endif %}" href="{% url 'logistics-list' %}"><i class="fa-solid fa-truck me-2" style="color: #000000;"></i>Logistics Partners</a></li>
-                    #}
+                    {% endcomment %}
                 </ul>
             </li>
         </ul>
