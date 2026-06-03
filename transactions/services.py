@@ -73,13 +73,70 @@ def delete_inventory_transaction_and_sync(transaction_obj):
 
 
 def sync_item_quantity_cache(items):
-    """
-    Keep Item.quantity as a cache derived from movement ledger.
-    """
+    """Keep Item.quantity cache aligned with ledger + variant stock."""
+    from store.stock_utils import get_item_current_stock
+
     unique_items = {item.id: item for item in items}.values()
     for item in unique_items:
-        item.quantity = int(get_available_stock(item))
+        item.quantity = get_item_current_stock(item)
         item.save(update_fields=["quantity"])
+
+
+@db_transaction.atomic
+def reconcile_ledger_stock_to_target(item, target_ledger_qty, notes="Stock adjustment"):
+    """
+    Post an inventory adjustment so ledger on-hand matches target_ledger_qty.
+    Variant quantities are managed separately and added to displayed totals.
+    """
+    from store.stock_utils import get_ledger_stock
+
+    target = int(target_ledger_qty)
+    current = int(get_ledger_stock(item))
+    delta = target - current
+    if delta == 0:
+        sync_item_quantity_cache([item])
+        return None
+
+    movement_type = (
+        StockMovement.MovementType.IN if delta > 0 else StockMovement.MovementType.OUT
+    )
+    txn = InventoryTransaction.objects.create(
+        transaction_type=InventoryTransaction.TransactionType.ADJUSTMENT,
+        status=InventoryTransaction.TransactionStatus.POSTED,
+        notes=notes,
+        source_ref=f"adjustment:item:{item.id}",
+    )
+    qty = abs(delta)
+    line = InventoryTransactionItem.objects.create(
+        transaction=txn,
+        item=item,
+        quantity=qty,
+        unit_price=Decimal("0"),
+        line_total=Decimal("0"),
+    )
+    StockMovement.objects.create(
+        item=item,
+        transaction=txn,
+        movement_type=movement_type,
+        quantity=qty,
+    )
+    txn.total_amount = Decimal("0")
+    txn.save(update_fields=["total_amount"])
+    sync_item_quantity_cache([item])
+    return txn
+
+
+def deduct_variant_stock(variation_id, quantity):
+    """Reduce variant quantity after a sale."""
+    from store.models import ProductVariation
+
+    variation = ProductVariation.objects.select_for_update().get(pk=variation_id)
+    new_qty = int(variation.quantity or 0) - int(quantity)
+    if new_qty < 0:
+        raise ValueError(f"Not enough stock for variant: {variation}")
+    variation.quantity = new_qty
+    variation.save(update_fields=["quantity"])
+    sync_item_quantity_cache([variation.item])
 
 
 def _build_items(transaction_obj, items):
@@ -225,15 +282,23 @@ def create_sale_transaction(*, customer: Customer, items, notes=""):
         notes=notes,
     )
 
+    from store.stock_utils import get_sellable_stock
+
     normalized_items = []
     for row in items:
         item = row["item"]
         if isinstance(item, int):
             item = Item.objects.get(pk=item)
         quantity = _to_decimal(row["quantity"])
-        available_stock = get_available_stock(item)
-        if quantity > available_stock:
-            raise ValueError(f"Not enough stock for item: {item.name}")
+        variation_id = row.get("variation_id")
+        available = get_sellable_stock(item, variation_id=variation_id)
+        if quantity > available:
+            label = item.name
+            if variation_id:
+                label += " (selected variant)"
+            raise ValueError(f"Not enough stock for: {label}")
+        if variation_id:
+            deduct_variant_stock(variation_id, int(quantity))
         normalized_items.append(
             {
                 "item": item,

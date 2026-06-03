@@ -148,6 +148,7 @@ class Item(models.Model):
         product['price'] = float(self.price or 0)
         on_hand = self.get_current_stock()
         product['stock'] = on_hand
+        product['base_stock'] = on_hand
         product['quantity'] = 1
         product['total_product'] = 0
         return product

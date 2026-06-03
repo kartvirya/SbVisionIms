@@ -47,7 +47,8 @@ from .models import Category, Item, Delivery, ProductVariation
 from .forms import ItemForm, CategoryForm, DeliveryForm, ProductVariationFormSet
 from .tables import ItemTable
 from .filters import ProductFilter, DeliveryFilter
-from .stock_utils import build_item_stock_map
+from .stock_utils import build_item_stock_map, get_variant_stock_total
+from transactions.services import reconcile_ledger_stock_to_target, sync_item_quantity_cache
 
 
 @login_required
@@ -282,6 +283,15 @@ class ProductCreateView(LoginRequiredMixin, CreateView):
             context['variation_formset'] = ProductVariationFormSet()
         return context
 
+    def _sync_product_stock(self, item, form):
+        variant_total = get_variant_stock_total(item)
+        desired_total = int(form.cleaned_data.get("quantity") or 0)
+        ledger_target = max(0, desired_total - variant_total)
+        reconcile_ledger_stock_to_target(
+            item, ledger_target, notes=f"Product create #{item.pk}"
+        )
+        sync_item_quantity_cache([item])
+
     def form_valid(self, form):
         context = self.get_context_data()
         variation_formset = context['variation_formset']
@@ -290,6 +300,7 @@ class ProductCreateView(LoginRequiredMixin, CreateView):
             self.object = form.save()
             variation_formset.instance = self.object
             variation_formset.save()
+            self._sync_product_stock(self.object, form)
             return super().form_valid(form)
         else:
             return self.form_invalid(form)
@@ -332,6 +343,15 @@ class ProductUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
             )
         return context
 
+    def _sync_product_stock(self, item, form):
+        variant_total = get_variant_stock_total(item)
+        desired_total = int(form.cleaned_data.get("quantity") or 0)
+        ledger_target = max(0, desired_total - variant_total)
+        reconcile_ledger_stock_to_target(
+            item, ledger_target, notes=f"Product update #{item.pk}"
+        )
+        sync_item_quantity_cache([item])
+
     def form_valid(self, form):
         context = self.get_context_data()
         variation_formset = context['variation_formset']
@@ -340,6 +360,7 @@ class ProductUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
             self.object = form.save()
             variation_formset.instance = self.object
             variation_formset.save()
+            self._sync_product_stock(self.object, form)
             return super().form_valid(form)
         else:
             return self.form_invalid(form)
@@ -347,8 +368,8 @@ class ProductUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
     def test_func(self):
         if self.request.user.is_superuser:
             return True
-        else:
-            return False
+        profile = getattr(self.request.user, "profile", None)
+        return profile is not None and getattr(profile, "role", None) == "AD"
 
 
 class ProductDeleteView(LoginRequiredMixin, UserPassesTestMixin, DeleteView):

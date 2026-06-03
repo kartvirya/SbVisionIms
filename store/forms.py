@@ -31,7 +31,10 @@ class ItemForm(forms.ModelForm):
                 }
             ),
             'category': forms.Select(attrs={'class': 'form-control'}),
-            'quantity': forms.NumberInput(attrs={'class': 'form-control'}),
+            'quantity': forms.NumberInput(attrs={
+                'class': 'form-control',
+                'min': '0',
+            }),
             'cost_price': forms.NumberInput(
                 attrs={
                     'class': 'form-control',
@@ -68,6 +71,7 @@ class ItemForm(forms.ModelForm):
             'cost_price': 'Cost Price (Rs)',
             'price': 'Selling Price (Rs)',
             'low_stock_threshold': 'Low Stock Alert Threshold',
+            'quantity': 'Total stock (base + all variant quantities)',
         }
 
 

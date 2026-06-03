@@ -50,7 +50,12 @@
                 <tbody>
                     {% for detail in sale_details %}
                     <tr>
-                        <td>{{ detail.item.name }}</td>
+                        <td>
+                            {{ detail.item.name }}
+                            {% if detail.variation %}
+                            <br><small class="text-muted">{{ detail.variation.get_variation_type_display }}: {{ detail.variation.name }}</small>
+                            {% endif %}
+                        </td>
                         <td class="text-end">{{ detail.quantity }}</td>
                         <td class="text-end">Rs {{ detail.price }}</td>
                         <td class="text-end">Rs {{ detail.total_detail }}</td>

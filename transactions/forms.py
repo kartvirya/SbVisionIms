@@ -216,7 +216,7 @@ class SaleEditForm(BootstrapMixin, forms.ModelForm):
         fields = ["customer", "tax_percentage", "tax_amount", "amount_paid"]
         labels = {
             "customer": "Customer",
-            "tax_percentage": "Tax inclusive (%)",
+            "tax_percentage": "Tax (%)",
             "tax_amount": "Tax amount (Rs)",
             "amount_paid": "Amount paid (Rs)",
         }

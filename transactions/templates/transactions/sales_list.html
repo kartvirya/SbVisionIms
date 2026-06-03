@@ -85,6 +85,7 @@
                 <th>ID</th>
                 <th>Date</th>
                 <th>Customer</th>
+                <th>Products</th>
                 <th>Sub Total</th>
                 <th>Grand Total</th>
                 <th>Tax Amount</th>
@@ -101,6 +102,19 @@
                     <td>{{ sale.id }}</td>
                     <td>{{ sale.date_added|date:"Y-m-d H:i:s" }}</td>
                     <td>{{ sale.customer.get_full_name|default:sale.customer.first_name }}</td>
+                    <td class="text-start small">
+                        {% for detail in sale.saledetail_set.all %}
+                        <div>
+                            {{ detail.item.name }}
+                            {% if detail.variation %}
+                            <span class="badge bg-info">{{ detail.variation.get_variation_type_display }}: {{ detail.variation.name }}</span>
+                            {% endif %}
+                            &times; {{ detail.quantity }} @ Rs {{ detail.price }}
+                        </div>
+                        {% empty %}
+                        <span class="text-muted">—</span>
+                        {% endfor %}
+                    </td>
                     <td>Rs {{ sale.sub_total }}</td>
                     <td><strong>Rs {{ sale.grand_total }}</strong></td>
                     <td>Rs {{ sale.tax_amount }}</td>
@@ -126,7 +140,7 @@
                 {% endfor %}
             {% else %}
                 <tr>
-                    <td colspan="10" class="text-center py-4">
+                    <td colspan="11" class="text-center py-4">
                         <div class="alert alert-info" role="alert">
                             <i class="fa-solid fa-info-circle me-2"></i>
                             No sales found. <a href="{% url 'sale-create' %}" class="alert-link">Create your first sale</a> to get started.

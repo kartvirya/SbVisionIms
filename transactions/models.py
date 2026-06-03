@@ -117,6 +117,13 @@ class SaleDetail(models.Model):
         on_delete=models.DO_NOTHING,
         db_column="item"
     )
+    variation = models.ForeignKey(
+        "store.ProductVariation",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="sale_details",
+    )
     price = models.DecimalField(
         max_digits=10,
         decimal_places=2

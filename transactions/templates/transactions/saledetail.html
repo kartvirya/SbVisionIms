@@ -429,21 +429,12 @@
                     {% for detail in sale_details %}
                     <div style="margin-bottom: 8px; padding: 5px 0; border-bottom: 1px dashed #ccc;">
                         <p style="margin: 0;">
-                            <b>{{ detail.item.name }}</b> 
-                            <span style="float: right;">{{ detail.quantity }} x Rs {{ detail.price }} = Rs {{ detail.total_detail }}</span>
+                            <b>{{ detail.item.name }}</b>
+                            {% if detail.variation %}
+                            <span style="font-size: 11px; color: #333;"> — {{ detail.variation.get_variation_type_display }}: {{ detail.variation.name }}</span>
+                            {% endif %}
+                            <span style="float: right;">{{ detail.quantity }} &times; Rs {{ detail.price }} = Rs {{ detail.total_detail }}</span>
                         </p>
-                        {% with variations=detail.item.variations.all %}
-                        {% if variations %}
-                        <p style="margin: 5px 0 0 0; font-size: 11px; color: #666;">
-                            Variations: 
-                            {% for variation in variations %}
-                            <span style="background: #e0e0e0; padding: 2px 6px; border-radius: 3px; margin-right: 4px;">
-                                {{ variation.get_variation_type_display }}: {{ variation.name }}{% if variation.value %} ({{ variation.value }}){% endif %}
-                            </span>
-                            {% endfor %}
-                        </p>
-                        {% endif %}
-                        {% endwith %}
                     </div>
                     {% endfor %}
                 </div>
@@ -455,13 +446,19 @@
                 </div>
                 <br>
                 <div class="col2">
-                    <p>Tax Amount</p>
+                    <p>Tax ({{ sale.tax_percentage }}%)</p>
                     <p class="prix"><b>Rs {{ sale.tax_amount }}</b></p>
                 </div>
                 <div class="col2">
                     <p>Grand Total</p>
                     <p class="prix"><b>Rs {{ sale.grand_total }}</b></p>
                 </div>
+                {% if sale.tax_amount %}
+                <div class="col2" style="font-size: 11px; color: #666;">
+                    <p>Subtotal + tax</p>
+                    <p>Rs {{ sale.sub_total }} + Rs {{ sale.tax_amount }}</p>
+                </div>
+                {% endif %}
                 <div class="col2">
                     <p>Amount Paid</p>
                     <p class="prix"><b>Rs {{ sale.amount_paid }}</b></p>

@@ -190,7 +190,16 @@ class SaleListView(LoginRequiredMixin, ListView):
     filterset_class = SaleFilter
 
     def get_queryset(self):
-        queryset = super().get_queryset().select_related('customer').order_by('-date_added')
+        queryset = (
+            super()
+            .get_queryset()
+            .select_related("customer")
+            .prefetch_related(
+                "saledetail_set__item",
+                "saledetail_set__variation",
+            )
+            .order_by("-date_added")
+        )
         self.filterset = self.filterset_class(self.request.GET, queryset=queryset)
         return self.filterset.qs
 
@@ -212,7 +221,9 @@ class SaleDetailView(LoginRequiredMixin, DetailView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        sale_details = self.object.saledetail_set.select_related('item').prefetch_related('item__variations')
+        sale_details = self.object.saledetail_set.select_related(
+            "item", "variation"
+        )
         context['sale_details'] = sale_details
         
         # Calculate profit for this sale
@@ -256,10 +267,15 @@ class SaleUpdateView(LoginRequiredMixin, UpdateView):
         for detail in sale.saledetail_set.all():
             sub_total += detail.price * detail.quantity
         sale.sub_total = sub_total
-        sale.grand_total = sub_total
         tax_pct = Decimal(str(form.cleaned_data.get("tax_percentage") or 0))
-        if not form.cleaned_data.get("tax_amount") and tax_pct:
+        tax_amount = form.cleaned_data.get("tax_amount")
+        if tax_amount is not None and tax_amount != "":
+            sale.tax_amount = Decimal(str(tax_amount))
+        elif tax_pct:
             sale.tax_amount = sub_total * (tax_pct / Decimal("100"))
+        else:
+            sale.tax_amount = Decimal("0")
+        sale.grand_total = sub_total + sale.tax_amount
         sale.amount_change = (sale.amount_paid or Decimal("0")) - sale.grand_total
         sale.save()
         messages.success(self.request, "Sale updated successfully.")
@@ -291,15 +307,23 @@ def SaleCreateView(request):
                     if field not in data:
                         raise ValueError(f"Missing required field: {field}")
 
-                # Create sale attributes
+                sub_total = Decimal(str(data["sub_total"]))
+                tax_pct = Decimal(str(data.get("tax_percentage", 0)))
+                tax_amount = Decimal(str(data.get("tax_amount", 0)))
+                if tax_amount == 0 and tax_pct:
+                    tax_amount = sub_total * (tax_pct / Decimal("100"))
+                grand_total = sub_total + tax_amount
+                amount_paid = Decimal(str(data["amount_paid"]))
+                amount_change = amount_paid - grand_total
+
                 sale_attributes = {
                     "customer": Customer.objects.get(id=int(data['customer'])),
-                    "sub_total": float(data["sub_total"]),
-                    "grand_total": float(data["grand_total"]),
-                    "tax_amount": float(data.get("tax_amount", 0.0)),
-                    "tax_percentage": float(data.get("tax_percentage", 0.0)),
-                    "amount_paid": float(data["amount_paid"]),
-                    "amount_change": float(data["amount_change"]),
+                    "sub_total": sub_total,
+                    "grand_total": grand_total,
+                    "tax_amount": tax_amount,
+                    "tax_percentage": float(tax_pct),
+                    "amount_paid": amount_paid,
+                    "amount_change": amount_change,
                 }
 
                 # Use a transaction to ensure atomicity
@@ -322,10 +346,18 @@ def SaleCreateView(request):
                             raise ValueError("Item is missing required fields")
 
                         item_instance = Item.objects.get(id=int(item["id"]))
+                        variation_id = item.get("selected_variant") or None
+                        variation = None
+                        if variation_id:
+                            from store.models import ProductVariation
+                            variation = ProductVariation.objects.filter(
+                                pk=int(variation_id), item=item_instance
+                            ).first()
 
                         detail_attributes = {
                             "sale": new_sale,
                             "item": item_instance,
+                            "variation": variation,
                             "price": float(item["price"]),
                             "quantity": int(item["quantity"]),
                             "total_detail": float(item["total_item"])
@@ -340,6 +372,7 @@ def SaleCreateView(request):
                                 "item": int(item["id"]),
                                 "quantity": item["quantity"],
                                 "unit_price": item["price"],
+                                "variation_id": item.get("selected_variant") or None,
                             }
                             for item in items
                         ],
@@ -361,7 +394,7 @@ def SaleCreateView(request):
                     {
                         'status': 'success',
                         'message': 'Sale created successfully!',
-                        'redirect': '/transactions/sales/'
+                        'redirect': reverse('saleslist'),
                     }
                 )
 

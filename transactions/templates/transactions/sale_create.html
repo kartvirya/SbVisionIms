@@ -135,7 +135,7 @@
                             <input name="sub_total" type="number" class="form-control" id="sub_total" aria-label="Subtotal" required>
                         </div>
                         <div class="mb-3">
-                            <label for="tax_percentage" class="form-label">Tax Inclusive (%)</label>
+                            <label for="tax_percentage" class="form-label">Tax (%)</label>
                             <input name="tax_percentage" type="number" class="form-control" id="tax_percentage" aria-label="Tax Inclusive" value="0" required>
                         </div>
                         <div class="mb-3">
@@ -225,10 +225,16 @@
                 sub_total += roundTo(dict.total_item, 2);
             });
 
-            // Update the sale subtotal, grand total, and tax amount
+            // Update subtotal, tax, and grand total (tax added on top of subtotal)
             this.products.sub_total = roundTo(sub_total, 2);
-            this.products.grand_total = roundTo(this.products.sub_total, 2);
-            this.products.tax_amount = roundTo(this.products.sub_total * (tax_percentage / 100), 2);
+            this.products.tax_amount = roundTo(
+                this.products.sub_total * (parseFloat(tax_percentage) || 0) / 100,
+                2
+            );
+            this.products.grand_total = roundTo(
+                this.products.sub_total + this.products.tax_amount,
+                2
+            );
 
             $('input[name="sub_total"]').val(this.products.sub_total);
             $('input[name="tax_amount"]').val(this.products.tax_amount);
@@ -290,6 +296,7 @@
                                         displayText += ' (' + variation.value + ')';
                                     }
                                     displayText += ' - Rs ' + parseFloat(variation.final_price).toFixed(2);
+                                    displayText += ' (stock: ' + variation.quantity + ')';
                                     variantHtml += '<option value="' + variation.id + '" ' + selected + '>' + displayText + '</option>';
                                 });
                             }
@@ -326,9 +333,20 @@
                     },
                 ],
                 rowCallback(row, data, displayNun, displayIndex, dataIndex) {
+                    var maxQty = 9999;
+                    if (data.selected_variant && data.variations) {
+                        var sel = data.variations.find(function (v) {
+                            return v.id == data.selected_variant;
+                        });
+                        if (sel && sel.quantity) {
+                            maxQty = parseInt(sel.quantity, 10) || maxQty;
+                        }
+                    } else if (data.stock !== undefined) {
+                        maxQty = parseInt(data.stock, 10) || maxQty;
+                    }
                     $(row).find("input[name='quantity']").TouchSpin({
                         min: 1,
-                        max: 100, // Máximo de acuerdo al stock de cada itemo
+                        max: maxQty,
                         step: 1,
                         decimals: 0,
                         boostat: 1,
@@ -528,22 +546,27 @@
             // Find the row to update the item total
             $('td:eq(5)', tblItems.row(tr.row).node()).html(sale.products.items[tr.row].total_item + ' Rs');
         }).on('change', 'select[name="variant"]', function () {
-            // When a variant is selected
             var variantId = $(this).val();
             var tr = tblItems.cell($(this).closest('td, li')).index();
             var rowIndex = tr.row;
-            
-            // Update the selected variant in the sale object
-            sale.products.items[rowIndex].selected_variant = variantId ? parseInt(variantId) : null;
-            
-            // Recalculate the sale with the new variant price
-            sale.calculate_sale();
-            
-            // Update price and total columns
             var item = sale.products.items[rowIndex];
+            item.selected_variant = variantId ? parseInt(variantId, 10) : null;
+            sale.calculate_sale();
             var displayPrice = item.current_price || item.price;
             $('td:eq(3)', tblItems.row(rowIndex).node()).html(parseFloat(displayPrice).toFixed(2) + ' Rs');
             $('td:eq(5)', tblItems.row(rowIndex).node()).html(item.total_item + ' Rs');
+            var maxQty = parseInt(item.stock, 10) || 9999;
+            if (item.selected_variant && item.variations) {
+                var sel = item.variations.find(function (v) { return v.id == item.selected_variant; });
+                if (sel) maxQty = parseInt(sel.quantity, 10) || maxQty;
+            }
+            var $qtyInput = $(tblItems.row(rowIndex).node()).find("input[name='quantity']");
+            if ($qtyInput.data('TouchSpin')) {
+                $qtyInput.trigger('touchspin.updatesettings', { max: maxQty });
+            }
+            if (parseInt($qtyInput.val(), 10) > maxQty) {
+                $qtyInput.val(maxQty).trigger('change');
+            }
         });
 
         // Delete all items
@@ -587,13 +610,13 @@
 
         // Item searchbox templateResult
         function template_item_searchbox(repo) {
-            return $(`
-                <div class="card mb-3">
-                    <div class="card-body">
-                        <small class="card-title">${repo.name}</small>
-                    </div>
-                </div>
-            `);
+            var variantInfo = '';
+            if (repo.variations && repo.variations.length) {
+                variantInfo = '<br><small class="text-muted">' + repo.variations.length + ' variant(s), stock: ' + (repo.stock || 0) + '</small>';
+            } else {
+                variantInfo = '<br><small class="text-muted">Stock: ' + (repo.stock || 0) + '</small>';
+            }
+            return $('<div class="card mb-1"><div class="card-body py-2"><strong>' + repo.name + '</strong>' + variantInfo + '</div></div>');
         }
 
         // Helper functions
