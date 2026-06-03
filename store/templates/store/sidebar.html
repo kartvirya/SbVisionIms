@@ -242,7 +242,7 @@
                 <span class="nav-link disabled text-uppercase py-1 px-3 sidebar-text text-secondary" style="font-size:0.68rem;letter-spacing:0.06em;opacity:0.85;">Books</span>
             </li>
             <li class="nav-item">
-                <a class="nav-link text-light {% with u=','|add:request.resolver_match.url_name|add:',' %}{% if u in ',saleslist,sale-create,sale-detail,sale-delete,' %}active{% endif %}{% endwith %}" href="{% url 'saleslist' %}" data-bs-toggle="tooltip" data-bs-placement="right" title="Sales Book">
+                <a class="nav-link text-light {% with u=','|add:request.resolver_match.url_name|add:',' %}{% if u in ',saleslist,sale-create,sale-detail,sale-update,sale-delete,' %}active{% endif %}{% endwith %}" href="{% url 'saleslist' %}" data-bs-toggle="tooltip" data-bs-placement="right" title="Sales Book">
                     <i class="fa-solid fa-book fa-fw"></i>
                     <span class="sidebar-text">Sales Book</span>
                 </a>

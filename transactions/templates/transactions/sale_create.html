@@ -448,6 +448,9 @@
             ajax: {
                 url: "{% url 'get_items' %}",
                 type: 'POST',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
                 data: function (params) {
                     return {
                         term: params.term,
@@ -455,9 +458,22 @@
                     };
                 },
                 processResults: function (data) {
-                    return {
-                        results: data
-                    };
+                    if (data && data.error) {
+                        return { results: [] };
+                    }
+                    if (!Array.isArray(data)) {
+                        return { results: [] };
+                    }
+                    return { results: data };
+                },
+                transport: function (params, success, failure) {
+                    var $request = $.ajax(params);
+                    $request.then(success);
+                    $request.fail(function (xhr) {
+                        console.error('Item search failed', xhr.responseText);
+                        failure();
+                    });
+                    return $request;
                 }
             }
         }).on('select2:select', function (e) {

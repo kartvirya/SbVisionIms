@@ -25,7 +25,12 @@ from openpyxl import Workbook
 from store.models import Item
 from accounts.models import Customer, Company, Vendor
 from .models import CustomerPayment, Purchase, Sale, SaleDetail
-from .forms import PayablesQuickEntryForm, PurchaseForm, PurchaseLineFormSet
+from .forms import (
+    PayablesQuickEntryForm,
+    PurchaseForm,
+    PurchaseLineFormSet,
+    SaleEditForm,
+)
 from .filters import SaleFilter, PurchaseFilter
 from .services import (
     create_sale_transaction,
@@ -193,6 +198,7 @@ class SaleListView(LoginRequiredMixin, ListView):
         context = super().get_context_data(**kwargs)
         context['filter'] = self.filterset
         context['can_delete_sales'] = user_can_delete_transactions(self.request.user)
+        context['can_edit_sales'] = self.request.user.is_authenticated
         return context
 
 
@@ -226,7 +232,41 @@ class SaleDetailView(LoginRequiredMixin, DetailView):
         context['total_profit'] = total_profit
         context['total_cost'] = total_cost
         context['profit_margin'] = (total_profit / self.object.grand_total * 100) if self.object.grand_total > 0 else 0
+        context['can_edit_sales'] = self.request.user.is_authenticated
+        context['can_delete_sales'] = user_can_delete_transactions(self.request.user)
         return context
+
+
+class SaleUpdateView(LoginRequiredMixin, UpdateView):
+    """Edit sale customer, tax, and payment (line items are read-only)."""
+
+    model = Sale
+    form_class = SaleEditForm
+    template_name = "transactions/sale_form.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["sale_details"] = self.object.saledetail_set.select_related("item")
+        context["is_edit"] = True
+        return context
+
+    def form_valid(self, form):
+        sale = form.save(commit=False)
+        sub_total = Decimal("0")
+        for detail in sale.saledetail_set.all():
+            sub_total += detail.price * detail.quantity
+        sale.sub_total = sub_total
+        sale.grand_total = sub_total
+        tax_pct = Decimal(str(form.cleaned_data.get("tax_percentage") or 0))
+        if not form.cleaned_data.get("tax_amount") and tax_pct:
+            sale.tax_amount = sub_total * (tax_pct / Decimal("100"))
+        sale.amount_change = (sale.amount_paid or Decimal("0")) - sale.grand_total
+        sale.save()
+        messages.success(self.request, "Sale updated successfully.")
+        return HttpResponseRedirect(self.get_success_url())
+
+    def get_success_url(self):
+        return reverse("sale-detail", kwargs={"pk": self.object.pk})
 
 
 def SaleCreateView(request):

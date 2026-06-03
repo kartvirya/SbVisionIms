@@ -116,28 +116,32 @@
             </thead>
             <tbody>
                 {% for item in items %}
-                <tr {% if item.is_low_stock %}class="table-warning"{% endif %}>
+                <tr {% if item.current_stock|default:item.quantity <= item.low_stock_threshold %}class="table-warning"{% endif %}>
                     <th scope="row">{{ item.id }}</th>
                     <td>
                         {% if item.image %}
                         <img src="{{ item.image.url }}" alt="{{ item.name }}" class="img-thumbnail" style="width: 40px; height: 40px; object-fit: cover; margin-right: 8px;">
                         {% endif %}
                         {{ item.name }}
-                        {% if item.is_low_stock %}
+                        {% with stock=item.current_stock|default:item.quantity %}
+                        {% if stock <= item.low_stock_threshold %}
                             <span class="badge bg-warning text-dark ms-1">
                                 <i class="fa fa-exclamation-triangle"></i> Low Stock
                             </span>
                         {% endif %}
+                        {% endwith %}
                     </td>
                     <td>{{ item.category }}</td>
                     <td>
-                        {% if item.quantity == 0 %}
+                        {% with stock=item.current_stock|default:item.quantity %}
+                        {% if stock == 0 %}
                             <span class="badge bg-danger">0</span>
-                        {% elif item.is_low_stock %}
-                            <span class="badge bg-warning text-dark">{{ item.quantity }}</span>
+                        {% elif stock <= item.low_stock_threshold %}
+                            <span class="badge bg-warning text-dark">{{ stock }}</span>
                         {% else %}
-                            {{ item.quantity }}
+                            {{ stock }}
                         {% endif %}
+                        {% endwith %}
                     </td>
                     <td>
                         {% if item.cost_price > 0 %}

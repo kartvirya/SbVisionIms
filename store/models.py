@@ -103,11 +103,15 @@ class Item(models.Model):
         """
         return self.price - self.cost_price
 
+    def get_current_stock(self):
+        """On-hand quantity from stock movements (synced to quantity cache)."""
+        from store.stock_utils import get_item_current_stock
+
+        return get_item_current_stock(self)
+
     def is_low_stock(self):
-        """
-        Check if item is below low stock threshold.
-        """
-        return self.quantity <= self.low_stock_threshold
+        """True when on-hand stock is at or below the alert threshold."""
+        return self.get_current_stock() <= self.low_stock_threshold
 
     def to_json(self):
         product = model_to_dict(self, exclude=['slug'])
@@ -141,6 +145,9 @@ class Item(models.Model):
         product['id'] = self.id
         product['text'] = self.name
         product['category'] = self.category.name
+        product['price'] = float(self.price or 0)
+        on_hand = self.get_current_stock()
+        product['stock'] = on_hand
         product['quantity'] = 1
         product['total_product'] = 0
         return product

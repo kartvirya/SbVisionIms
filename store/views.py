@@ -11,9 +11,12 @@ and querying functionalities.
 """
 
 # Standard library imports
+import logging
 import operator
 from decimal import Decimal
 from functools import reduce
+
+logger = logging.getLogger(__name__)
 
 # Django core imports
 from django.shortcuts import render
@@ -39,11 +42,12 @@ from django_tables2.export.views import ExportMixin
 
 # Local app imports
 from accounts.models import Profile, Vendor, Customer
-from transactions.models import Sale, SaleDetail, Purchase, StockMovement
+from transactions.models import Sale, SaleDetail, Purchase
 from .models import Category, Item, Delivery, ProductVariation
 from .forms import ItemForm, CategoryForm, DeliveryForm, ProductVariationFormSet
 from .tables import ItemTable
 from .filters import ProductFilter, DeliveryFilter
+from .stock_utils import build_item_stock_map
 
 
 @login_required
@@ -53,32 +57,9 @@ def dashboard(request):
     
     profiles = Profile.objects.all()
     Category.objects.annotate(nitem=Count("item"))
-    items = Item.objects.all()
-    stock_totals_by_item = {}
-    movement_sums = (
-        StockMovement.objects.values("item_id", "movement_type")
-        .annotate(total_qty=Sum("quantity"))
-    )
-    for row in movement_sums:
-        item_id = row["item_id"]
-        movement_type = row["movement_type"]
-        total_qty = row["total_qty"] or 0
-        if item_id not in stock_totals_by_item:
-            stock_totals_by_item[item_id] = {"IN": 0, "OUT": 0}
-        stock_totals_by_item[item_id][movement_type] = total_qty
-
-    total_items = 0
-    item_stock_by_id = {}
-    for item in items:
-        if item.id in stock_totals_by_item:
-            stock_in = stock_totals_by_item[item.id].get("IN", 0)
-            stock_out = stock_totals_by_item[item.id].get("OUT", 0)
-            current_stock = stock_in - stock_out
-        else:
-            # Legacy fallback while older data is being backfilled.
-            current_stock = item.quantity
-        item_stock_by_id[item.id] = current_stock
-        total_items += current_stock
+    items = list(Item.objects.all())
+    item_stock_by_id = build_item_stock_map(items)
+    total_items = sum(item_stock_by_id.values())
     items_count = items.count()
     profiles_count = profiles.count()
     
@@ -103,11 +84,12 @@ def dashboard(request):
     purchases = Purchase.objects.all()
     total_purchases = purchases.aggregate(Sum("total_value")).get("total_value__sum") or 0
     
-    # Low stock items (using low_stock_threshold per item)
-    low_stock_items_list = [
-        item for item in items 
-        if item_stock_by_id.get(item.id, item.quantity) <= item.low_stock_threshold
-    ]
+    # Low stock items (ledger on-hand vs threshold)
+    low_stock_items_list = []
+    for item in items:
+        item.current_stock = item_stock_by_id.get(item.id, item.quantity)
+        if item.current_stock <= item.low_stock_threshold:
+            low_stock_items_list.append(item)
     low_stock_items = len(low_stock_items_list)
     
     # Calculate profit statistics (coerce floats to Decimal for sale line prices)
@@ -224,6 +206,10 @@ class ProductListView(LoginRequiredMixin, ExportMixin, tables.SingleTableView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['filter'] = self.filterset
+        items = list(context.get('items') or context.get('object_list') or [])
+        stock_map = build_item_stock_map(items)
+        for item in items:
+            item.current_stock = stock_map.get(item.id, item.quantity)
         return context
 
 
@@ -552,26 +538,20 @@ def is_ajax(request):
 @require_POST
 @login_required
 def get_items_ajax_view(request):
-    if is_ajax(request):
-        try:
-            term = request.POST.get("term", "")
-            data = []
-
-            items = Item.objects.filter(name__icontains=term).select_related('category', 'vendor')
-            for item in items[:10]:
-                try:
-                    data.append(item.to_json())
-                except Exception as e:
-                    # Log error but continue with other items
-                    import logging
-                    logger = logging.getLogger(__name__)
-                    logger.error(f"Error serializing item {item.id}: {str(e)}")
-                    continue
-
-            return JsonResponse(data, safe=False)
-        except Exception as e:
-            import logging
-            logger = logging.getLogger(__name__)
-            logger.error(f"Error in get_items_ajax_view: {str(e)}")
-            return JsonResponse({'error': str(e)}, status=500)
-    return JsonResponse({'error': 'Not an AJAX request'}, status=400)
+    try:
+        term = (request.POST.get("term") or "").strip()
+        data = []
+        qs = Item.objects.select_related("category", "vendor").prefetch_related(
+            "variations"
+        )
+        if term:
+            qs = qs.filter(name__icontains=term)
+        for item in qs.order_by("name")[:20]:
+            try:
+                data.append(item.to_json())
+            except Exception as exc:
+                logger.error("Error serializing item %s: %s", item.id, exc)
+        return JsonResponse(data, safe=False)
+    except Exception as exc:
+        logger.error("Error in get_items_ajax_view: %s", exc)
+        return JsonResponse({"error": str(exc)}, status=500)

@@ -19,7 +19,8 @@ class Bill(models.Model):
         blank=False,
         null=False
     )
-    phone_number = models.PositiveIntegerField(
+    phone_number = models.CharField(
+        max_length=30,
         blank=True,
         null=True,
         help_text='Phone number of the institution'

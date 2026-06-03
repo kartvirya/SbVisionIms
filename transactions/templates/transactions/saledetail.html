@@ -1,5 +1,20 @@
-{% extends "store/base.html" %} {% load static %}{% block title %}Transaction detail{% endblock %}
+{% extends "store/base.html" %} {% load static %}{% block title %}Sale bill #{{ object.id }}{% endblock %}
 {% block content %}
+<div class="container-fluid py-3 no-print">
+    <a href="{% url 'saleslist' %}" class="btn btn-outline-success btn-sm me-2">
+        <i class="fa-solid fa-arrow-left"></i> Back to sales book
+    </a>
+    {% if can_edit_sales %}
+    <a href="{% url 'sale-update' object.id %}" class="btn btn-outline-primary btn-sm me-2">
+        <i class="fa-solid fa-pen"></i> Edit sale
+    </a>
+    {% endif %}
+    {% if can_delete_sales %}
+    <a href="{% url 'sale-delete' object.id %}" class="btn btn-outline-danger btn-sm">
+        <i class="fa-solid fa-trash"></i> Delete
+    </a>
+    {% endif %}
+</div>
 <style>
 	section .receipt {
 		margin: 0;

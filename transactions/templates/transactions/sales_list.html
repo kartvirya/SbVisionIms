@@ -111,6 +111,11 @@
                         <a class="btn btn-outline-info btn-sm" href="{% url 'sale-detail' sale.id %}" title="View Bill/Receipt">
                             <i class="fa-solid fa-eye"></i>
                         </a>
+                        {% if can_edit_sales %}
+                        <a class="btn btn-outline-primary btn-sm" href="{% url 'sale-update' sale.id %}" title="Edit sale">
+                            <i class="fa-solid fa-pen"></i>
+                        </a>
+                        {% endif %}
                         {% if can_delete_sales %}
                         <a class="btn btn-outline-danger btn-sm" href="{% url 'sale-delete' sale.id %}" title="Delete sale">
                             <i class="fa-solid fa-trash"></i>

@@ -6,7 +6,8 @@ from django.utils import timezone
 
 from accounts.models import Vendor
 from store.models import Item
-from .models import Purchase, PurchaseLine
+from accounts.models import Customer
+from .models import Purchase, PurchaseLine, Sale
 
 
 class BootstrapMixin:
@@ -205,6 +206,35 @@ class PayablesQuickEntryForm(BootstrapMixin, forms.Form):
         if amount_paid > net_amount:
             self.add_error("amount_paid", "Paid amount cannot exceed bill amount.")
         return cleaned
+
+
+class SaleEditForm(BootstrapMixin, forms.ModelForm):
+    """Edit sale header (customer, tax, payment). Line items stay as recorded."""
+
+    class Meta:
+        model = Sale
+        fields = ["customer", "tax_percentage", "tax_amount", "amount_paid"]
+        labels = {
+            "customer": "Customer",
+            "tax_percentage": "Tax inclusive (%)",
+            "tax_amount": "Tax amount (Rs)",
+            "amount_paid": "Amount paid (Rs)",
+        }
+        widgets = {
+            "customer": forms.Select(attrs={"class": "form-select"}),
+            "tax_percentage": forms.NumberInput(attrs={"step": "0.01", "min": "0"}),
+            "tax_amount": forms.NumberInput(attrs={"step": "0.01", "min": "0"}),
+            "amount_paid": forms.NumberInput(attrs={"step": "0.01", "min": "0"}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["customer"].queryset = Customer.objects.order_by("name")
+        if self.instance and self.instance.pk and self.instance.customer_payments.exists():
+            self.fields["amount_paid"].disabled = True
+            self.fields["amount_paid"].help_text = (
+                "Controlled by customer payment records."
+            )
 
 
 PurchaseLineFormSet = inlineformset_factory(

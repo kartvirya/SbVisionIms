@@ -1,0 +1,64 @@
+{% extends "store/base.html" %}
+{% block title %}Edit sale #{{ object.id }}{% endblock %}
+{% block content %}
+<div class="container my-4">
+    <div class="mb-3">
+        <a href="{% url 'saleslist' %}" class="btn btn-outline-success btn-sm">
+            <i class="fa-solid fa-arrow-left"></i> Back to sales book
+        </a>
+        <a href="{% url 'sale-detail' object.id %}" class="btn btn-outline-secondary btn-sm">
+            <i class="fa-solid fa-receipt"></i> View bill
+        </a>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-header bg-success text-white">
+            <h5 class="mb-0">Edit sale #{{ object.id }}</h5>
+        </div>
+        <div class="card-body">
+            <p class="text-muted small">
+                Line items cannot be changed here. Delete the sale and create a new one if products or quantities need to change.
+            </p>
+            <form method="post">
+                {% csrf_token %}
+                <div class="row g-3">
+                    <div class="col-md-6">{{ form.customer.label_tag }}{{ form.customer }}{{ form.customer.errors }}</div>
+                    <div class="col-md-3">{{ form.tax_percentage.label_tag }}{{ form.tax_percentage }}{{ form.tax_percentage.errors }}</div>
+                    <div class="col-md-3">{{ form.tax_amount.label_tag }}{{ form.tax_amount }}{{ form.tax_amount.errors }}</div>
+                    <div class="col-md-4">{{ form.amount_paid.label_tag }}{{ form.amount_paid }}{{ form.amount_paid.errors }}</div>
+                </div>
+                <div class="mt-4">
+                    <button type="submit" class="btn btn-success">Save changes</button>
+                    <a href="{% url 'saleslist' %}" class="btn btn-secondary">Cancel</a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="card shadow-sm mt-3">
+        <div class="card-header bg-light"><strong>Line items (read-only)</strong></div>
+        <div class="card-body p-0">
+            <table class="table table-sm mb-0">
+                <thead>
+                    <tr>
+                        <th>Product</th>
+                        <th class="text-end">Qty</th>
+                        <th class="text-end">Price</th>
+                        <th class="text-end">Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for detail in sale_details %}
+                    <tr>
+                        <td>{{ detail.item.name }}</td>
+                        <td class="text-end">{{ detail.quantity }}</td>
+                        <td class="text-end">Rs {{ detail.price }}</td>
+                        <td class="text-end">Rs {{ detail.total_detail }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
