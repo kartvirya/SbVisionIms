@@ -286,7 +286,7 @@ class ProductCreateView(LoginRequiredMixin, CreateView):
     model = Item
     template_name = "store/productcreate.html"
     form_class = ItemForm
-    success_url = "/products"
+    success_url = reverse_lazy("productslist")
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -333,7 +333,7 @@ class ProductUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
     model = Item
     template_name = "store/productupdate.html"
     form_class = ItemForm
-    success_url = "/products"
+    success_url = reverse_lazy("productslist")
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -380,7 +380,7 @@ class ProductDeleteView(LoginRequiredMixin, UserPassesTestMixin, DeleteView):
 
     model = Item
     template_name = "store/productdelete.html"
-    success_url = "/products"
+    success_url = reverse_lazy("productslist")
 
     def test_func(self):
         if self.request.user.is_superuser:
@@ -460,7 +460,7 @@ class DeliveryCreateView(LoginRequiredMixin, CreateView):
     model = Delivery
     form_class = DeliveryForm
     template_name = "store/delivery_form.html"
-    success_url = "/deliveries"
+    success_url = reverse_lazy("deliveries")
 
 
 class DeliveryUpdateView(LoginRequiredMixin, UpdateView):
@@ -477,7 +477,7 @@ class DeliveryUpdateView(LoginRequiredMixin, UpdateView):
     model = Delivery
     form_class = DeliveryForm
     template_name = "store/delivery_form.html"
-    success_url = "/deliveries"
+    success_url = reverse_lazy("deliveries")
 
 
 class DeliveryDeleteView(LoginRequiredMixin, UserPassesTestMixin, DeleteView):
@@ -492,7 +492,7 @@ class DeliveryDeleteView(LoginRequiredMixin, UserPassesTestMixin, DeleteView):
 
     model = Delivery
     template_name = "store/productdelete.html"
-    success_url = "/deliveries"
+    success_url = reverse_lazy("deliveries")
 
     def test_func(self):
         if self.request.user.is_superuser:

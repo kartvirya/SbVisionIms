@@ -294,15 +294,19 @@
                 <span class="nav-link disabled text-uppercase py-1 px-3 sidebar-text text-secondary" style="font-size:0.68rem;letter-spacing:0.06em;opacity:0.85;">Contacts</span>
             </li>
             <li class="nav-item dropdown">
-                <a class="nav-link text-light {% with u=','|add:request.resolver_match.url_name|add:',' %}{% if u in ',profile_list,profile-create,profile-update,customer_list,customer_create,customer_update,vendor-list,vendor-create,vendor-update,logistics-list,logistics-create,logistics-update,' %}active{% endif %}{% endwith %} dropdown-toggle" href="#" id="contactsDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false" data-bs-toggle="tooltip" data-bs-placement="right" title="Contacts">
+                <a class="nav-link text-light {% with u=','|add:request.resolver_match.url_name|add:',' %}{% if u in ',customer_list,customer_create,customer_update,vendor-list,vendor-create,vendor-update,' %}active{% endif %}{% endwith %} dropdown-toggle" href="#" id="contactsDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false" data-bs-toggle="tooltip" data-bs-placement="right" title="Contacts">
                     <i class="fa-solid fa-address-book fa-fw"></i>
                     <span class="sidebar-text">Contacts</span>
                 </a>
                 <ul class="dropdown-menu bg-dark border-0" aria-labelledby="contactsDropdown">
+                    {# Staff — temporarily hidden
                     <li><a class="dropdown-item text-light {% if request.resolver_match.url_name == 'profile_list' %}active{% endif %}" href="{% url 'profile_list' %}"><i class="fa-solid fa-user-tie me-2" style="color: #000000;"></i>Staff</a></li>
+                    #}
                     <li><a class="dropdown-item text-light {% if request.resolver_match.url_name == 'customer_list' %}active{% endif %}" href="{% url 'customer_list' %}"><i class="fa-solid fa-users me-2" style="color: #000000;"></i>Customers</a></li>
                     <li><a class="dropdown-item text-light {% if request.resolver_match.url_name == 'vendor-list' %}active{% endif %}" href="{% url 'vendor-list' %}"><i class="fa-solid fa-truck-field me-2" style="color: #000000;"></i>Suppliers</a></li>
+                    {# Logistics partners — temporarily hidden
                     <li><a class="dropdown-item text-light {% if request.resolver_match.url_name == 'logistics-list' %}active{% endif %}" href="{% url 'logistics-list' %}"><i class="fa-solid fa-truck me-2" style="color: #000000;"></i>Logistics Partners</a></li>
+                    #}
                 </ul>
             </li>
         </ul>
