@@ -47,6 +47,7 @@ from .models import Category, Item, Delivery, ProductVariation
 from .forms import ItemForm, CategoryForm, DeliveryForm, ProductVariationFormSet
 from .tables import ItemTable
 from .filters import ProductFilter, DeliveryFilter
+from .list_display import annotate_list_row_numbers
 from .stock_utils import build_item_stock_map, get_variant_stock_total
 from transactions.services import reconcile_ledger_stock_to_target, sync_item_quantity_cache
 
@@ -199,7 +200,10 @@ class ProductListView(LoginRequiredMixin, ExportMixin, tables.SingleTableView):
     def get_queryset(self):
         queryset = super().get_queryset().prefetch_related('variations')
         self.filterset = self.filterset_class(self.request.GET, queryset=queryset)
-        return self.filterset.qs
+        qs = self.filterset.qs
+        if not self.request.GET.get("ordering"):
+            qs = qs.order_by("-id")
+        return qs
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -208,6 +212,7 @@ class ProductListView(LoginRequiredMixin, ExportMixin, tables.SingleTableView):
         stock_map = build_item_stock_map(items)
         for item in items:
             item.current_stock = stock_map.get(item.id, item.quantity)
+        annotate_list_row_numbers(items, context.get("page_obj"))
         return context
 
 

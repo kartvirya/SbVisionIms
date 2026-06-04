@@ -281,7 +281,7 @@ class Purchase(models.Model):
         return first.item.name if first else f"Purchase #{self.pk}"
 
     class Meta:
-        ordering = ["order_date"]
+        ordering = ["-order_date", "-id"]
 
 
 class PurchaseLine(models.Model):

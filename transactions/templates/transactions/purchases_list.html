@@ -1,91 +1,61 @@
-{% extends "store/base.html" %}{% load static %}{% load render_table from django_tables2 %}{% load querystring from django_tables2 %}{% block title %}Purchase Book{%endblock title%}
+{% extends "store/base.html" %}{% load static %}{% block title %}Purchase Book{%endblock title%}
 
 {% block content %}
-<!-- Header Section -->
 <div class="container my-4">
     <div class="card shadow-sm rounded p-3">
         <div class="row align-items-center">
             <div class="col-md-6">
                 <h4 class="display-6 mb-0 text-success">Purchase Book</h4>
-                <small class="text-muted">Stock bought from suppliers</small>
+                <small class="text-muted">Stock bought from suppliers — open a row for full bill details</small>
             </div>
-            <div class="col-md-6 d-flex justify-content-end gap-2">
+            <div class="col-md-6 d-flex justify-content-end gap-2 flex-wrap">
                 <a class="btn btn-success btn-sm rounded-pill shadow-sm" href="{% url 'purchase-create' %}">
-                    <i class="fa-solid fa-plus"></i> New purchase entry
+                    <i class="fa-solid fa-plus"></i> New purchase
                 </a>
                 <a class="btn btn-success btn-sm rounded-pill shadow-sm" href="{% url 'purchases-export' %}">
-                    <i class="fa-solid fa-download"></i> Export to Excel
-                </a>
-                <a class="btn btn-outline-success btn-sm rounded-pill shadow-sm" href="{% url 'stock-ledger' %}">
-                    <i class="fa-solid fa-clipboard-list"></i> Stock ledger
+                    <i class="fa-solid fa-download"></i> Export
                 </a>
                 <a class="btn btn-outline-success btn-sm rounded-pill shadow-sm" href="{% url 'payables-aging' %}">
-                    <i class="fa-solid fa-hand-holding-dollar"></i> Payables book
+                    <i class="fa-solid fa-hand-holding-dollar"></i> Payables
                 </a>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Filter Section -->
 <div class="container my-3">
     <div class="card shadow-sm">
-        <div class="card-header bg-light">
-            <h5 class="mb-0"><i class="fa-solid fa-filter"></i> Filters & Sorting</h5>
+        <div class="card-header bg-light py-2">
+            <h6 class="mb-0"><i class="fa-solid fa-filter"></i> Filters</h6>
         </div>
-        <div class="card-body">
-            <form method="get" class="row g-3">
+        <div class="card-body py-3">
+            <form method="get" class="row g-2 align-items-end">
                 <div class="col-md-2">
-                    <label class="form-label">{{ filter.form.item.label }}</label>
-                    {{ filter.form.item }}
-                </div>
-                <div class="col-md-2">
-                    <label class="form-label">{{ filter.form.vendor.label }}</label>
+                    <label class="form-label small mb-0">{{ filter.form.vendor.label }}</label>
                     {{ filter.form.vendor }}
                 </div>
                 <div class="col-md-2">
-                    <label class="form-label">{{ filter.form.receipt_status.label }}</label>
+                    <label class="form-label small mb-0">{{ filter.form.item.label }}</label>
+                    {{ filter.form.item }}
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small mb-0">{{ filter.form.receipt_status.label }}</label>
                     {{ filter.form.receipt_status }}
                 </div>
                 <div class="col-md-2">
-                    <label class="form-label">{{ filter.form.payment_status.label }}</label>
+                    <label class="form-label small mb-0">{{ filter.form.payment_status.label }}</label>
                     {{ filter.form.payment_status }}
                 </div>
                 <div class="col-md-2">
-                    <label class="form-label">Order Date From</label>
-                    {{ filter.form.order_date_from }}
-                </div>
-                <div class="col-md-2">
-                    <label class="form-label">Order Date To</label>
-                    {{ filter.form.order_date_to }}
-                </div>
-                <div class="col-md-2">
-                    <label class="form-label">Receipt Date From</label>
-                    {{ filter.form.receipt_date_from }}
-                </div>
-                <div class="col-md-2">
-                    <label class="form-label">Receipt Date To</label>
-                    {{ filter.form.receipt_date_to }}
-                </div>
-                <div class="col-md-2">
-                    <label class="form-label">Min Total</label>
-                    {{ filter.form.min_total }}
-                </div>
-                <div class="col-md-2">
-                    <label class="form-label">Max Total</label>
-                    {{ filter.form.max_total }}
-                </div>
-                <div class="col-md-2">
-                    <label class="form-label">{{ filter.form.ordering.label }}</label>
+                    <label class="form-label small mb-0">{{ filter.form.ordering.label }}</label>
                     {{ filter.form.ordering }}
                 </div>
-                <div class="col-md-12">
-                    <button type="submit" class="btn btn-success btn-sm">
-                        <i class="fa-solid fa-filter"></i> Apply Filters
-                    </button>
-                    <a href="{% url 'purchaseslist' %}" class="btn btn-secondary btn-sm">
-                        <i class="fa-solid fa-times"></i> Clear
-                    </a>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-success btn-sm w-100">Apply</button>
+                </div>
+                <div class="col-12">
+                    <a href="{% url 'purchaseslist' %}" class="btn btn-link btn-sm p-0">Clear filters</a>
+                    <span class="text-muted small ms-2">More filters (dates, amounts) available on export / detail view</span>
                 </div>
             </form>
         </div>
@@ -93,168 +63,96 @@
 </div>
 
 <div class="container">
-    <style>
-      .table th, .table td {
-          text-align: center;
-      }
-    </style>
-    <table class="table table-sm table-striped table-bordered">
-        <thead class="thead-light">
-            <tr>
-                <th scope="col">ID <i class="fa-solid fa-sort"></i></th>
-                <th scope="col">Bill number</th>
-                <th scope="col">Billed date</th>
-                <th scope="col">Name <i class="fa-solid fa-sort"></i></th>
-                <th scope="col">Quantity <i class="fa-solid fa-sort"></i></th>
-                <th scope="col">Sub Total <i class="fa-solid fa-sort"></i></th>
-                <th scope="col">VAT <i class="fa-solid fa-sort"></i></th>
-                <th scope="col">Net Amount <i class="fa-solid fa-sort"></i></th>
-                <th scope="col">Paid <i class="fa-solid fa-sort"></i></th>
-                <th scope="col">Remaining <i class="fa-solid fa-sort"></i></th>
-                <th scope="col">Payment Status <i class="fa-solid fa-sort"></i></th>
-                <th scope="col">Receipt Status <i class="fa-solid fa-sort"></i></th>
-                <th scope="col">Receipt Date <i class="fa-solid fa-sort"></i></th>
-                <th scope="col">Vendor <i class="fa-solid fa-sort"></i></th>
-                <th scope="col">Action</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for purchase in purchases %}
-            <tr>
-                <th scope="row">{{ purchase.id }}</th>
-                <td>
-                    <a href="{% url 'purchase-detail' slug=purchase.slug %}">{{ purchase.display_bill_number }}</a>
-                </td>
-                <td>{{ purchase.order_date|date:"Y-m-d H:i" }}</td>
-                <td>
-                    {% with line=purchase.lines.first %}
-                    {% if line %}
-                    {% if line.item.image %}
-                    <img src="{{ line.item.image.url }}" alt="{{ line.item.name }}" class="img-thumbnail" style="width: 30px; height: 30px; object-fit: cover; margin-right: 5px;">
-                    {% endif %}
-                    {% for l in purchase.lines.all %}
-                    <span class="d-inline-block">{{ l.item.name }}</span>{% if not forloop.last %}, {% endif %}
-                    {% endfor %}
-                    {% with variations=line.item.variations.all %}
-                    {% if variations %}
-                    <div style="margin-top: 4px;">
-                        {% for variation in variations %}
-                        <span class="badge bg-info" style="font-size: 9px;" title="{{ variation.get_variation_type_display }}: {{ variation.name }}{% if variation.value %} ({{ variation.value }}){% endif %}">
-                            {{ variation.get_variation_type_display|slice:":1" }}: {{ variation.name }}
-                        </span>
-                        {% endfor %}
-                    </div>
-                    {% endif %}
-                    {% endwith %}
-                    {% elif purchase.item %}
-                    {% if purchase.item.image %}
-                    <img src="{{ purchase.item.image.url }}" alt="{{ purchase.item.name }}" class="img-thumbnail" style="width: 30px; height: 30px; object-fit: cover; margin-right: 5px;">
-                    {% endif %}
-                    {{ purchase.item.name }}
-                    {% with variations=purchase.item.variations.all %}
-                    {% if variations %}
-                    <div style="margin-top: 4px;">
-                        {% for variation in variations %}
-                        <span class="badge bg-info" style="font-size: 9px;" title="{{ variation.get_variation_type_display }}: {{ variation.name }}{% if variation.value %} ({{ variation.value }}){% endif %}">
-                            {{ variation.get_variation_type_display|slice:":1" }}: {{ variation.name }}
-                        </span>
-                        {% endfor %}
-                    </div>
-                    {% endif %}
-                    {% endwith %}
-                    {% else %}
-                    —
-                    {% endif %}
-                    {% endwith %}
-                </td>
-                <td>{{ purchase.total_line_quantity }}</td>
-                <td>{{ purchase.sub_total }}</td>
-                <td>{{ purchase.vat_amount }}</td>
-                <td>{{ purchase.net_amount }}</td>
-                <td>{{ purchase.amount_paid }}</td>
-                <td>{{ purchase.amount_remaining }}</td>
-                <td>
-                    {% if purchase.payment_status == 'U' %}
+    <div class="table-responsive">
+        <table class="table table-sm table-striped table-bordered align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th scope="col" style="width:3rem;">#</th>
+                    <th scope="col">Bill</th>
+                    <th scope="col">Supplier</th>
+                    <th scope="col" class="text-start">Products</th>
+                    <th scope="col" class="text-end">Net (Rs)</th>
+                    <th scope="col">Payment</th>
+                    <th scope="col">Receipt</th>
+                    <th scope="col" style="width:7rem;">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for purchase in purchases %}
+                <tr>
+                    <th scope="row" class="text-muted">{{ purchase.list_row_number }}</th>
+                    <td>
+                        <a href="{% url 'purchase-detail' slug=purchase.slug %}" class="fw-semibold text-success">
+                            {{ purchase.display_bill_number }}
+                        </a>
+                        <div class="small text-muted">{{ purchase.order_date|date:"Y-m-d" }}</div>
+                    </td>
+                    <td>{{ purchase.vendor.name }}</td>
+                    <td class="text-start small">
+                        {% with lines=purchase.lines.all %}
+                        {% if lines %}
+                            {{ lines.0.item.name }}{% if lines|length > 1 %} <span class="text-muted">+{{ lines|length|add:"-1" }} more</span>{% endif %}
+                        {% elif purchase.item %}
+                            {{ purchase.item.name }}
+                        {% else %}
+                            —
+                        {% endif %}
+                        {% endwith %}
+                    </td>
+                    <td class="text-end fw-semibold">{{ purchase.net_amount }}</td>
+                    <td>
+                        {% if purchase.payment_status == 'U' %}
                         <span class="badge bg-danger">Unpaid</span>
-                    {% elif purchase.payment_status == 'T' %}
+                        {% elif purchase.payment_status == 'T' %}
                         <span class="badge bg-warning text-dark">Partial</span>
-                    {% elif purchase.payment_status == 'D' %}
+                        {% elif purchase.payment_status == 'D' %}
                         <span class="badge bg-success">Paid</span>
-                    {% else %}
+                        {% else %}
                         <span class="badge bg-dark">Overpaid</span>
-                    {% endif %}
-                </td>
-                <td>
-                    {% if purchase.receipt_status == 'P' %}
-                        <span class="badge badge-pill bg-soft-danger text-danger me-2">
-                            Pending
-                        </span>
-                    {% else %}
-                        <span class="badge badge-pill bg-soft-success text-success me-2">
-                            Received
-                        </span>
-                    {% endif %}
-                </td>
-                <td>{{ purchase.receipt_date }}</td>
-                <td>{{ purchase.vendor.name }}</td>
-                <td>
-                    <a class="text-info" href="{% url 'purchase-update' purchase.id %}">
-                        <i class="fa-solid fa-pen"></i>
-                    </a>
-                    {% if can_delete_purchases %}
-                    <a class="text-danger float-end" href="{% url 'purchase-delete' purchase.id %}" title="Delete purchase">
-                        <i class="fa-solid fa-trash"></i>
-                    </a>
-                    {% endif %}
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-    <div class="mt-4">
-        {% if is_paginated %}
-        <nav aria-label="Page navigation">
-            <ul class="pagination justify-content-center">
-                {% if page_obj.has_previous %}
-                <li class="page-item">
-                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}" aria-label="Previous">
-                        <span aria-hidden="true">&laquo;</span>
-                    </a>
-                </li>
-                {% else %}
-                <li class="page-item disabled">
-                    <span class="page-link" aria-label="Previous">
-                        <span aria-hidden="true">&laquo;</span>
-                    </span>
-                </li>
-                {% endif %}
-                {% for i in paginator.page_range %}
-                {% if page_obj.number == i %}
-                <li class="page-item active" aria-current="page">
-                    <span class="page-link">{{ i }} <span class="visually-hidden">(current)</span></span>
-                </li>
-                {% else %}
-                <li class="page-item">
-                    <a class="page-link" href="?page={{ i }}">{{ i }}</a>
-                </li>
-                {% endif %}
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if purchase.receipt_status == 'P' %}
+                        <span class="badge bg-secondary">Pending</span>
+                        {% else %}
+                        <span class="badge bg-success">Received</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-nowrap">
+                        <a class="btn btn-outline-info btn-sm" href="{% url 'purchase-detail' slug=purchase.slug %}" title="View details">
+                            <i class="fa-solid fa-eye"></i>
+                        </a>
+                        <a class="btn btn-outline-primary btn-sm" href="{% url 'purchase-update' purchase.id %}" title="Edit">
+                            <i class="fa-solid fa-pen"></i>
+                        </a>
+                        {% if can_delete_purchases %}
+                        <a class="btn btn-outline-danger btn-sm" href="{% url 'purchase-delete' purchase.id %}" title="Delete">
+                            <i class="fa-solid fa-trash"></i>
+                        </a>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="8" class="text-center text-muted py-4">No purchases found.</td>
+                </tr>
                 {% endfor %}
-                {% if page_obj.has_next %}
-                <li class="page-item">
-                    <a class="page-link" href="?page={{ page_obj.next_page_number }}" aria-label="Next">
-                        <span aria-hidden="true">&raquo;</span>
-                    </a>
-                </li>
-                {% else %}
-                <li class="page-item disabled">
-                    <span class="page-link" aria-label="Next">
-                        <span aria-hidden="true">&raquo;</span>
-                    </span>
-                </li>
-                {% endif %}
-            </ul>
-        </nav>
-        {% endif %}
+            </tbody>
+        </table>
     </div>
+
+    {% if is_paginated %}
+    <nav aria-label="Purchase pages" class="mt-3">
+        <ul class="pagination justify-content-center pagination-sm">
+            {% if page_obj.has_previous %}
+            <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if request.GET.ordering %}&ordering={{ request.GET.ordering }}{% endif %}">&laquo;</a></li>
+            {% endif %}
+            <li class="page-item disabled"><span class="page-link">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span></li>
+            {% if page_obj.has_next %}
+            <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}{% if request.GET.ordering %}&ordering={{ request.GET.ordering }}{% endif %}">&raquo;</a></li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
 </div>
 {% endblock %}

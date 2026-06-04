@@ -82,7 +82,7 @@
     <table class="table table-bordered table-striped table-hover table-sm">
         <thead class="thead-light">
             <tr>
-                <th>ID</th>
+                <th>#</th>
                 <th>Date</th>
                 <th>Customer</th>
                 <th>Products</th>
@@ -99,7 +99,7 @@
             {% if sales %}
                 {% for sale in sales %}
                 <tr>
-                    <td>{{ sale.id }}</td>
+                    <td class="text-muted">{{ sale.list_row_number }}</td>
                     <td>{{ sale.date_added|date:"Y-m-d H:i:s" }}</td>
                     <td>{{ sale.customer.get_full_name|default:sale.customer.first_name }}</td>
                     <td class="text-start small">

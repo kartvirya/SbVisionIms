@@ -40,9 +40,11 @@ class SaleFilter(django_filters.FilterSet):
     )
     ordering = django_filters.OrderingFilter(
         fields=(
-            ('date_added', 'Sale date'),
-            ('grand_total', 'Total amount'),
-            ('customer', 'Customer'),
+            ('-date_added', 'Newest sale first'),
+            ('date_added', 'Oldest sale first'),
+            ('-grand_total', 'Total (high to low)'),
+            ('grand_total', 'Total (low to high)'),
+            ('customer', 'Customer name'),
         ),
         widget=forms.Select,
         label='Sort by',
@@ -129,10 +131,12 @@ class PurchaseFilter(django_filters.FilterSet):
     )
     ordering = django_filters.OrderingFilter(
         fields=(
-            ('order_date', 'Bill date'),
-            ('receipt_date', 'Received date'),
-            ('net_amount', 'Bill amount'),
-            ('vendor', 'Supplier'),
+            ('-order_date', 'Newest bill first'),
+            ('order_date', 'Oldest bill first'),
+            ('-receipt_date', 'Newest receipt first'),
+            ('net_amount', 'Bill amount (low to high)'),
+            ('-net_amount', 'Bill amount (high to low)'),
+            ('vendor', 'Supplier name'),
         ),
         widget=forms.Select,
         label='Sort by',

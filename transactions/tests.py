@@ -7,6 +7,7 @@ from store.models import Category, Item
 from transactions.models import InventoryTransaction, LedgerEntry, Purchase, VendorPayment
 from store.models import ProductVariation
 from store.stock_utils import get_ledger_stock, get_sellable_stock
+from transactions.forms import PurchaseForm
 from transactions.services import (
     create_payable_quick_entry,
     create_sale_transaction,
@@ -217,6 +218,24 @@ class StockAndPayablesFixTests(TestCase):
     def test_customer_name_without_last_name(self):
         self.assertEqual(str(self.customer), "Alex")
         self.assertEqual(self.customer.get_full_name(), "Alex")
+
+    def test_receipt_date_sets_received_status(self):
+        from django.utils import timezone
+
+        form = PurchaseForm(
+            data={
+                "vendor": self.vendor.pk,
+                "order_date": timezone.localtime().strftime("%Y-%m-%dT%H:%M"),
+                "receipt_status": "P",
+                "receipt_date": timezone.localtime().strftime("%Y-%m-%dT%H:%M"),
+                "discount_amount": "0",
+                "vat_percentage": "13",
+                "vat_amount": "0",
+                "amount_paid": "0",
+            }
+        )
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertEqual(form.cleaned_data["receipt_status"], "S")
 
     def test_reconcile_ledger_adjustment_is_idempotent(self):
         reconcile_ledger_stock_to_target(self.item, 7, notes="first")

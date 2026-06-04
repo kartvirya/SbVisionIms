@@ -24,6 +24,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from openpyxl import Workbook
 
 # Local app imports
+from store.list_display import annotate_list_row_numbers
 from store.models import Item
 from accounts.models import Customer, Company, Vendor
 from .models import CustomerPayment, Purchase, Sale, SaleDetail
@@ -206,13 +207,19 @@ class SaleListView(LoginRequiredMixin, ListView):
             .order_by("-date_added")
         )
         self.filterset = self.filterset_class(self.request.GET, queryset=queryset)
-        return self.filterset.qs
+        qs = self.filterset.qs
+        if not self.request.GET.get("ordering"):
+            qs = qs.order_by("-date_added", "-id")
+        return qs
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['filter'] = self.filterset
         context['can_delete_sales'] = user_can_delete_transactions(self.request.user)
         context['can_edit_sales'] = self.request.user.is_authenticated
+        annotate_list_row_numbers(
+            context.get("sales") or [], context.get("page_obj")
+        )
         return context
 
 
@@ -504,7 +511,10 @@ class PurchaseListView(LoginRequiredMixin, ListView):
             .distinct()
         )
         self.filterset = self.filterset_class(self.request.GET, queryset=queryset)
-        return self.filterset.qs
+        qs = self.filterset.qs
+        if not self.request.GET.get("ordering"):
+            qs = qs.order_by("-order_date", "-id")
+        return qs
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -515,6 +525,9 @@ class PurchaseListView(LoginRequiredMixin, ListView):
         context["total_outstanding"] = outstanding or Decimal("0")
         context["can_delete_purchases"] = user_can_delete_transactions(
             self.request.user
+        )
+        annotate_list_row_numbers(
+            context.get("purchases") or [], context.get("page_obj")
         )
         return context
 

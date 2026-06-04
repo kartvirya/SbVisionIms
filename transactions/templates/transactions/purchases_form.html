@@ -47,7 +47,13 @@
                     <div class="col-md-4">
                         <label class="form-label" for="{{ form.receipt_date.id_for_label }}">{{ form.receipt_date.label }}</label>
                         {{ form.receipt_date }}
+                        <div class="form-text">Setting a receipt date marks goods as <strong>Received</strong>.</div>
                         {{ form.receipt_date.errors }}
+                    </div>
+                    <div class="col-md-4 d-flex align-items-end">
+                        <button type="button" class="btn btn-outline-success btn-sm w-100" id="btn-received-today">
+                            <i class="fa-solid fa-box"></i> Mark received today
+                        </button>
                     </div>
                     <div class="col-md-12">
                         <label class="form-label" for="{{ form.description.id_for_label }}">{{ form.description.label }}</label>
@@ -69,6 +75,7 @@
                     <table class="table table-sm align-middle mb-0">
                         <thead class="table-light">
                             <tr>
+                                <th class="text-center" style="width: 2.5rem;">#</th>
                                 <th style="min-width: 14rem;">Product</th>
                                 <th class="text-end" style="width: 6rem;">In stock</th>
                                 <th class="text-end" style="width: 7rem;">Qty</th>
@@ -80,6 +87,7 @@
                         <tbody id="line-items-body">
                             {% for f in line_formset.forms %}
                             <tr class="purchase-line-row" data-form-prefix="{{ f.prefix }}">
+                                <td class="text-center text-muted line-num">—</td>
                                 <td>
                                     {{ f.id }}
                                     {{ f.item }}
@@ -152,6 +160,15 @@
                         {% if form.amount_paid.help_text %}<div class="form-text">{{ form.amount_paid.help_text }}</div>{% endif %}
                         {{ form.amount_paid.errors }}
                     </div>
+                    <div class="col-md-4 d-flex align-items-end">
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="checkbox" id="pay-full-net" checked>
+                            <label class="form-check-label" for="pay-full-net">Auto-fill amount paid = net bill</label>
+                        </div>
+                    </div>
+                    <div class="col-md-4 d-flex align-items-end">
+                        <button type="button" class="btn btn-outline-secondary btn-sm w-100" id="btn-fill-net-paid">Fill net amount now</button>
+                    </div>
                     {% if object %}
                     <div class="col-md-4">
                         <label class="form-label text-muted">Payment status</label>
@@ -211,6 +228,21 @@
         return qty * price;
     }
 
+    function renumberLineRows() {
+        let n = 0;
+        document.querySelectorAll(".purchase-line-row").forEach((row) => {
+            const del = row.querySelector('input[type="checkbox"][name$="-DELETE"]');
+            if (del && del.checked) {
+                const cell = row.querySelector(".line-num");
+                if (cell) cell.textContent = "—";
+                return;
+            }
+            n += 1;
+            const cell = row.querySelector(".line-num");
+            if (cell) cell.textContent = String(n);
+        });
+    }
+
     function updateRow(row) {
         const sel = row.querySelector(".item-select");
         const stockCell = row.querySelector(".line-stock");
@@ -229,6 +261,7 @@
     }
 
     function updatePreview() {
+        renumberLineRows();
         let sub = 0;
         document.querySelectorAll(".purchase-line-row").forEach((row) => {
             const del = row.querySelector('input[type="checkbox"][name$="-DELETE"]');
@@ -246,6 +279,49 @@
         const netEl = document.getElementById("preview-net");
         if (subEl) subEl.value = sub.toFixed(2);
         if (netEl) netEl.value = net.toFixed(2);
+
+        const payFull = document.getElementById("pay-full-net");
+        const amountPaid = document.getElementById("id_amount_paid");
+        if (payFull && payFull.checked && amountPaid && !amountPaid.disabled) {
+            amountPaid.value = net.toFixed(2);
+        }
+        return net;
+    }
+
+    function localDatetimeValue(d) {
+        const pad = (n) => String(n).padStart(2, "0");
+        return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()) +
+            "T" + pad(d.getHours()) + ":" + pad(d.getMinutes());
+    }
+
+    function markReceivedToday() {
+        const status = document.getElementById("id_receipt_status");
+        const receiptDate = document.getElementById("id_receipt_date");
+        if (status) status.value = "S";
+        if (receiptDate) receiptDate.value = localDatetimeValue(new Date());
+    }
+
+    const receiptDateEl = document.getElementById("id_receipt_date");
+    if (receiptDateEl) {
+        receiptDateEl.addEventListener("change", function () {
+            if (this.value) {
+                const status = document.getElementById("id_receipt_status");
+                if (status) status.value = "S";
+            }
+        });
+    }
+    const btnReceived = document.getElementById("btn-received-today");
+    if (btnReceived) btnReceived.addEventListener("click", markReceivedToday);
+
+    const payFullCb = document.getElementById("pay-full-net");
+    if (payFullCb) payFullCb.addEventListener("change", updatePreview);
+    const btnFillPaid = document.getElementById("btn-fill-net-paid");
+    if (btnFillPaid) {
+        btnFillPaid.addEventListener("click", function () {
+            const net = updatePreview();
+            const amountPaid = document.getElementById("id_amount_paid");
+            if (amountPaid && !amountPaid.disabled) amountPaid.value = net.toFixed(2);
+        });
     }
 
     function bindRow(row) {
@@ -259,6 +335,7 @@
     }
 
     document.querySelectorAll(".purchase-line-row").forEach(bindRow);
+    renumberLineRows();
     ["id_discount_amount", "id_vat_percentage", "id_vat_amount"].forEach((id) => {
         const el = document.getElementById(id);
         if (el) el.addEventListener("input", updatePreview);

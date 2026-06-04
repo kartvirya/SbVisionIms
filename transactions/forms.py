@@ -91,14 +91,25 @@ class PurchaseForm(BootstrapMixin, forms.ModelForm):
                     self.initial[field_name] = timezone.localtime(dt).strftime("%Y-%m-%dT%H:%M")
         elif not self.initial.get("order_date"):
             self.initial["order_date"] = timezone.localtime(timezone.now()).strftime("%Y-%m-%dT%H:%M")
+            if not self.initial.get("vat_percentage"):
+                self.initial["vat_percentage"] = 13
+        if not (self.instance and self.instance.pk):
+            self.fields["vat_percentage"].initial = self.initial.get("vat_percentage", 13)
 
     def clean(self):
         cleaned_data = super().clean()
         amount_paid = cleaned_data.get("amount_paid") or 0
-        if hasattr(amount_paid, "__lt__") and amount_paid < 0:
+        if amount_paid < 0:
             self.add_error("amount_paid", "Amount paid cannot be negative.")
-        if cleaned_data.get("receipt_status") == "S" and not cleaned_data.get("receipt_date"):
+
+        receipt_date = cleaned_data.get("receipt_date")
+        receipt_status = cleaned_data.get("receipt_status")
+
+        if receipt_date and receipt_status != "S":
+            cleaned_data["receipt_status"] = "S"
+        elif receipt_status == "S" and not receipt_date:
             cleaned_data["receipt_date"] = timezone.now()
+
         return cleaned_data
 
 

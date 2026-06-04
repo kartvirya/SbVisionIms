@@ -20,9 +20,10 @@
                     Not posted
                     {% endif %}
                 </div>
-                <div class="col-md-4"><strong>Subtotal:</strong> {{ object.sub_total }}</div>
-                <div class="col-md-4"><strong>VAT amount:</strong> {{ object.vat_amount }}</div>
-                <div class="col-md-4"><strong>Net amount:</strong> {{ object.net_amount }}</div>
+                <div class="col-md-4"><strong>Subtotal:</strong> Rs {{ object.sub_total }}</div>
+                <div class="col-md-4"><strong>Discount:</strong> Rs {{ object.discount_amount }}</div>
+                <div class="col-md-4"><strong>VAT:</strong> {{ object.vat_percentage }}% (Rs {{ object.vat_amount }})</div>
+                <div class="col-md-4"><strong>Net amount:</strong> Rs {{ object.net_amount }}</div>
                 <div class="col-md-4"><strong>Amount paid:</strong> {{ object.amount_paid }}</div>
                 <div class="col-md-4"><strong>Remaining:</strong> {{ object.amount_remaining }}</div>
                 <div class="col-md-4"><strong>Payment status:</strong> {{ object.get_payment_status_display }}</div>

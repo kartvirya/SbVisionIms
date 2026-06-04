@@ -187,8 +187,6 @@
         return Math.round(n) / multiplicator;
     }
 
-    // Variable for item number in table
-    var number = 1;
 
     // Variable to store sale details and products
     var sale = {
@@ -260,6 +258,7 @@
             this.calculate_sale();
             this.products.items.forEach(function (item, idx) {
                 item.cartIndex = idx;
+                item.number = idx + 1;
             });
 
             tblItems = $("#table_items").DataTable({
@@ -500,10 +499,6 @@
         }).on('select2:select', function (e) {
             // When an item is selected from the searchbox
             var data = e.params.data;
-            // Add number, subtotal, and quantity of the item to the dictionary
-            data.number = number;
-            number++; // Increase the item number in the table
-            // Add the item to the sale object
             sale.add_item(data);
             // Clear the searchbox after the item is selected
             $(this).val('').trigger('change.select2');
