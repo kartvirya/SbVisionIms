@@ -8,12 +8,15 @@ from transactions.models import InventoryTransaction, LedgerEntry, Purchase, Ven
 from store.models import ProductVariation
 from store.stock_utils import get_ledger_stock, get_sellable_stock
 from transactions.forms import PurchaseForm
+from store.stock_adjust import apply_manual_stock_adjustment
+from transactions.models import PurchaseLine
 from transactions.services import (
     create_payable_quick_entry,
     create_sale_transaction,
     get_payables_aging,
     get_payables_aging_report,
     post_vendor_payment_ledger,
+    process_purchase_return,
     reconcile_ledger_stock_to_target,
     sync_purchase_inventory_transaction,
     update_vendor_payables_adjustment,
@@ -296,3 +299,81 @@ class StockAndPayablesFixTests(TestCase):
             ).count(),
             1,
         )
+
+
+class StockAdjustmentTests(TestCase):
+    def setUp(self):
+        self.vendor = Vendor.objects.create(name="Vendor C")
+        self.category = Category.objects.create(name="General")
+        self.item = Item.objects.create(
+            name="Adjustable",
+            description="Test",
+            category=self.category,
+            quantity=10,
+            price=25,
+            cost_price=12,
+            vendor=self.vendor,
+        )
+
+    def test_manual_add_creates_log_and_ledger(self):
+        log = apply_manual_stock_adjustment(
+            self.item, mode="add", quantity=5, reason="Count correction"
+        )
+        self.item.refresh_from_db()
+        self.assertEqual(log.quantity_after, log.quantity_before + 5)
+        self.assertEqual(self.item.adjustment_logs.count(), 1)
+
+    def test_manual_remove_raises_when_insufficient(self):
+        with self.assertRaises(ValueError):
+            apply_manual_stock_adjustment(self.item, mode="remove", quantity=999)
+
+
+class PurchaseReturnTests(TestCase):
+    def setUp(self):
+        self.vendor = Vendor.objects.create(name="Return Vendor")
+        self.category = Category.objects.create(name="General")
+        self.item = Item.objects.create(
+            name="Return Item",
+            description="Test",
+            category=self.category,
+            quantity=20,
+            price=30,
+            cost_price=15,
+            vendor=self.vendor,
+        )
+        self.purchase = Purchase.objects.create(
+            vendor=self.vendor,
+            receipt_status="S",
+            discount_amount=0,
+            vat_percentage=0,
+            amount_paid=0,
+        )
+        PurchaseLine.objects.create(
+            purchase=self.purchase,
+            item=self.item,
+            quantity=10,
+            unit_price=15,
+        )
+        self.purchase.save()
+        self.purchase.refresh_from_db()
+        sync_purchase_inventory_transaction(purchase=self.purchase)
+        self.item.refresh_from_db()
+
+    def test_purchase_return_reduces_stock_and_payables(self):
+        before_stock = get_ledger_stock(self.item)
+        before_remaining = self.purchase.amount_remaining
+        line = self.purchase.lines.first()
+        credit = process_purchase_return(
+            self.purchase,
+            [{"line_id": line.id, "return_qty": 2}],
+            reason="Damaged",
+        )
+        self.vendor.refresh_from_db()
+        self.purchase.refresh_from_db()
+        line.refresh_from_db()
+        self.assertEqual(credit, Decimal("30"))
+        self.assertEqual(self.vendor.payables_adjustment, Decimal("-30"))
+        self.assertEqual(get_ledger_stock(self.item), before_stock - 2)
+        self.assertEqual(line.quantity, 8)
+        self.assertEqual(self.purchase.amount_remaining, before_remaining - Decimal("30"))
+        self.assertEqual(self.purchase.returns.count(), 1)

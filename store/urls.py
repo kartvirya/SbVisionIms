@@ -5,6 +5,7 @@ from django.conf.urls.static import static
 
 # Local app imports
 from . import views
+from . import preview_views
 from .views import (
     ProductListView,
     ProductDetailView,
@@ -22,7 +23,8 @@ from .views import (
     CategoryDetailView,
     CategoryCreateView,
     CategoryUpdateView,
-    CategoryDeleteView
+    CategoryDeleteView,
+    import_data_view,
 )
 
 # URL patterns
@@ -101,6 +103,17 @@ urlpatterns = [
         'get-items/',
         get_items_ajax_view,
         name='get_items'
+    ),
+
+    # Preview drawer partials
+    path('preview/item/<int:pk>/', preview_views.preview_item, name='preview-item'),
+    path('preview/delivery/<int:pk>/', preview_views.preview_delivery, name='preview-delivery'),
+
+    # Bulk import
+    path(
+        'import/<str:kind>/',
+        import_data_view,
+        name='import-data',
     ),
 
     # Category URLs

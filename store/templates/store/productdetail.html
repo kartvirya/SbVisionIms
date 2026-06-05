@@ -12,7 +12,7 @@
             <a href="{% url 'productslist' %}" class="btn btn-outline-secondary">
                 <i class="fas fa-arrow-left"></i> Back to Products
             </a>
-            {% if user.is_superuser %}
+            {% if can_manage_products %}
             <a href="{% url 'product-update' object.slug %}" class="btn btn-outline-primary">
                 <i class="fas fa-edit"></i> Edit Product
             </a>
@@ -181,5 +181,87 @@
         </div>
     </div>
     {% endif %}
+
+    <!-- Manual stock adjustment -->
+    <div class="row mt-4">
+        <div class="col-lg-5">
+            <div class="card shadow-sm">
+                <div class="card-header bg-light">
+                    <h4 class="mb-0"><i class="fas fa-boxes"></i> Adjust stock</h4>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label class="form-label">{{ stock_form.mode.label }}</label>
+                            {{ stock_form.mode }}
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">{{ stock_form.quantity.label }}</label>
+                            {{ stock_form.quantity }}
+                        </div>
+                        {% if stock_form.variation.field.queryset.exists %}
+                        <div class="mb-3">
+                            <label class="form-label">{{ stock_form.variation.label }}</label>
+                            {{ stock_form.variation }}
+                            <small class="text-muted d-block">Leave empty to adjust base ledger stock.</small>
+                        </div>
+                        {% endif %}
+                        <div class="mb-3">
+                            <label class="form-label">{{ stock_form.reason.label }}</label>
+                            {{ stock_form.reason }}
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-sm">
+                            <i class="fas fa-save"></i> Apply adjustment
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-7">
+            <div class="card shadow-sm">
+                <div class="card-header bg-light">
+                    <h4 class="mb-0"><i class="fas fa-history"></i> Adjustment history</h4>
+                </div>
+                <div class="card-body p-0">
+                    {% if adjustment_logs %}
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>When</th>
+                                    <th>Action</th>
+                                    <th class="text-end">Δ</th>
+                                    <th class="text-end">Before</th>
+                                    <th class="text-end">After</th>
+                                    <th>Variant</th>
+                                    <th>Reason</th>
+                                    <th>By</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for log in adjustment_logs %}
+                                <tr>
+                                    <td class="text-nowrap small">{{ log.created_at|date:"Y-m-d H:i" }}</td>
+                                    <td>{{ log.get_mode_display }}</td>
+                                    <td class="text-end">{{ log.quantity_delta }}</td>
+                                    <td class="text-end">{{ log.quantity_before }}</td>
+                                    <td class="text-end">{{ log.quantity_after }}</td>
+                                    <td>{% if log.variation %}{{ log.variation.name }}{% else %}<span class="text-muted">Base</span>{% endif %}</td>
+                                    <td class="small">{{ log.reason|default:"—" }}</td>
+                                    <td class="small">{% if log.created_by %}{{ log.created_by.username }}{% else %}—{% endif %}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-muted p-3 mb-0">No manual adjustments yet.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 {% endblock content %}
+

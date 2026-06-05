@@ -120,6 +120,18 @@ class PurchaseForm(BootstrapMixin, forms.ModelForm):
 class PurchaseLineForm(BootstrapMixin, forms.ModelForm):
     """One product line on a purchase bill."""
 
+    new_item_name = forms.CharField(
+        max_length=50,
+        required=False,
+        label="Or new product name",
+        widget=forms.TextInput(
+            attrs={
+                "class": "form-control form-control-sm new-item-name",
+                "placeholder": "Type to create new product",
+            }
+        ),
+    )
+
     class Meta:
         model = PurchaseLine
         fields = ("item", "quantity", "unit_price")
@@ -138,10 +150,12 @@ class PurchaseLineForm(BootstrapMixin, forms.ModelForm):
 
     def __init__(self, *args, vendor_id=None, **kwargs):
         super().__init__(*args, **kwargs)
+        self.vendor_id = vendor_id
         qs = Item.objects.select_related("vendor", "category").order_by("name")
         if vendor_id:
             qs = qs.filter(vendor_id=vendor_id)
         self.fields["item"].queryset = qs
+        self.fields["item"].required = False
         self.fields["item"].label_from_instance = lambda obj: (
             f"{obj.name} — stock: {obj.quantity}, cost: {obj.cost_price:.2f}"
         )
@@ -150,6 +164,38 @@ class PurchaseLineForm(BootstrapMixin, forms.ModelForm):
                 pass
             elif self.instance.unit_price == 0 and self.instance.item.cost_price:
                 self.initial.setdefault("unit_price", self.instance.item.cost_price)
+
+    def clean(self):
+        cleaned = super().clean()
+        item = cleaned.get("item")
+        new_name = (cleaned.get("new_item_name") or "").strip()
+        if not item and not new_name:
+            raise forms.ValidationError("Select a product or enter a new product name.")
+        if not item and new_name:
+            if not self.vendor_id:
+                raise forms.ValidationError(
+                    "Select a supplier before adding a new product."
+                )
+            from store.models import Category
+
+            category, _ = Category.objects.get_or_create(name="General")
+            unit_price = cleaned.get("unit_price") or Decimal("0")
+            item, created = Item.objects.get_or_create(
+                name=new_name,
+                defaults={
+                    "description": new_name,
+                    "category": category,
+                    "vendor_id": self.vendor_id,
+                    "cost_price": float(unit_price),
+                    "price": float(unit_price * Decimal("1.3")) if unit_price else 0,
+                    "quantity": 0,
+                },
+            )
+            if not created and unit_price and not item.cost_price:
+                item.cost_price = float(unit_price)
+                item.save(update_fields=["cost_price"])
+            cleaned["item"] = item
+        return cleaned
 
 
 class BasePurchaseLineFormSet(forms.BaseInlineFormSet):

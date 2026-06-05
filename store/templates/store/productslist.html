@@ -30,6 +30,9 @@
                     <a class="btn btn-success btn-sm rounded-pill shadow-sm" href="{% url 'product-create' %}">
                         <i class="fa-solid fa-plus"></i> Add Item
                     </a>
+                    <a class="btn btn-outline-primary btn-sm rounded-pill shadow-sm" href="{% url 'import-data' kind='inventory' %}">
+                        <i class="fa-solid fa-file-import"></i> Import Excel
+                    </a>
                     <a class="btn btn-success btn-sm rounded-pill shadow-sm" href="{% querystring '_export'='xlsx' %}">
                         <i class="fa-solid fa-download"></i> Export to Excel
                     </a>
@@ -102,90 +105,44 @@
             <thead class="thead-light">
                 <tr>
                     <th scope="col">#</th>
-                    <th scope="col">Name <i class="fa-solid fa-sort"></i></th>
-                    <th scope="col">Category <i class="fa-solid fa-sort"></i></th>
-                    <th scope="col">Quantity <i class="fa-solid fa-sort"></i></th>
-                    <th scope="col">Cost Price <i class="fa-solid fa-sort"></i></th>
-                    <th scope="col">Selling Price <i class="fa-solid fa-sort"></i></th>
-                    <th scope="col">Profit <i class="fa-solid fa-sort"></i></th>
-                    <th scope="col">Variations</th>
-                    <th scope="col">Expiring Date <i class="fa-solid fa-sort"></i></th>
-                    <th scope="col">Vendor <i class="fa-solid fa-sort"></i"></th>
-                    <th scope="col">Action</th>
+                    <th scope="col">Name</th>
+                    <th scope="col">Category</th>
+                    <th scope="col">Stock</th>
+                    <th scope="col">Price (Rs)</th>
+                    <th scope="col" class="no-preview">Actions</th>
                 </tr>
             </thead>
             <tbody>
                 {% for item in items %}
-                <tr {% if item.current_stock|default:item.quantity <= item.low_stock_threshold %}class="table-warning"{% endif %}>
+                <tr class="preview-row{% if item.current_stock|default:item.quantity <= item.low_stock_threshold %} table-warning{% endif %}"
+                    style="cursor:pointer;"
+                    data-preview-url="{% url 'preview-item' item.id %}"
+                    data-preview-title="{{ item.name }}">
                     <th scope="row" class="text-muted">{{ item.list_row_number }}</th>
                     <td>
                         {% if item.image %}
-                        <img src="{{ item.image.url }}" alt="{{ item.name }}" class="img-thumbnail" style="width: 40px; height: 40px; object-fit: cover; margin-right: 8px;">
+                        <img src="{{ item.image.url }}" alt="" class="img-thumbnail" style="width: 32px; height: 32px; object-fit: cover; margin-right: 6px;">
                         {% endif %}
-                        <a href="{% url 'item-detail' item.slug %}" class="text-success fw-semibold text-decoration-none">{{ item.name }}</a>
+                        <span class="text-success fw-semibold">{{ item.name }}</span>
                         {% with stock=item.current_stock|default:item.quantity %}
                         {% if stock <= item.low_stock_threshold %}
-                            <span class="badge bg-warning text-dark ms-1">
-                                <i class="fa fa-exclamation-triangle"></i> Low Stock
-                            </span>
+                            <span class="badge bg-warning text-dark ms-1">Low</span>
                         {% endif %}
                         {% endwith %}
                     </td>
                     <td>{{ item.category }}</td>
                     <td>
                         {% with stock=item.current_stock|default:item.quantity %}
-                        {% if stock == 0 %}
-                            <span class="badge bg-danger">0</span>
-                        {% elif stock <= item.low_stock_threshold %}
-                            <span class="badge bg-warning text-dark">{{ stock }}</span>
-                        {% else %}
-                            {{ stock }}
-                        {% endif %}
+                        {% if stock == 0 %}<span class="badge bg-danger">0</span>
+                        {% elif stock <= item.low_stock_threshold %}<span class="badge bg-warning text-dark">{{ stock }}</span>
+                        {% else %}{{ stock }}{% endif %}
                         {% endwith %}
                     </td>
-                    <td>
-                        {% if item.cost_price > 0 %}
-                            Rs {{ item.cost_price|floatformat:2 }}
-                        {% else %}
-                            <span class="text-muted">-</span>
-                        {% endif %}
-                    </td>
-                    <td>Rs {{ item.price|floatformat:2 }}</td>
-                    <td>
-                        {% if item.cost_price > 0 %}
-                            <span class="text-success">Rs {{ item.get_profit_amount|floatformat:2 }}</span>
-                            <small class="text-muted d-block">({{ item.get_profit_margin|floatformat:1 }}%)</small>
-                        {% else %}
-                            <span class="text-muted">-</span>
-                        {% endif %}
-                    </td>
-                    <td>
-                        {% with variations=item.variations.all %}
-                        {% if variations %}
-                        <div class="variations-badges">
-                            {% for variation in variations %}
-                            <span class="badge bg-info mb-1" title="{{ variation.get_variation_type_display }}: {{ variation.name }}{% if variation.value %} ({{ variation.value }}){% endif %}">
-                                {{ variation.get_variation_type_display|slice:":1" }}: {{ variation.name }}
-                            </span>
-                            {% endfor %}
-                        </div>
-                        {% else %}
-                        <span class="text-muted">-</span>
-                        {% endif %}
-                        {% endwith %}
-                    </td>
-                    <td>{{ item.expiring_date|date:"Y-m-d" }}</td>
-                    <td>{{ item.vendor }}</td>
-                    <td>
-                        <a class="btn btn-outline-info btn-sm" href="{% url 'item-detail' item.slug %}" title="Preview">
-                            <i class="fa-solid fa-eye"></i>
-                        </a>
-                        <a class="btn btn-outline-primary btn-sm" href="{% url 'product-update' item.slug %}">
-                            <i class="fa-solid fa-pen"></i> Edit
-                        </a>
-                        <a class="btn btn-outline-danger btn-sm float-end" href="{% url 'product-delete' item.slug %}">
-                            <i class="fa-solid fa-trash"></i> Delete
-                        </a>
+                    <td>{{ item.price|floatformat:2 }}</td>
+                    <td class="text-nowrap no-preview">
+                        <button type="button" class="btn btn-outline-info btn-sm" onclick="openImsPreview('{% url 'preview-item' item.id %}', '{{ item.name|escapejs }}')" title="Preview"><i class="fa-solid fa-eye"></i></button>
+                        <a class="btn btn-outline-primary btn-sm" href="{% url 'product-update' item.slug %}"><i class="fa-solid fa-pen"></i></a>
+                        <a class="btn btn-outline-danger btn-sm" href="{% url 'product-delete' item.slug %}"><i class="fa-solid fa-trash"></i></a>
                     </td>
                 </tr>
                 {% endfor %}
@@ -198,7 +155,7 @@
         <ul class="pagination justify-content-center">
             {% if page_obj.has_previous %}
             <li class="page-item">
-                <a class="page-link" href="?page={{ page_obj.previous_page_number }}" aria-label="Previous">
+                <a class="page-link" href="{% querystring 'page'=page_obj.previous_page_number %}" aria-label="Previous">
                     <span aria-hidden="true">&laquo;</span>
                 </a>
             </li>
@@ -216,13 +173,13 @@
             </li>
             {% else %}
             <li class="page-item">
-                <a class="page-link" href="?page={{ i }}">{{ i }}</a>
+                <a class="page-link" href="{% querystring 'page'=i %}">{{ i }}</a>
             </li>
             {% endif %}
             {% endfor %}
             {% if page_obj.has_next %}
             <li class="page-item">
-                <a class="page-link" href="?page={{ page_obj.next_page_number }}" aria-label="Next">
+                <a class="page-link" href="{% querystring 'page'=page_obj.next_page_number %}" aria-label="Next">
                     <span aria-hidden="true">&raquo;</span>
                 </a>
             </li>
@@ -237,4 +194,5 @@
     </nav>
     {% endif %}
 </div>
+<script>bindPreviewRows('.preview-row', 'data-preview-url');</script>
 {% endblock content %}

@@ -1,0 +1,40 @@
+<div class="preview-panel">
+    <h5 class="mb-2">{{ object.name }}</h5>
+    {% if object.sku %}<div class="small text-muted mb-2">SKU: {{ object.sku }}</div>{% endif %}
+    <div class="mb-2">
+        <span class="badge bg-primary">{{ object.category.name }}</span>
+        {% if object.vendor %}<span class="badge bg-secondary">{{ object.vendor.name }}</span>{% endif %}
+    </div>
+    {% if object.image %}
+    <img src="{{ object.image.url }}" alt="{{ object.name }}" class="img-fluid rounded mb-3" style="max-height: 180px;">
+    {% endif %}
+    <dl class="row small mb-0">
+        <dt class="col-5">Stock</dt><dd class="col-7">{{ current_stock }}</dd>
+        <dt class="col-5">Selling price</dt><dd class="col-7">Rs {{ object.price|floatformat:2 }}</dd>
+        <dt class="col-5">Cost price</dt><dd class="col-7">Rs {{ object.cost_price|floatformat:2 }}</dd>
+        <dt class="col-5">Low stock at</dt><dd class="col-7">{{ object.low_stock_threshold }}</dd>
+        {% if object.expiring_date %}
+        <dt class="col-5">Expires</dt><dd class="col-7">{{ object.expiring_date|date:"Y-m-d" }}</dd>
+        {% endif %}
+    </dl>
+    <p class="text-muted small mt-2">{{ object.description }}</p>
+    {% if variations %}
+    <h6 class="mt-3">Variants</h6>
+    <ul class="list-group list-group-flush small">
+        {% for v in variations %}
+        <li class="list-group-item px-0">{{ v.name }} — qty {{ v.quantity }}, Rs {{ v.final_price|floatformat:2 }}</li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+    {% if adjustment_logs %}
+    <h6 class="mt-3">Recent adjustments</h6>
+    <ul class="list-group list-group-flush small">
+        {% for log in adjustment_logs %}
+        <li class="list-group-item px-0">{{ log.created_at|date:"Y-m-d H:i" }}: {{ log.get_mode_display }} {{ log.quantity_delta }} ({{ log.reason|default:"—" }})</li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+    <div class="mt-3">
+        <a href="{% url 'item-detail' object.slug %}" class="btn btn-sm btn-outline-primary">Open full page</a>
+    </div>
+</div>

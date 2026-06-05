@@ -19,6 +19,10 @@
         width: 100%;
         min-width: 180px;
     }
+    .ims-select2-dropdown .select2-results__options {
+        max-height: 280px;
+        overflow-y: auto;
+    }
 </style>
 {% endblock stylesheets %}
 
@@ -153,6 +157,10 @@
                                 <input class="form-check-input" type="checkbox" id="sale-pay-full" checked>
                                 <label class="form-check-label small" for="sale-pay-full">Mark fully paid (auto-fill net bill)</label>
                             </div>
+                            <div class="form-check mt-1">
+                                <input class="form-check-input" type="checkbox" id="round-to-rupee">
+                                <label class="form-check-label small" for="round-to-rupee">Round grand total to nearest rupee</label>
+                            </div>
                         </div>
                         <button type="submit" class="btn btn-success w-100">Create Sale</button>
                     </div>
@@ -237,6 +245,9 @@
                 this.products.sub_total + this.products.tax_amount,
                 2
             );
+            if ($('#round-to-rupee').is(':checked')) {
+                this.products.grand_total = Math.round(this.products.grand_total);
+            }
 
             $('input[name="sub_total"]').val(this.products.sub_total);
             $('input[name="tax_amount"]').val(this.products.tax_amount);
@@ -471,6 +482,8 @@
             placeholder: 'Search an item',
             minimumInputLength: 1,
             allowClear: true,
+            dropdownAutoWidth: true,
+            dropdownCssClass: 'ims-select2-dropdown',
             templateResult: template_item_searchbox,
             ajax: {
                 url: "{% url 'get_items' %}",
@@ -481,17 +494,18 @@
                 data: function (params) {
                     return {
                         term: params.term,
+                        page: params.page || 1,
                         csrfmiddlewaretoken: $('input[name="csrfmiddlewaretoken"]').val()
                     };
                 },
-                processResults: function (data) {
+                processResults: function (data, params) {
+                    params.page = params.page || 1;
                     if (data && data.error) {
-                        return { results: [] };
+                        return { results: [], pagination: { more: false } };
                     }
-                    if (!Array.isArray(data)) {
-                        return { results: [] };
-                    }
-                    return { results: data };
+                    var results = Array.isArray(data) ? data : (data.results || []);
+                    var more = Array.isArray(data) ? false : !!data.more;
+                    return { results: results, pagination: { more: more } };
                 },
                 transport: function (params, success, failure) {
                     var $request = $.ajax(params);
@@ -601,8 +615,9 @@
         });
 
         // Items datatable
-        $('#sale-pay-full').on('change', function () {
-            if ($(this).is(':checked')) {
+        $('#sale-pay-full, #round-to-rupee').on('change', function () {
+            sale.calculate_sale();
+            if ($('#sale-pay-full').is(':checked')) {
                 $('input[name="amount_paid"]').val($('input[name="grand_total"]').val());
             }
         });

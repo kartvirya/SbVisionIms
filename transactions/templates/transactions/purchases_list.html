@@ -12,6 +12,9 @@
                 <a class="btn btn-success btn-sm rounded-pill shadow-sm" href="{% url 'purchase-create' %}">
                     <i class="fa-solid fa-plus"></i> New purchase
                 </a>
+                <a class="btn btn-outline-primary btn-sm rounded-pill shadow-sm" href="{% url 'import-data' kind='purchases' %}">
+                    <i class="fa-solid fa-file-import"></i> Import
+                </a>
                 <a class="btn btn-success btn-sm rounded-pill shadow-sm" href="{% url 'purchases-export' %}">
                     <i class="fa-solid fa-download"></i> Export
                 </a>
@@ -91,7 +94,9 @@
             </thead>
             <tbody>
                 {% for purchase in purchases %}
-                <tr>
+                <tr class="preview-row" style="cursor:pointer;"
+                    data-preview-url="{% url 'preview-purchase' slug=purchase.slug %}"
+                    data-preview-title="{{ purchase.display_bill_number }}">
                     <th scope="row" class="text-muted">{{ purchase.list_row_number }}</th>
                     <td>
                         <a href="{% url 'purchase-detail' slug=purchase.slug %}" class="fw-semibold text-success">
@@ -130,7 +135,7 @@
                         <span class="badge bg-success">Received</span>
                         {% endif %}
                     </td>
-                    <td class="text-nowrap">
+                    <td class="text-nowrap no-preview">
                         <a class="btn btn-outline-info btn-sm" href="{% url 'purchase-detail' slug=purchase.slug %}" title="View details">
                             <i class="fa-solid fa-eye"></i>
                         </a>
@@ -167,4 +172,5 @@
     </nav>
     {% endif %}
 </div>
+<script>bindPreviewRows('.preview-row', 'data-preview-url');</script>
 {% endblock %}

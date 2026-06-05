@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 # Django core imports
 from django.shortcuts import render
 from django.urls import reverse, reverse_lazy
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.views.decorators.http import require_POST
 from django.views.decorators.csrf import csrf_exempt
 from django.db.models import Q, Count, Sum
@@ -47,7 +47,20 @@ from django_tables2.export.views import ExportMixin
 from accounts.models import Vendor, Customer
 from transactions.models import Sale, SaleDetail, Purchase
 from .models import Category, Item, Delivery, ProductVariation
-from .forms import ItemForm, CategoryForm, DeliveryForm, ProductVariationFormSet
+from .forms import (
+    ItemForm,
+    CategoryForm,
+    DeliveryForm,
+    ProductVariationFormSet,
+    StockAdjustmentForm,
+)
+from .import_utils import (
+    IMPORT_HANDLERS,
+    IMPORT_HEADERS,
+    TEMPLATE_BUILDERS,
+    read_sheet_rows,
+)
+from .stock_adjust import apply_manual_stock_adjustment
 from .tables import ItemTable
 from .filters import ProductFilter, DeliveryFilter
 from .list_display import annotate_list_row_numbers
@@ -255,9 +268,34 @@ class ProductDetailView(LoginRequiredMixin, DetailView):
     model = Item
     template_name = "store/productdetail.html"
 
+    def post(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        form = StockAdjustmentForm(self.object, request.POST)
+        if form.is_valid():
+            try:
+                apply_manual_stock_adjustment(
+                    self.object,
+                    mode=form.cleaned_data["mode"],
+                    quantity=form.cleaned_data["quantity"],
+                    reason=form.cleaned_data.get("reason", ""),
+                    user=request.user,
+                    variation=form.cleaned_data.get("variation"),
+                )
+                messages.success(request, "Stock updated successfully.")
+            except ValueError as exc:
+                messages.error(request, str(exc))
+        else:
+            messages.error(request, "Please correct the stock adjustment form.")
+        return auth_redirect(self.object.get_absolute_url())
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['variations'] = self.object.variations.all()
+        context["variations"] = self.object.variations.filter(is_active=True)
+        context["adjustment_logs"] = (
+            self.object.adjustment_logs.select_related("variation", "created_by")[:50]
+        )
+        context["stock_form"] = StockAdjustmentForm(self.object)
+        context["can_manage_products"] = user_can_manage_products(self.request.user)
         return context
 
     def get_success_url(self):
@@ -422,9 +460,7 @@ class ProductDeleteView(LoginRequiredMixin, UserPassesTestMixin, DeleteView):
             return auth_redirect(self.get_success_url())
 
 
-class DeliveryListView(
-    LoginRequiredMixin, ExportMixin, tables.SingleTableView
-):
+class DeliveryListView(LoginRequiredMixin, ListView):
     """
     View class to display a list of deliveries.
 
@@ -439,6 +475,23 @@ class DeliveryListView(
     paginate_by = 10
     template_name = "store/deliveries.html"
     context_object_name = "deliveries"
+    filterset_class = DeliveryFilter
+
+    def get_queryset(self):
+        qs = super().get_queryset().select_related("item", "logistics")
+        self.filterset = self.filterset_class(self.request.GET, queryset=qs)
+        result = self.filterset.qs
+        if not self.request.GET.get("ordering"):
+            result = result.order_by("-date", "-id")
+        return result
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["filter"] = self.filterset
+        annotate_list_row_numbers(
+            context.get("deliveries") or [], context.get("page_obj")
+        )
+        return context
 
 
 class DeliverySearchListView(DeliveryListView):
@@ -597,18 +650,101 @@ def is_ajax(request):
 def get_items_ajax_view(request):
     try:
         term = (request.POST.get("term") or "").strip()
-        data = []
+        page = max(int(request.POST.get("page") or 1), 1)
+        page_size = 25
         qs = Item.objects.select_related("category", "vendor").prefetch_related(
             "variations"
         )
         if term:
-            qs = qs.filter(name__icontains=term)
-        for item in qs.order_by("name")[:20]:
+            words = [w for w in term.split() if w]
+            for word in words:
+                qs = qs.filter(
+                    Q(name__icontains=word)
+                    | Q(sku__icontains=word)
+                    | Q(description__icontains=word)
+                    | Q(category__name__icontains=word)
+                    | Q(vendor__name__icontains=word)
+                )
+        qs = qs.order_by("-id", "name")
+        offset = (page - 1) * page_size
+        page_items = list(qs[offset : offset + page_size + 1])
+        has_more = len(page_items) > page_size
+        page_items = page_items[:page_size]
+        data = []
+        for item in page_items:
             try:
                 data.append(item.to_json())
             except Exception as exc:
                 logger.error("Error serializing item %s: %s", item.id, exc)
-        return JsonResponse(data, safe=False)
+        return JsonResponse({"results": data, "more": has_more})
     except Exception as exc:
         logger.error("Error in get_items_ajax_view: %s", exc)
         return JsonResponse({"error": str(exc)}, status=500)
+
+
+IMPORT_LABELS = {
+    "inventory": "Inventory",
+    "customers": "Customers",
+    "suppliers": "Suppliers",
+    "purchases": "Purchase Book",
+    "sales": "Sales Book",
+}
+
+IMPORT_REDIRECTS = {
+    "inventory": "productslist",
+    "customers": "dashboard",
+    "suppliers": "vendor-list",
+    "purchases": "purchaseslist",
+    "sales": "saleslist",
+}
+
+
+@login_required
+def import_data_view(request, kind):
+    """Upload Excel/CSV bulk import."""
+    if kind not in IMPORT_HANDLERS:
+        messages.error(request, "Unknown import type.")
+        return auth_redirect(reverse("dashboard"))
+
+    template_name = "store/import_data.html"
+    if request.method == "GET" and request.GET.get("download") == "template":
+        wb = TEMPLATE_BUILDERS[kind]()
+        filename = f"{kind}_import_template.xlsx"
+        response = HttpResponse(
+            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+        response["Content-Disposition"] = f'attachment; filename="{filename}"'
+        wb.save(response)
+        return response
+
+    if request.method == "POST":
+        upload = request.FILES.get("file")
+        if not upload:
+            messages.error(request, "Choose a file to upload (.xlsx or .csv).")
+        else:
+            headers = IMPORT_HEADERS[kind]
+            rows, sheet_errors = read_sheet_rows(upload, headers)
+            if sheet_errors:
+                for err in sheet_errors:
+                    messages.error(request, err)
+            elif not rows:
+                messages.warning(request, "No data rows found in the file.")
+            else:
+                created, updated, errors = IMPORT_HANDLERS[kind](rows)
+                for err in errors[:20]:
+                    messages.warning(request, err)
+                if errors and len(errors) > 20:
+                    messages.warning(
+                        request, f"...and {len(errors) - 20} more row errors."
+                    )
+                messages.success(
+                    request,
+                    f"Import complete: {created} created, {updated} updated.",
+                )
+                return auth_redirect(reverse(IMPORT_REDIRECTS.get(kind, "dashboard")))
+
+    context = {
+        "kind": kind,
+        "kind_label": IMPORT_LABELS.get(kind, kind.title()),
+    }
+    return render(request, template_name, context)

@@ -3,6 +3,8 @@ from django.urls import path
 from django.conf import settings
 from django.conf.urls.static import static
 
+from store import preview_views
+
 # Local app imports
 from .views import (
     PurchaseListView,
@@ -24,6 +26,9 @@ from .views import (
 
 # URL patterns
 urlpatterns = [
+    path('preview/sale/<int:pk>/', preview_views.preview_sale, name='preview-sale'),
+    path('preview/purchase/<slug:slug>/', preview_views.preview_purchase, name='preview-purchase'),
+
     # Purchase URLs
     path('purchases/', PurchaseListView.as_view(), name='purchaseslist'),
     path(

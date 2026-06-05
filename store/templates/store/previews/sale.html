@@ -1,0 +1,33 @@
+<div class="preview-panel">
+    <h5 class="mb-2">Sale #{{ object.id }}</h5>
+    <div class="small text-muted mb-2">{{ object.date_added|date:"Y-m-d H:i" }}</div>
+    <dl class="row small">
+        <dt class="col-5">Customer</dt>
+        <dd class="col-7">{{ object.customer.get_full_name|default:object.customer.first_name }}</dd>
+        <dt class="col-5">Subtotal</dt><dd class="col-7">Rs {{ object.sub_total }}</dd>
+        <dt class="col-5">VAT</dt><dd class="col-7">{{ object.tax_percentage }}% (Rs {{ object.tax_amount }})</dd>
+        <dt class="col-5">Grand total</dt><dd class="col-7 fw-bold">Rs {{ object.grand_total }}</dd>
+        <dt class="col-5">Paid</dt><dd class="col-7">Rs {{ object.amount_paid }}</dd>
+        <dt class="col-5">Change</dt><dd class="col-7">Rs {{ object.amount_change }}</dd>
+    </dl>
+    <h6>Products</h6>
+    <ul class="list-group list-group-flush small mb-2">
+        {% for d in object.saledetail_set.all %}
+        <li class="list-group-item px-0">
+            {{ d.item.name }}{% if d.variation %} ({{ d.variation.name }}){% endif %}
+            × {{ d.quantity }} @ Rs {{ d.price }}
+        </li>
+        {% endfor %}
+    </ul>
+    {% if object.customer_payments.exists %}
+    <h6>Payments</h6>
+    <ul class="list-group list-group-flush small">
+        {% for p in object.customer_payments.all %}
+        <li class="list-group-item px-0">{{ p.received_at|date:"Y-m-d H:i" }} — Rs {{ p.amount }} ({{ p.get_method_display }})</li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+    <div class="mt-3">
+        <a href="{% url 'sale-detail' object.id %}" class="btn btn-sm btn-outline-primary">Open bill</a>
+    </div>
+</div>

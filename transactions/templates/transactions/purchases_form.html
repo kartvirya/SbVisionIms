@@ -23,9 +23,17 @@
             <div class="card-body">
                 <div class="row g-3">
                     <div class="col-md-4">
-                        <label class="form-label" for="{{ form.vendor.id_for_label }}">{{ form.vendor.label }}</label>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <label class="form-label mb-0" for="{{ form.vendor.id_for_label }}">{{ form.vendor.label }}</label>
+                            <button type="button" class="btn btn-link btn-sm p-0 text-success" id="toggle_new_vendor">+ New supplier</button>
+                        </div>
                         {{ form.vendor }}
                         {% if form.vendor.errors %}<div class="text-danger small">{{ form.vendor.errors }}</div>{% endif %}
+                        <div id="new_vendor_panel" class="border rounded p-2 mt-2 bg-light d-none">
+                            <input type="text" class="form-control form-control-sm mb-1" id="new_vendor_name" placeholder="Supplier name *">
+                            <input type="text" class="form-control form-control-sm mb-1" id="new_vendor_phone" placeholder="Phone">
+                            <button type="button" class="btn btn-success btn-sm" id="btn_save_vendor">Save supplier</button>
+                        </div>
                     </div>
                     <div class="col-md-4">
                         <label class="form-label" for="{{ form.bill_number.id_for_label }}">{{ form.bill_number.label }}</label>
@@ -76,7 +84,8 @@
                         <thead class="table-light">
                             <tr>
                                 <th class="text-center" style="width: 2.5rem;">#</th>
-                                <th style="min-width: 14rem;">Product</th>
+                                <th style="min-width: 12rem;">Product</th>
+                                <th style="min-width: 10rem;">New product name</th>
                                 <th class="text-end" style="width: 6rem;">In stock</th>
                                 <th class="text-end" style="width: 7rem;">Qty</th>
                                 <th class="text-end" style="width: 8rem;">Unit cost</th>
@@ -93,6 +102,7 @@
                                     {{ f.item }}
                                     {{ f.item.errors }}
                                 </td>
+                                <td>{{ f.new_item_name }}{{ f.new_item_name.errors }}</td>
                                 <td class="text-end text-muted line-stock">—</td>
                                 <td>{{ f.quantity }}{{ f.quantity.errors }}</td>
                                 <td>{{ f.unit_price }}{{ f.unit_price.errors }}</td>
@@ -343,6 +353,35 @@
     if (vendorSelect) vendorSelect.addEventListener("change", filterProductOptions);
     filterProductOptions();
     updatePreview();
+
+    const toggleVendor = document.getElementById("toggle_new_vendor");
+    const vendorPanel = document.getElementById("new_vendor_panel");
+    if (toggleVendor && vendorPanel) {
+        toggleVendor.addEventListener("click", function () {
+            vendorPanel.classList.toggle("d-none");
+        });
+    }
+    const btnSaveVendor = document.getElementById("btn_save_vendor");
+    if (btnSaveVendor) {
+        btnSaveVendor.addEventListener("click", function () {
+            const name = (document.getElementById("new_vendor_name")?.value || "").trim();
+            if (!name) return;
+            const fd = new FormData();
+            fd.append("name", name);
+            fd.append("phone_number", document.getElementById("new_vendor_phone")?.value || "");
+            fd.append("csrfmiddlewaretoken", document.querySelector("[name=csrfmiddlewaretoken]").value);
+            fetch("{% url 'vendor-quick-create' %}", { method: "POST", body: fd, credentials: "same-origin" })
+                .then((r) => r.json())
+                .then((data) => {
+                    if (data.status === "success" && vendorSelect) {
+                        const opt = new Option(data.label, data.id, true, true);
+                        vendorSelect.add(opt);
+                        vendorSelect.dispatchEvent(new Event("change"));
+                        vendorPanel.classList.add("d-none");
+                    }
+                });
+        });
+    }
 })();
 </script>
 {% endblock %}

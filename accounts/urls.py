@@ -18,6 +18,7 @@ from .views import (
     CustomerDeleteView,
     get_customers,
     create_customer_quick,
+    create_vendor_quick,
     VendorListView,
     VendorCreateView,
     VendorUpdateView,
@@ -59,6 +60,7 @@ urlpatterns = [
     path('customers/quick-create/', create_customer_quick, name='customer-quick-create'),
 
     # Vendor URLs
+    path('vendors/quick-create/', create_vendor_quick, name='vendor-quick-create'),
     path('vendors/', VendorListView.as_view(), name='vendor-list'),
     path('vendors/new/', VendorCreateView.as_view(), name='vendor-create'),
     path('vendors/<int:pk>/update/', VendorUpdateView.as_view(),

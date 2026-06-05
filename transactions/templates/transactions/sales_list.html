@@ -1,6 +1,5 @@
 {% extends "store/base.html" %}
 {% load static %}
-{% load render_table from django_tables2 %}
 {% load querystring from django_tables2 %}
 {% block title %}Sales Book{% endblock title %}
 {% block content %}
@@ -15,6 +14,9 @@
             <div class="col-md-6 d-flex justify-content-end gap-2">
                 <a class="btn btn-success btn-sm rounded-pill shadow-sm" href="{% url 'sale-create' %}">
                     <i class="fa-solid fa-plus"></i> New sale entry
+                </a>
+                <a class="btn btn-outline-primary btn-sm rounded-pill shadow-sm" href="{% url 'import-data' kind='sales' %}">
+                    <i class="fa-solid fa-file-import"></i> Import
                 </a>
                 <a class="btn btn-primary btn-sm rounded-pill shadow-sm" href="{% url 'sales-export' %}">
                     <i class="fa-solid fa-download"></i> Export to Excel
@@ -86,42 +88,28 @@
                 <th>Date</th>
                 <th>Customer</th>
                 <th>Products</th>
-                <th>Sub Total</th>
                 <th>Grand Total</th>
-                <th>Tax Amount</th>
-                <th>Tax Percentage</th>
-                <th>Amount Paid</th>
-                <th>Amount Change</th>
-                <th>Actions</th>
+                <th>Paid</th>
+                <th class="no-preview">Actions</th>
             </tr>
         </thead>
         <tbody>
             {% if sales %}
                 {% for sale in sales %}
-                <tr>
+                <tr class="sale-row preview-row" style="cursor: pointer;"
+                    data-preview-url="{% url 'preview-sale' sale.id %}"
+                    data-preview-title="Sale #{{ sale.id }}">
                     <td class="text-muted">{{ sale.list_row_number }}</td>
-                    <td>{{ sale.date_added|date:"Y-m-d H:i:s" }}</td>
+                    <td>{{ sale.date_added|date:"Y-m-d H:i" }}</td>
                     <td>{{ sale.customer.get_full_name|default:sale.customer.first_name }}</td>
                     <td class="text-start small">
                         {% for detail in sale.saledetail_set.all %}
-                        <div>
-                            {{ detail.item.name }}
-                            {% if detail.variation %}
-                            <span class="badge bg-info">{{ detail.variation.get_variation_type_display }}: {{ detail.variation.name }}</span>
-                            {% endif %}
-                            &times; {{ detail.quantity }} @ Rs {{ detail.price }}
-                        </div>
-                        {% empty %}
-                        <span class="text-muted">—</span>
-                        {% endfor %}
+                        <div>{{ detail.item.name }} × {{ detail.quantity }}</div>
+                        {% empty %}<span class="text-muted">—</span>{% endfor %}
                     </td>
-                    <td>Rs {{ sale.sub_total }}</td>
                     <td><strong>Rs {{ sale.grand_total }}</strong></td>
-                    <td>Rs {{ sale.tax_amount }}</td>
-                    <td>{{ sale.tax_percentage }}%</td>
                     <td>Rs {{ sale.amount_paid }}</td>
-                    <td>Rs {{ sale.amount_change }}</td>
-                    <td class="text-nowrap">
+                    <td class="text-nowrap sale-actions no-preview">
                         <a class="btn btn-outline-info btn-sm" href="{% url 'sale-detail' sale.id %}" title="View Bill/Receipt">
                             <i class="fa-solid fa-eye"></i>
                         </a>
@@ -140,7 +128,7 @@
                 {% endfor %}
             {% else %}
                 <tr>
-                    <td colspan="11" class="text-center py-4">
+                    <td colspan="7" class="text-center py-4">
                         <div class="alert alert-info" role="alert">
                             <i class="fa-solid fa-info-circle me-2"></i>
                             No sales found. <a href="{% url 'sale-create' %}" class="alert-link">Create your first sale</a> to get started.
@@ -196,4 +184,5 @@
         {% endif %}
     </div>
 </div>
+<script>bindPreviewRows('.sale-row', 'data-preview-url');</script>
 {% endblock content %}

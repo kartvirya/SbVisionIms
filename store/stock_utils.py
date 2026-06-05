@@ -43,7 +43,7 @@ def build_ledger_stock_map(items):
             totals = stock_totals[item.id]
             result[item.id] = int(totals.get("IN", 0) - totals.get("OUT", 0))
         else:
-            result[item.id] = int(item.quantity or 0)
+            result[item.id] = 0
     return result
 
 
@@ -57,7 +57,7 @@ def build_item_stock_map(items):
 
 def get_ledger_stock(item):
     """Base stock from inventory movements (excludes variant-only qty)."""
-    return build_ledger_stock_map([item]).get(item.id, int(item.quantity or 0))
+    return build_ledger_stock_map([item]).get(item.id, 0)
 
 
 def get_item_current_stock(item):

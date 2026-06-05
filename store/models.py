@@ -43,6 +43,13 @@ class Item(models.Model):
     Represents an item in the inventory.
     """
     slug = AutoSlugField(unique=True, populate_from='name')
+    sku = models.CharField(
+        max_length=64,
+        blank=True,
+        db_index=True,
+        verbose_name="SKU",
+        help_text="Stock keeping unit / product code",
+    )
     name = models.CharField(max_length=50)
     description = models.TextField(max_length=256)
     category = models.ForeignKey(Category, on_delete=models.CASCADE)
@@ -144,6 +151,7 @@ class Item(models.Model):
         # Ensure all values are JSON-serializable
         product['id'] = self.id
         product['text'] = self.name
+        product['sku'] = self.sku or ""
         product['category'] = self.category.name
         product['price'] = float(self.price or 0)
         from store.stock_utils import get_ledger_stock, get_item_current_stock
@@ -161,6 +169,54 @@ class Item(models.Model):
     class Meta:
         ordering = ['name']
         verbose_name_plural = 'Items'
+
+
+class StockAdjustmentLog(models.Model):
+    """Audit trail for manual stock add/remove/set operations."""
+
+    MODE_CHOICES = [
+        ("add", "Add stock"),
+        ("remove", "Remove stock"),
+        ("set", "Set stock to"),
+    ]
+
+    item = models.ForeignKey(
+        Item, on_delete=models.CASCADE, related_name="adjustment_logs"
+    )
+    variation = models.ForeignKey(
+        "ProductVariation",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="adjustment_logs",
+    )
+    mode = models.CharField(max_length=10, choices=MODE_CHOICES)
+    quantity_delta = models.IntegerField()
+    quantity_before = models.IntegerField()
+    quantity_after = models.IntegerField()
+    reason = models.CharField(max_length=255, blank=True)
+    created_by = models.ForeignKey(
+        "auth.User",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="stock_adjustments",
+    )
+    inventory_transaction = models.ForeignKey(
+        "transactions.InventoryTransaction",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="stock_adjustment_logs",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        target = self.variation or self.item
+        return f"{self.get_mode_display()} {target} ({self.quantity_delta:+d})"
 
 
 class ProductVariation(models.Model):

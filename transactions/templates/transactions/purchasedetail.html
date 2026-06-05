@@ -49,11 +49,69 @@
             {% else %}
             <p class="text-muted">No lines.</p>
             {% endif %}
+            {% if object.returns.exists %}
+            <h5 class="mt-4">Return history</h5>
+            <table class="table table-sm">
+                <thead><tr><th>Date</th><th>Credit (Rs)</th><th>Reason</th></tr></thead>
+                <tbody>
+                    {% for r in object.returns.all %}
+                    <tr>
+                        <td>{{ r.created_at|date:"Y-m-d H:i" }}</td>
+                        <td>{{ r.total_credit }}</td>
+                        <td>{{ r.reason|default:"—" }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% endif %}
             <div class="mt-3">
                 <a href="{% url 'purchase-update' object.id %}" class="btn btn-sm btn-primary">Edit</a>
                 <a href="{% url 'purchaseslist' %}" class="btn btn-sm btn-secondary">Back</a>
             </div>
         </div>
     </div>
+
+    {% if object.lines.exists %}
+    <div class="card shadow-sm mt-4">
+        <div class="card-header">
+            <h5 class="mb-0">Return to supplier</h5>
+        </div>
+        <div class="card-body">
+            <p class="text-muted small mb-3">
+                Removes stock and credits vendor payables for returned quantities.
+            </p>
+            <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="purchase_return">
+                <table class="table table-sm align-middle">
+                    <thead>
+                        <tr>
+                            <th>Item</th>
+                            <th class="text-end">Purchased</th>
+                            <th class="text-end" style="width: 120px;">Return qty</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for line in object.lines.all %}
+                        <tr>
+                            <td>{{ line.item.name }}</td>
+                            <td class="text-end">{{ line.quantity }}</td>
+                            <td>
+                                <input type="number" name="return_qty_{{ line.id }}" class="form-control form-control-sm" min="0" max="{{ line.quantity }}" placeholder="0">
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                <div class="mb-3">
+                    <label class="form-label">Reason (optional)</label>
+                    <input type="text" name="reason" class="form-control form-control-sm" placeholder="Damaged goods, wrong item, etc.">
+                </div>
+                <button type="submit" class="btn btn-warning btn-sm">Submit return</button>
+            </form>
+        </div>
+    </div>
+    {% endif %}
 </div>
 {% endblock %}
+

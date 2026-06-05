@@ -1,0 +1,28 @@
+{% extends "store/base.html" %}
+{% block title %}Import {{ kind_label }}{% endblock %}
+{% block content %}
+<div class="container my-4">
+    <div class="card shadow-sm">
+        <div class="card-header">
+            <h4 class="mb-0">Import {{ kind_label }} from Excel</h4>
+        </div>
+        <div class="card-body">
+            <p class="text-muted">
+                Download the template, fill in your data, then upload an <strong>.xlsx</strong> or <strong>.csv</strong> file.
+            </p>
+            <a href="?download=template" class="btn btn-outline-primary btn-sm mb-3">
+                <i class="fa-solid fa-download"></i> Download template
+            </a>
+            <form method="post" enctype="multipart/form-data">
+                {% csrf_token %}
+                <div class="mb-3">
+                    <label class="form-label">Excel file (.xlsx)</label>
+                    <input type="file" name="file" accept=".xlsx,.csv" class="form-control" required>
+                </div>
+                <button type="submit" class="btn btn-success btn-sm">Upload and import</button>
+                <a href="{% if kind == 'inventory' %}{% url 'productslist' %}{% else %}{% url 'dashboard' %}{% endif %}" class="btn btn-secondary btn-sm">Cancel</a>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

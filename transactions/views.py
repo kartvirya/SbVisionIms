@@ -44,6 +44,7 @@ from .services import (
     get_stock_ledger_rows,
     sync_purchase_inventory_transaction,
     update_vendor_payables_adjustment,
+    process_purchase_return,
 )
 
 
@@ -561,9 +562,55 @@ class PurchaseDetailView(LoginRequiredMixin, DetailView):
 
     model = Purchase
     template_name = "transactions/purchasedetail.html"
+    slug_url_kwarg = "slug"
+    slug_field = "slug"
 
     def get_queryset(self):
         return super().get_queryset().prefetch_related("lines__item", "vendor")
+
+    def _detail_url(self):
+        return reverse("purchase-detail", kwargs={"slug": self.object.slug})
+
+    def post(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        if request.POST.get("action") != "purchase_return":
+            messages.error(request, "Unknown action.")
+            return HttpResponseRedirect(self._detail_url())
+
+        reason = (request.POST.get("reason") or "").strip()
+        line_returns = []
+        for line in self.object.lines.all():
+            raw = request.POST.get(f"return_qty_{line.id}", "").strip()
+            if not raw:
+                continue
+            try:
+                qty = int(raw)
+            except ValueError:
+                messages.error(request, f"Invalid quantity for {line.item.name}.")
+                return HttpResponseRedirect(self._detail_url())
+            if qty > 0:
+                line_returns.append({"line_id": line.id, "return_qty": qty})
+
+        if not line_returns:
+            messages.warning(request, "Enter at least one return quantity.")
+            return HttpResponseRedirect(self._detail_url())
+
+        try:
+            credit = process_purchase_return(
+                self.object,
+                line_returns,
+                reason=reason,
+                user=request.user,
+            )
+            messages.success(
+                request,
+                f"Return recorded. Vendor payables credited Rs {credit}.",
+            )
+        except ValueError as exc:
+            messages.error(request, str(exc))
+        except Exception as exc:
+            messages.error(request, f"Could not process return: {exc}")
+        return HttpResponseRedirect(self._detail_url())
 
 
 def _purchase_vendor_id(request, purchase=None):

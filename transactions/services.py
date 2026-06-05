@@ -685,6 +685,72 @@ def update_vendor_payables_adjustment(vendor_id, amount, sign="+"):
     return vendor
 
 
+@db_transaction.atomic
+def process_purchase_return(purchase, line_returns, *, reason="", user=None):
+    """
+    Return quantities from a purchase: stock out, bill credit, return history.
+    line_returns: list of dicts {line_id, return_qty}.
+    """
+    from store.stock_adjust import apply_manual_stock_adjustment
+    from transactions.models import PurchaseReturn, PurchaseReturnLine
+
+    if not purchase.pk:
+        raise ValueError("Purchase must be saved.")
+    total_credit = Decimal("0")
+    reason_text = (reason or "").strip() or f"Return for {purchase.display_bill_number}"
+    return_lines = []
+
+    for entry in line_returns:
+        line_id = entry.get("line_id")
+        return_qty = int(entry.get("return_qty") or 0)
+        if return_qty <= 0:
+            continue
+        line = purchase.lines.filter(pk=line_id).select_related("item").first()
+        if not line:
+            continue
+        if return_qty > line.quantity:
+            raise ValueError(
+                f"Cannot return {return_qty} of {line.item.name}; purchased {line.quantity}."
+            )
+        apply_manual_stock_adjustment(
+            line.item,
+            mode="remove",
+            quantity=return_qty,
+            reason=f"{reason_text} (PUR-{purchase.id})",
+            user=user,
+        )
+        line_credit = _to_decimal(line.unit_price) * Decimal(str(return_qty))
+        total_credit += line_credit
+        line.quantity -= return_qty
+        line.save()
+        return_lines.append((line, return_qty, line_credit))
+
+    if total_credit <= 0:
+        return total_credit
+
+    purchase_return = PurchaseReturn.objects.create(
+        purchase=purchase,
+        reason=reason_text,
+        total_credit=total_credit,
+        created_by=user if user and user.is_authenticated else None,
+    )
+    for line, qty, credit in return_lines:
+        PurchaseReturnLine.objects.create(
+            purchase_return=purchase_return,
+            purchase_line=line,
+            quantity=qty,
+            unit_price=line.unit_price,
+            line_credit=credit,
+        )
+
+    purchase.save()
+
+    vendor = Vendor.objects.select_for_update().get(pk=purchase.vendor_id)
+    vendor.payables_adjustment = _to_decimal(vendor.payables_adjustment) - total_credit
+    vendor.save(update_fields=["payables_adjustment"])
+    return total_credit
+
+
 def create_payable_quick_entry(
     vendor,
     *,

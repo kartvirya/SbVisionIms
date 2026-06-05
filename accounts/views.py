@@ -277,6 +277,42 @@ def create_customer_quick(request):
     )
 
 
+@require_POST
+@login_required
+def create_vendor_quick(request):
+    """Create a supplier from the purchase form without leaving the page."""
+    name = (request.POST.get("name") or "").strip()
+    if not name:
+        return JsonResponse(
+            {"status": "error", "message": "Supplier name is required."},
+            status=400,
+        )
+    phone_raw = (request.POST.get("phone_number") or "").strip()
+    phone_val = None
+    if phone_raw:
+        try:
+            phone_val = int(phone_raw.replace(" ", ""))
+        except ValueError:
+            return JsonResponse(
+                {"status": "error", "message": "Invalid phone number."},
+                status=400,
+            )
+    vendor = Vendor.objects.create(
+        name=name,
+        phone_number=phone_val,
+        address=(request.POST.get("address") or "").strip() or None,
+    )
+    return JsonResponse(
+        {
+            "status": "success",
+            "id": vendor.id,
+            "name": vendor.name,
+            "label": vendor.name,
+            "value": vendor.id,
+        }
+    )
+
+
 class VendorListView(LoginRequiredMixin, ListView):
     model = Vendor
     template_name = 'accounts/vendor_list.html'

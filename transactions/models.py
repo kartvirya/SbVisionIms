@@ -310,6 +310,51 @@ class PurchaseLine(models.Model):
         return f"{self.purchase_id} — {self.item.name}"
 
 
+class PurchaseReturn(models.Model):
+    """Supplier return against a purchase bill."""
+
+    purchase = models.ForeignKey(
+        Purchase,
+        on_delete=models.CASCADE,
+        related_name="returns",
+    )
+    reason = models.CharField(max_length=255, blank=True)
+    total_credit = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    created_by = models.ForeignKey(
+        "auth.User",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="purchase_returns",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"Return #{self.pk} for {self.purchase_id}"
+
+
+class PurchaseReturnLine(models.Model):
+    purchase_return = models.ForeignKey(
+        PurchaseReturn,
+        on_delete=models.CASCADE,
+        related_name="lines",
+    )
+    purchase_line = models.ForeignKey(
+        PurchaseLine,
+        on_delete=models.CASCADE,
+        related_name="return_lines",
+    )
+    quantity = models.PositiveIntegerField()
+    unit_price = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    line_credit = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+
+    def __str__(self):
+        return f"{self.quantity} × {self.purchase_line_id}"
+
+
 PAYMENT_METHOD_CHOICES = [
     ("cash", "Cash"),
     ("bank", "Bank transfer"),

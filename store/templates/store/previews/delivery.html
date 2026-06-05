@@ -1,0 +1,21 @@
+<div class="preview-panel">
+    <h5 class="mb-2">Delivery #{{ object.id }}</h5>
+    <dl class="row small">
+        <dt class="col-5">Product</dt><dd class="col-7">{{ object.item.name }}</dd>
+        <dt class="col-5">Customer</dt><dd class="col-7">{{ object.customer_name }}</dd>
+        <dt class="col-5">Phone</dt><dd class="col-7">{{ object.phone_number|default:"—" }}</dd>
+        <dt class="col-5">Location</dt><dd class="col-7">{{ object.location|default:"—" }}</dd>
+        <dt class="col-5">Date</dt><dd class="col-7">{{ object.date|date:"Y-m-d" }}</dd>
+        <dt class="col-5">Status</dt>
+        <dd class="col-7">{% if object.is_delivered %}Delivered{% else %}Pending{% endif %}</dd>
+        {% if object.logistics %}
+        <dt class="col-5">Logistics</dt><dd class="col-7">{{ object.logistics.name }}</dd>
+        {% endif %}
+        {% if object.tracking_number %}
+        <dt class="col-5">Tracking</dt><dd class="col-7">{{ object.tracking_number }}</dd>
+        {% endif %}
+    </dl>
+    <div class="mt-3">
+        <a href="{% url 'delivery-update' object.pk %}" class="btn btn-sm btn-outline-primary">Edit delivery</a>
+    </div>
+</div>

@@ -10,6 +10,9 @@
                 <h4 class="display-6 mb-0 text-success">Suppliers</h4>
             </div>
             <div class="col-md-6 d-flex justify-content-end gap-2">
+                <a class="btn btn-outline-primary btn-sm rounded-pill shadow-sm" href="{% url 'import-data' kind='suppliers' %}">
+                    <i class="fa-solid fa-file-import"></i> Import Excel
+                </a>
                 <a class="btn btn-success btn-sm rounded-pill shadow-sm" href="{% url 'vendor-create' %}">
                     <i class="fa-solid fa-plus"></i> Add Vendor
                 </a>

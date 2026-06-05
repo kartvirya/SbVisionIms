@@ -1,6 +1,6 @@
 from django import forms
 from django.forms import inlineformset_factory
-from .models import Item, Category, Delivery, ProductVariation
+from .models import Item, Category, Delivery, ProductVariation, StockAdjustmentLog
 from accounts.models import Logistics
 
 
@@ -12,6 +12,7 @@ class ItemForm(forms.ModelForm):
         model = Item
         fields = [
             'name',
+            'sku',
             'description',
             'category',
             'quantity',
@@ -214,3 +215,47 @@ class DeliveryForm(forms.ModelForm):
             'logistics': 'Logistics Company',
             'tracking_number': 'Tracking Number',
         }
+
+
+class StockAdjustmentForm(forms.Form):
+    """Manual stock correction on a product or variant."""
+
+    MODE_CHOICES = StockAdjustmentLog.MODE_CHOICES
+
+    mode = forms.ChoiceField(
+        choices=MODE_CHOICES,
+        widget=forms.Select(attrs={"class": "form-select"}),
+        label="Action",
+    )
+    quantity = forms.IntegerField(
+        min_value=0,
+        widget=forms.NumberInput(attrs={"class": "form-control", "min": "0"}),
+        label="Quantity",
+    )
+    variation = forms.ModelChoiceField(
+        queryset=ProductVariation.objects.none(),
+        required=False,
+        widget=forms.Select(attrs={"class": "form-select"}),
+        label="Variant (optional — base stock if empty)",
+    )
+    reason = forms.CharField(
+        max_length=255,
+        required=False,
+        widget=forms.TextInput(
+            attrs={"class": "form-control", "placeholder": "e.g. Stock count, damage, correction"}
+        ),
+        label="Reason",
+    )
+
+    def __init__(self, item, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.item = item
+        self.fields["variation"].queryset = item.variations.filter(is_active=True)
+
+    def clean(self):
+        cleaned = super().clean()
+        mode = cleaned.get("mode")
+        qty = cleaned.get("quantity")
+        if mode in ("add", "remove") and (qty is None or qty <= 0):
+            self.add_error("quantity", "Enter a quantity greater than zero.")
+        return cleaned
