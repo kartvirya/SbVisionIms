@@ -20,8 +20,11 @@
         min-width: 180px;
     }
     .ims-select2-dropdown .select2-results__options {
-        max-height: 280px;
+        max-height: 320px;
         overflow-y: auto;
+    }
+    .select2-container--open .select2-dropdown {
+        z-index: 1060;
     }
 </style>
 {% endblock stylesheets %}
@@ -483,6 +486,7 @@
             minimumInputLength: 1,
             allowClear: true,
             dropdownAutoWidth: true,
+            dropdownParent: $('body'),
             dropdownCssClass: 'ims-select2-dropdown',
             templateResult: template_item_searchbox,
             ajax: {

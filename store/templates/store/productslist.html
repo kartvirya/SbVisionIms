@@ -34,7 +34,7 @@
                         <i class="fa-solid fa-file-import"></i> Import Excel
                     </a>
                     <a class="btn btn-success btn-sm rounded-pill shadow-sm" href="{% querystring '_export'='xlsx' %}">
-                        <i class="fa-solid fa-download"></i> Export to Excel
+                        <i class="fa-solid fa-download"></i> Export Excel
                     </a>
                 </div>
             </div>
@@ -139,10 +139,12 @@
                         {% endwith %}
                     </td>
                     <td>{{ item.price|floatformat:2 }}</td>
-                    <td class="text-nowrap no-preview">
-                        <button type="button" class="btn btn-outline-info btn-sm" onclick="openImsPreview('{% url 'preview-item' item.id %}', '{{ item.name|escapejs }}')" title="Preview"><i class="fa-solid fa-eye"></i></button>
-                        <a class="btn btn-outline-primary btn-sm" href="{% url 'product-update' item.slug %}"><i class="fa-solid fa-pen"></i></a>
-                        <a class="btn btn-outline-danger btn-sm" href="{% url 'product-delete' item.slug %}"><i class="fa-solid fa-trash"></i></a>
+                    <td class="text-nowrap">
+                        {% url 'item-detail' item.slug as product_view_url %}
+                        {% url 'preview-item' item.id as product_preview_url %}
+                        {% url 'product-update' item.slug as product_edit_url %}
+                        {% if can_manage_products %}{% url 'product-delete' item.slug as product_delete_url %}{% endif %}
+                        {% include "store/partials/actions_dropdown.html" with view_url=product_view_url preview_url=product_preview_url preview_title=item.name edit_url=product_edit_url delete_url=product_delete_url %}
                     </td>
                 </tr>
                 {% endfor %}

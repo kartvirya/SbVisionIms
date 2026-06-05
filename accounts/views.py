@@ -224,6 +224,21 @@ class CustomerDeleteView(LoginRequiredMixin, DeleteView):
     template_name = 'accounts/customer_confirm_delete.html'
     success_url = reverse_lazy('customer_list')
 
+    def delete(self, request, *args, **kwargs):
+        from django.db import IntegrityError
+        from django.contrib import messages
+        from django.shortcuts import redirect
+
+        self.object = self.get_object()
+        try:
+            return super().delete(request, *args, **kwargs)
+        except IntegrityError:
+            messages.error(
+                request,
+                "Cannot delete this customer — they are linked to sales records.",
+            )
+            return redirect(self.success_url)
+
 
 def is_ajax(request):
     return request.META.get('HTTP_X_REQUESTED_WITH') == 'XMLHttpRequest'

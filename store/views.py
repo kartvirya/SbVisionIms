@@ -229,6 +229,7 @@ class ProductListView(LoginRequiredMixin, ExportMixin, tables.SingleTableView):
         for item in items:
             item.current_stock = stock_map.get(item.id, item.quantity)
         annotate_list_row_numbers(items, context.get("page_obj"))
+        context["can_manage_products"] = user_can_manage_products(self.request.user)
         return context
 
 
@@ -651,7 +652,7 @@ def get_items_ajax_view(request):
     try:
         term = (request.POST.get("term") or "").strip()
         page = max(int(request.POST.get("page") or 1), 1)
-        page_size = 25
+        page_size = 50
         qs = Item.objects.select_related("category", "vendor").prefetch_related(
             "variations"
         )

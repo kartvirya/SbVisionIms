@@ -496,8 +496,50 @@ def delete_payment_ledger(payment):
     type(payment).objects.filter(pk=payment.pk).update(inventory_transaction=None)
 
 
+def format_source_ref(source_ref, *, transaction_type=None, transaction_id=None):
+    """Human-readable label for stock ledger references."""
+    ref = (source_ref or "").strip()
+    if not ref:
+        if transaction_id:
+            return f"Transaction #{transaction_id}"
+        return "—"
+
+    if ref.startswith("purchase:"):
+        pk = ref.split(":", 1)[1]
+        return f"Purchase #{pk}" if pk.isdigit() else f"Purchase ({pk})"
+    if ref.startswith("sale:") or (
+        transaction_type == InventoryTransaction.TransactionType.SALE
+    ):
+        if ref.startswith("sale:"):
+            pk = ref.split(":", 1)[1]
+            return f"Sale #{pk}" if pk.isdigit() else f"Sale ({pk})"
+        if transaction_id:
+            return f"Sale #{transaction_id}"
+    if ref.startswith("vendor_payment:"):
+        pk = ref.split(":", 1)[1]
+        return f"Supplier payment #{pk}" if pk.isdigit() else "Supplier payment"
+    if ref.startswith("customer_payment:"):
+        pk = ref.split(":", 1)[1]
+        return f"Customer payment #{pk}" if pk.isdigit() else "Customer payment"
+    if ref.startswith("adjustment:manual:"):
+        return "Manual stock adjustment"
+    if ref.startswith("adjustment:item:"):
+        return "Stock adjustment"
+    if ref.startswith("adjustment:"):
+        return "Stock adjustment"
+    if ref.startswith("txn:"):
+        pk = ref.split(":", 1)[1]
+        return f"Transaction #{pk}" if pk.isdigit() else "Transaction"
+    return ref
+
+
 def get_stock_ledger_rows(*, item=None, date_from=None, date_to=None):
-    queryset = StockMovement.objects.select_related("item", "transaction").order_by("created_at", "id")
+    queryset = StockMovement.objects.select_related(
+        "item",
+        "transaction",
+        "transaction__legacy_sale",
+        "transaction__legacy_purchase",
+    ).order_by("created_at", "id")
     if item:
         queryset = queryset.filter(item=item)
     if date_from:
@@ -534,13 +576,23 @@ def get_stock_ledger_rows(*, item=None, date_from=None, date_to=None):
 
         direction = Decimal("1") if move.movement_type == StockMovement.MovementType.IN else Decimal("-1")
         running_totals[key] = running_totals[key] + (direction * move.quantity)
+        txn = move.transaction
+        ref = txn.source_ref
+        if not ref and txn.legacy_sale_id:
+            ref = f"sale:{txn.legacy_sale_id}"
+        elif not ref and txn.legacy_purchase_id:
+            ref = f"purchase:{txn.legacy_purchase_id}"
         rows.append(
             {
                 "created_at": move.created_at,
                 "item": move.item,
                 "movement_type": move.movement_type,
                 "quantity": move.quantity,
-                "source_ref": move.transaction.source_ref or f"txn:{move.transaction_id}",
+                "source_ref": format_source_ref(
+                    ref,
+                    transaction_type=txn.transaction_type,
+                    transaction_id=txn.id,
+                ),
                 "running_qty": running_totals[key],
             }
         )
@@ -674,13 +726,55 @@ def get_payables_aging_report():
     return groups
 
 
+def allocate_vendor_credit_to_purchases(vendor, credit_amount):
+    """Apply payables credit to oldest outstanding purchase bills."""
+    remaining = abs(_to_decimal(credit_amount))
+    if remaining <= 0:
+        return Decimal("0")
+    applied = Decimal("0")
+    purchases = (
+        Purchase.objects.filter(vendor=vendor)
+        .order_by("order_date", "id")
+        .prefetch_related("vendor_payments")
+    )
+    for purchase in purchases:
+        if remaining <= 0:
+            break
+        if purchase.amount_paid > 0 and not purchase.vendor_payments.exists():
+            VendorPayment.objects.create(
+                purchase=purchase,
+                amount=purchase.amount_paid,
+                method="cash",
+                notes="Recorded payment",
+            )
+        purchase.save()
+        outstanding = _to_decimal(purchase.amount_remaining)
+        if outstanding <= 0:
+            continue
+        pay = min(remaining, outstanding)
+        VendorPayment.objects.create(
+            purchase=purchase,
+            amount=pay,
+            method="cash",
+            notes="Payables book credit",
+        )
+        applied += pay
+        remaining -= pay
+    return applied
+
+
 def update_vendor_payables_adjustment(vendor_id, amount, sign="+"):
     """Persist a manual payables adjustment (+ increases balance, - reduces it)."""
     vendor = Vendor.objects.get(pk=vendor_id)
     value = abs(_to_decimal(amount))
     if sign == "-":
-        value = -value
-    vendor.payables_adjustment = value
+        applied = allocate_vendor_credit_to_purchases(vendor, value)
+        remainder = value - applied
+        vendor.payables_adjustment = (
+            -remainder if remainder > 0 else Decimal("0")
+        )
+    else:
+        vendor.payables_adjustment = value
     vendor.save(update_fields=["payables_adjustment"])
     return vendor
 
@@ -748,6 +842,94 @@ def process_purchase_return(purchase, line_returns, *, reason="", user=None):
     vendor = Vendor.objects.select_for_update().get(pk=purchase.vendor_id)
     vendor.payables_adjustment = _to_decimal(vendor.payables_adjustment) - total_credit
     vendor.save(update_fields=["payables_adjustment"])
+    return total_credit
+
+
+@db_transaction.atomic
+def process_sale_return(sale, line_returns, *, reason="", user=None):
+    """
+    Return quantities from a sale: restore stock, reduce bill totals, log history.
+    line_returns: list of dicts {detail_id, return_qty}.
+    """
+    from store.stock_adjust import apply_manual_stock_adjustment
+    from transactions.models import SaleReturn, SaleReturnLine
+
+    if not sale.pk:
+        raise ValueError("Sale must be saved.")
+    total_credit = Decimal("0")
+    reason_text = (reason or "").strip() or f"Return for sale #{sale.id}"
+    return_lines = []
+    affected_items = []
+
+    for entry in line_returns:
+        detail_id = entry.get("detail_id")
+        return_qty = int(entry.get("return_qty") or 0)
+        if return_qty <= 0:
+            continue
+        detail = sale.saledetail_set.filter(pk=detail_id).select_related(
+            "item", "variation"
+        ).first()
+        if not detail:
+            continue
+        if return_qty > detail.quantity:
+            raise ValueError(
+                f"Cannot return {return_qty} of {detail.item.name}; sold {detail.quantity}."
+            )
+        if detail.variation_id:
+            variation = detail.variation
+            variation.quantity = int(variation.quantity or 0) + return_qty
+            variation.save(update_fields=["quantity"])
+            affected_items.append(detail.item)
+        else:
+            apply_manual_stock_adjustment(
+                detail.item,
+                mode="add",
+                quantity=return_qty,
+                reason=f"{reason_text} (SALE-{sale.id})",
+                user=user,
+            )
+            affected_items.append(detail.item)
+
+        line_credit = _to_decimal(detail.price) * Decimal(str(return_qty))
+        total_credit += line_credit
+        detail.quantity -= return_qty
+        detail.total_detail = _to_decimal(detail.price) * Decimal(str(detail.quantity))
+        detail.save()
+        return_lines.append((detail, return_qty, line_credit))
+
+    if total_credit <= 0:
+        return total_credit
+
+    sale_return = SaleReturn.objects.create(
+        sale=sale,
+        reason=reason_text,
+        total_credit=total_credit,
+        created_by=user if user and user.is_authenticated else None,
+    )
+    for detail, qty, credit in return_lines:
+        SaleReturnLine.objects.create(
+            sale_return=sale_return,
+            sale_detail=detail,
+            quantity=qty,
+            unit_price=detail.price,
+            line_credit=credit,
+        )
+
+    sub_total = Decimal("0")
+    for detail in sale.saledetail_set.all():
+        sub_total += _to_decimal(detail.total_detail)
+    sale.sub_total = sub_total
+    tax_pct = Decimal(str(sale.tax_percentage or 0))
+    if tax_pct > 0:
+        sale.tax_amount = (sub_total * (tax_pct / Decimal("100"))).quantize(
+            Decimal("0.01")
+        )
+    sale.grand_total = sale.sub_total + _to_decimal(sale.tax_amount)
+    sale.amount_change = _to_decimal(sale.amount_paid) - sale.grand_total
+    sale.save()
+
+    if affected_items:
+        sync_item_quantity_cache(affected_items)
     return total_credit
 
 

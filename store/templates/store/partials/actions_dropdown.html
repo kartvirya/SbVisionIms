@@ -1,0 +1,24 @@
+<div class="dropdown no-preview">
+    <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+        Actions
+    </button>
+    <ul class="dropdown-menu dropdown-menu-end">
+        {% if view_url %}
+        <li><a class="dropdown-item" href="{{ view_url }}"><i class="fa-solid fa-eye me-2"></i>View</a></li>
+        {% endif %}
+        {% if preview_url %}
+        <li>
+            <button type="button" class="dropdown-item" onclick="openImsPreview('{{ preview_url }}', '{{ preview_title|default:'Details'|escapejs }}')">
+                <i class="fa-solid fa-window-restore me-2"></i>Quick preview
+            </button>
+        </li>
+        {% endif %}
+        {% if edit_url %}
+        <li><a class="dropdown-item" href="{{ edit_url }}"><i class="fa-solid fa-pen me-2"></i>Edit</a></li>
+        {% endif %}
+        {% if delete_url %}
+        <li><hr class="dropdown-divider"></li>
+        <li><a class="dropdown-item text-danger" href="{{ delete_url }}"><i class="fa-solid fa-trash me-2"></i>Delete</a></li>
+        {% endif %}
+    </ul>
+</div>

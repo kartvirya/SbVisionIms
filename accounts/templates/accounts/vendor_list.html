@@ -43,12 +43,9 @@
                 <td>{{ vendor.phone_number }}</td>
                 <td>{{ vendor.address }}</td>
                 <td>
-                    <a href="{% url 'vendor-update' vendor.pk %}" class="btn btn-outline-warning btn-sm">
-                        <i class="fas fa-edit me-2"></i>Edit
-                    </a>
-                    <a href="{% url 'vendor-delete' vendor.pk %}" class="btn btn-outline-danger btn-sm">
-                        <i class="fas fa-trash-alt me-2"></i>Delete
-                    </a>
+                    {% url 'vendor-update' vendor.pk as vendor_edit_url %}
+                    {% url 'vendor-delete' vendor.pk as vendor_delete_url %}
+                    {% include "store/partials/actions_dropdown.html" with edit_url=vendor_edit_url delete_url=vendor_delete_url %}
                 </td>
             </tr>
             {% endfor %}

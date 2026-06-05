@@ -16,10 +16,10 @@
                     <i class="fa-solid fa-plus"></i> New sale entry
                 </a>
                 <a class="btn btn-outline-primary btn-sm rounded-pill shadow-sm" href="{% url 'import-data' kind='sales' %}">
-                    <i class="fa-solid fa-file-import"></i> Import
+                    <i class="fa-solid fa-file-import"></i> Import Excel
                 </a>
                 <a class="btn btn-primary btn-sm rounded-pill shadow-sm" href="{% url 'sales-export' %}">
-                    <i class="fa-solid fa-download"></i> Export to Excel
+                    <i class="fa-solid fa-download"></i> Export Excel
                 </a>
             </div>
         </div>
@@ -109,20 +109,12 @@
                     </td>
                     <td><strong>Rs {{ sale.grand_total }}</strong></td>
                     <td>Rs {{ sale.amount_paid }}</td>
-                    <td class="text-nowrap sale-actions no-preview">
-                        <a class="btn btn-outline-info btn-sm" href="{% url 'sale-detail' sale.id %}" title="View Bill/Receipt">
-                            <i class="fa-solid fa-eye"></i>
-                        </a>
-                        {% if can_edit_sales %}
-                        <a class="btn btn-outline-primary btn-sm" href="{% url 'sale-update' sale.id %}" title="Edit sale">
-                            <i class="fa-solid fa-pen"></i>
-                        </a>
-                        {% endif %}
-                        {% if can_delete_sales %}
-                        <a class="btn btn-outline-danger btn-sm" href="{% url 'sale-delete' sale.id %}" title="Delete sale">
-                            <i class="fa-solid fa-trash"></i>
-                        </a>
-                        {% endif %}
+                    <td class="text-nowrap sale-actions">
+                        {% url 'sale-detail' sale.id as sale_view_url %}
+                        {% url 'preview-sale' sale.id as sale_preview_url %}
+                        {% if can_edit_sales %}{% url 'sale-update' sale.id as sale_edit_url %}{% endif %}
+                        {% if can_delete_sales %}{% url 'sale-delete' sale.id as sale_delete_url %}{% endif %}
+                        {% include "store/partials/actions_dropdown.html" with view_url=sale_view_url preview_url=sale_preview_url edit_url=sale_edit_url delete_url=sale_delete_url %}
                     </td>
                 </tr>
                 {% endfor %}

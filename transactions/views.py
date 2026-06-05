@@ -45,6 +45,7 @@ from .services import (
     sync_purchase_inventory_transaction,
     update_vendor_payables_adjustment,
     process_purchase_return,
+    process_sale_return,
 )
 
 
@@ -231,6 +232,57 @@ class SaleDetailView(LoginRequiredMixin, DetailView):
 
     model = Sale
     template_name = "transactions/saledetail.html"
+
+    def get_queryset(self):
+        return super().get_queryset().prefetch_related(
+            "saledetail_set__item",
+            "saledetail_set__variation",
+            "returns__lines__sale_detail__item",
+        )
+
+    def _detail_url(self):
+        return reverse("sale-detail", kwargs={"pk": self.object.pk})
+
+    def post(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        if request.POST.get("action") != "sale_return":
+            messages.error(request, "Unknown action.")
+            return HttpResponseRedirect(self._detail_url())
+
+        reason = (request.POST.get("reason") or "").strip()
+        line_returns = []
+        for detail in self.object.saledetail_set.all():
+            raw = request.POST.get(f"return_qty_{detail.id}", "").strip()
+            if not raw:
+                continue
+            try:
+                qty = int(raw)
+            except ValueError:
+                messages.error(request, f"Invalid quantity for {detail.item.name}.")
+                return HttpResponseRedirect(self._detail_url())
+            if qty > 0:
+                line_returns.append({"detail_id": detail.id, "return_qty": qty})
+
+        if not line_returns:
+            messages.warning(request, "Enter at least one return quantity.")
+            return HttpResponseRedirect(self._detail_url())
+
+        try:
+            credit = process_sale_return(
+                self.object,
+                line_returns,
+                reason=reason,
+                user=request.user,
+            )
+            messages.success(
+                request,
+                f"Sale return recorded. Bill reduced by Rs {credit}.",
+            )
+        except ValueError as exc:
+            messages.error(request, str(exc))
+        except Exception as exc:
+            messages.error(request, f"Could not process return: {exc}")
+        return HttpResponseRedirect(self._detail_url())
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)

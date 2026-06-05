@@ -4,7 +4,14 @@ from django.test import TestCase
 
 from accounts.models import Customer, Vendor
 from store.models import Category, Item
-from transactions.models import InventoryTransaction, LedgerEntry, Purchase, VendorPayment
+from transactions.models import (
+    InventoryTransaction,
+    LedgerEntry,
+    Purchase,
+    Sale,
+    SaleDetail,
+    VendorPayment,
+)
 from store.models import ProductVariation
 from store.stock_utils import get_ledger_stock, get_sellable_stock
 from transactions.forms import PurchaseForm
@@ -17,6 +24,9 @@ from transactions.services import (
     get_payables_aging_report,
     post_vendor_payment_ledger,
     process_purchase_return,
+    process_sale_return,
+    format_source_ref,
+    allocate_vendor_credit_to_purchases,
     reconcile_ledger_stock_to_target,
     sync_purchase_inventory_transaction,
     update_vendor_payables_adjustment,
@@ -95,10 +105,12 @@ class PurchaseInventorySyncTests(TestCase):
         self.assertEqual(Decimal(rows[0].balance_due), Decimal("40"))
 
     def test_payables_adjustment_updates_balance_due(self):
-        self._create_purchase(amount_paid=10)
+        purchase = self._create_purchase(amount_paid=10)
         update_vendor_payables_adjustment(self.vendor.id, "5", sign="-")
+        purchase.refresh_from_db()
         row = get_payables_aging().get(pk=self.vendor.id)
-        self.assertEqual(Decimal(row.payables_adjustment), Decimal("-5"))
+        self.assertEqual(purchase.amount_paid, Decimal("15"))
+        self.assertEqual(Decimal(row.payables_adjustment), Decimal("0"))
         self.assertEqual(Decimal(row.balance_due), Decimal("35"))
 
     def test_payables_aging_report_includes_bill_and_dates(self):
@@ -377,3 +389,98 @@ class PurchaseReturnTests(TestCase):
         self.assertEqual(line.quantity, 8)
         self.assertEqual(self.purchase.amount_remaining, before_remaining - Decimal("30"))
         self.assertEqual(self.purchase.returns.count(), 1)
+
+
+class SaleReturnTests(TestCase):
+    def setUp(self):
+        self.vendor = Vendor.objects.create(name="Sale Return Vendor")
+        self.category = Category.objects.create(name="General")
+        self.customer = Customer.objects.create(first_name="Buyer")
+        self.item = Item.objects.create(
+            name="Return Widget",
+            description="Test",
+            category=self.category,
+            quantity=10,
+            price=100,
+            cost_price=50,
+            vendor=self.vendor,
+        )
+        self.sale = Sale.objects.create(
+            customer=self.customer,
+            sub_total=Decimal("200"),
+            grand_total=Decimal("200"),
+            tax_amount=Decimal("0"),
+            amount_paid=Decimal("200"),
+            amount_change=Decimal("0"),
+        )
+        self.detail = SaleDetail.objects.create(
+            sale=self.sale,
+            item=self.item,
+            price=Decimal("100"),
+            quantity=2,
+            total_detail=Decimal("200"),
+        )
+        reconcile_ledger_stock_to_target(self.item, 10)
+        create_sale_transaction(
+            customer=self.customer,
+            items=[{"item": self.item.id, "quantity": 2, "unit_price": 100}],
+            notes=f"Sale #{self.sale.id}",
+        )
+
+    def test_sale_return_restores_stock_and_reduces_total(self):
+        before_stock = get_ledger_stock(self.item)
+        credit = process_sale_return(
+            self.sale,
+            [{"detail_id": self.detail.id, "return_qty": 1}],
+            reason="Defective",
+        )
+        self.sale.refresh_from_db()
+        self.detail.refresh_from_db()
+        self.assertEqual(credit, Decimal("100"))
+        self.assertEqual(self.detail.quantity, 1)
+        self.assertEqual(self.sale.sub_total, Decimal("100"))
+        self.assertEqual(get_ledger_stock(self.item), before_stock + 1)
+        self.assertEqual(self.sale.returns.count(), 1)
+
+
+class StockLedgerLabelTests(TestCase):
+    def test_format_source_ref_labels(self):
+        self.assertEqual(format_source_ref("purchase:12"), "Purchase #12")
+        self.assertEqual(format_source_ref("adjustment:manual:1:abc"), "Manual stock adjustment")
+        self.assertEqual(format_source_ref("vendor_payment:5"), "Supplier payment #5")
+
+
+class PayablesCreditAllocationTests(TestCase):
+    def setUp(self):
+        self.vendor = Vendor.objects.create(name="Credit Vendor")
+        self.category = Category.objects.create(name="General")
+        self.item = Item.objects.create(
+            name="Credit Item",
+            description="Test",
+            category=self.category,
+            quantity=0,
+            price=10,
+            cost_price=5,
+            vendor=self.vendor,
+        )
+        self.purchase = Purchase.objects.create(
+            vendor=self.vendor,
+            receipt_status="P",
+            discount_amount=0,
+            vat_percentage=0,
+            amount_paid=0,
+        )
+        PurchaseLine.objects.create(
+            purchase=self.purchase,
+            item=self.item,
+            quantity=1,
+            unit_price=Decimal("100"),
+        )
+        self.purchase.save()
+
+    def test_negative_adjustment_updates_purchase_payment(self):
+        applied = allocate_vendor_credit_to_purchases(self.vendor, Decimal("40"))
+        self.purchase.refresh_from_db()
+        self.assertEqual(applied, Decimal("40"))
+        self.assertEqual(self.purchase.amount_paid, Decimal("40"))
+        self.assertEqual(self.purchase.payment_status, "T")

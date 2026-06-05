@@ -114,13 +114,11 @@
                         <span class="badge bg-danger text-white">Pending</span>
                         {% endif %}
                     </td>
-                    <td class="no-preview">
-                        <a class="btn btn-outline-info btn-sm" href="{% url 'delivery-update' delivery.pk %}">
-                            <i class="fa-solid fa-pen"></i> Edit
-                        </a>
-                        <a class="btn btn-outline-danger btn-sm float-end" href="{% url 'delivery-delete' delivery.pk %}">
-                            <i class="fa-solid fa-trash"></i> Delete
-                        </a>
+                    <td>
+                        {% url 'preview-delivery' delivery.pk as delivery_preview_url %}
+                        {% url 'delivery-update' delivery.pk as delivery_edit_url %}
+                        {% url 'delivery-delete' delivery.pk as delivery_delete_url %}
+                        {% include "store/partials/actions_dropdown.html" with preview_url=delivery_preview_url edit_url=delivery_edit_url delete_url=delivery_delete_url %}
                     </td>
                 </tr>
                 {% endfor %}

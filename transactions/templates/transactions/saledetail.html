@@ -15,6 +15,64 @@
     </a>
     {% endif %}
 </div>
+
+{% if object.saledetail_set.exists %}
+<div class="container-fluid py-2 no-print">
+    <div class="card shadow-sm">
+        <div class="card-header"><strong>Return from customer</strong></div>
+        <div class="card-body">
+            <p class="text-muted small">Restores stock and reduces the sale bill total.</p>
+            <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="sale_return">
+                <table class="table table-sm align-middle">
+                    <thead>
+                        <tr>
+                            <th>Item</th>
+                            <th class="text-end">Sold</th>
+                            <th class="text-end" style="width:120px;">Return qty</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for detail in object.saledetail_set.all %}
+                        <tr>
+                            <td>
+                                {{ detail.item.name }}
+                                {% if detail.variation %}<span class="badge bg-info">{{ detail.variation.name }}</span>{% endif %}
+                            </td>
+                            <td class="text-end">{{ detail.quantity }}</td>
+                            <td>
+                                <input type="number" name="return_qty_{{ detail.id }}" class="form-control form-control-sm" min="0" max="{{ detail.quantity }}" placeholder="0">
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                <div class="mb-3">
+                    <label class="form-label">Reason (optional)</label>
+                    <input type="text" name="reason" class="form-control form-control-sm" placeholder="Defective, wrong item, etc.">
+                </div>
+                <button type="submit" class="btn btn-warning btn-sm">Submit return</button>
+            </form>
+            {% if object.returns.exists %}
+            <h6 class="mt-4">Return history</h6>
+            <table class="table table-sm">
+                <thead><tr><th>Date</th><th>Credit (Rs)</th><th>Reason</th></tr></thead>
+                <tbody>
+                    {% for r in object.returns.all %}
+                    <tr>
+                        <td>{{ r.created_at|date:"Y-m-d H:i" }}</td>
+                        <td>{{ r.total_credit }}</td>
+                        <td>{{ r.reason|default:"—" }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endif %}
 <style>
 	section .receipt {
 		margin: 0;

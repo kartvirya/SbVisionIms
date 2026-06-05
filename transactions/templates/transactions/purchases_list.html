@@ -135,18 +135,12 @@
                         <span class="badge bg-success">Received</span>
                         {% endif %}
                     </td>
-                    <td class="text-nowrap no-preview">
-                        <a class="btn btn-outline-info btn-sm" href="{% url 'purchase-detail' slug=purchase.slug %}" title="View details">
-                            <i class="fa-solid fa-eye"></i>
-                        </a>
-                        <a class="btn btn-outline-primary btn-sm" href="{% url 'purchase-update' purchase.id %}" title="Edit">
-                            <i class="fa-solid fa-pen"></i>
-                        </a>
-                        {% if can_delete_purchases %}
-                        <a class="btn btn-outline-danger btn-sm" href="{% url 'purchase-delete' purchase.id %}" title="Delete">
-                            <i class="fa-solid fa-trash"></i>
-                        </a>
-                        {% endif %}
+                    <td class="text-nowrap">
+                        {% url 'purchase-detail' slug=purchase.slug as purchase_view_url %}
+                        {% url 'preview-purchase' slug=purchase.slug as purchase_preview_url %}
+                        {% url 'purchase-update' purchase.id as purchase_edit_url %}
+                        {% if can_delete_purchases %}{% url 'purchase-delete' purchase.id as purchase_delete_url %}{% endif %}
+                        {% include "store/partials/actions_dropdown.html" with view_url=purchase_view_url preview_url=purchase_preview_url edit_url=purchase_edit_url delete_url=purchase_delete_url %}
                     </td>
                 </tr>
                 {% empty %}

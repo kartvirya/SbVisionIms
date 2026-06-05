@@ -147,6 +147,43 @@ class SaleDetail(models.Model):
         )
 
 
+class SaleReturn(models.Model):
+    """Customer return against a sale."""
+
+    sale = models.ForeignKey(Sale, on_delete=models.CASCADE, related_name="returns")
+    reason = models.CharField(max_length=255, blank=True)
+    total_credit = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    created_by = models.ForeignKey(
+        "auth.User",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="sale_returns",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"Sale return #{self.pk} for sale {self.sale_id}"
+
+
+class SaleReturnLine(models.Model):
+    sale_return = models.ForeignKey(
+        SaleReturn, on_delete=models.CASCADE, related_name="lines"
+    )
+    sale_detail = models.ForeignKey(
+        SaleDetail, on_delete=models.CASCADE, related_name="return_lines"
+    )
+    quantity = models.PositiveIntegerField()
+    unit_price = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    line_credit = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+
+    def __str__(self):
+        return f"{self.quantity} × detail {self.sale_detail_id}"
+
+
 class Purchase(models.Model):
     """
     Purchase order / bill header. Line items live on PurchaseLine; legacy item/qty/price
