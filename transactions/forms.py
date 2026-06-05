@@ -7,7 +7,7 @@ from django.utils import timezone
 from accounts.models import Vendor
 from store.models import Item
 from accounts.models import Customer
-from .models import Purchase, PurchaseLine, Sale
+from .models import PAYMENT_METHOD_CHOICES, Purchase, PurchaseLine, Sale
 
 
 class BootstrapMixin:
@@ -22,6 +22,14 @@ class BootstrapMixin:
 
 class PurchaseForm(BootstrapMixin, forms.ModelForm):
     """Purchase header: vendor bill, dates, tax, and payment."""
+
+    payment_method = forms.ChoiceField(
+        choices=PAYMENT_METHOD_CHOICES,
+        required=False,
+        initial="cash",
+        label="Payment method",
+        widget=forms.Select(attrs={"class": "form-select"}),
+    )
 
     class Meta:
         model = Purchase
@@ -84,6 +92,10 @@ class PurchaseForm(BootstrapMixin, forms.ModelForm):
         if self.instance and self.instance.pk and self.instance.vendor_payments.exists():
             self.fields["amount_paid"].disabled = True
             self.fields["amount_paid"].help_text = "Total from vendor payment records in admin."
+        if self.instance and self.instance.pk:
+            payment = self.instance.vendor_payments.order_by("id").first()
+            if payment:
+                self.fields["payment_method"].initial = payment.method
         if self.instance and self.instance.pk:
             for field_name in ("order_date", "receipt_date"):
                 dt = getattr(self.instance, field_name, None)
@@ -272,6 +284,14 @@ class PayablesQuickEntryForm(BootstrapMixin, forms.Form):
 class SaleEditForm(BootstrapMixin, forms.ModelForm):
     """Edit sale header (customer, tax, payment). Line items stay as recorded."""
 
+    payment_method = forms.ChoiceField(
+        choices=PAYMENT_METHOD_CHOICES,
+        required=False,
+        initial="cash",
+        label="Payment method",
+        widget=forms.Select(attrs={"class": "form-select"}),
+    )
+
     class Meta:
         model = Sale
         fields = ["customer", "tax_percentage", "tax_amount", "amount_paid"]
@@ -297,6 +317,33 @@ class SaleEditForm(BootstrapMixin, forms.ModelForm):
             self.fields["amount_paid"].help_text = (
                 "Updates the sale and linked customer payment record."
             )
+            payment = self.instance.customer_payments.order_by("id").first()
+            if payment:
+                self.fields["payment_method"].initial = payment.method
+
+
+def _sync_purchase_vendor_payment(purchase, amount_paid, payment_method="cash"):
+    """Create or update the vendor payment row for a purchase bill."""
+    from .models import VendorPayment
+
+    method = payment_method if payment_method in ("cash", "bank") else "cash"
+    paid = Decimal(str(amount_paid or 0))
+    payment = purchase.vendor_payments.order_by("id").first()
+    if paid <= 0:
+        if payment:
+            payment.delete()
+        return
+    if payment:
+        payment.amount = paid
+        payment.method = method
+        payment.save()
+    else:
+        VendorPayment.objects.create(
+            purchase=purchase,
+            amount=paid,
+            method=method,
+            notes="Recorded on purchase bill",
+        )
 
 
 PurchaseLineFormSet = inlineformset_factory(

@@ -7,7 +7,11 @@
         <dt class="col-5">Subtotal</dt><dd class="col-7">Rs {{ object.sub_total }}</dd>
         <dt class="col-5">VAT</dt><dd class="col-7">{{ object.tax_percentage }}% (Rs {{ object.tax_amount }})</dd>
         <dt class="col-5">Grand total</dt><dd class="col-7 fw-bold">Rs {{ object.grand_total }}</dd>
+        <dt class="col-5">Payment</dt>
+        <dd class="col-7">{% include "store/partials/payment_status_badge.html" with status=object.payment_status %}</dd>
         <dt class="col-5">Paid</dt><dd class="col-7">Rs {{ object.amount_paid }}</dd>
+        <dt class="col-5">Unpaid</dt>
+        <dd class="col-7">{% if object.amount_remaining > 0 %}Rs {{ object.amount_remaining }}{% else %}—{% endif %}</dd>
         <dt class="col-5">Change</dt><dd class="col-7">Rs {{ object.amount_change }}</dd>
     </dl>
     <h6>Products</h6>

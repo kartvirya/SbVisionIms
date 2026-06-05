@@ -13,6 +13,13 @@
             </button>
         </li>
         {% endif %}
+        {% if adjust_stock_id %}
+        <li>
+            <button type="button" class="dropdown-item" onclick="openStockAdjustModal({{ adjust_stock_id }}, '{{ adjust_stock_name|escapejs }}')">
+                <i class="fa-solid fa-boxes-stacked me-2"></i>Adjust stock
+            </button>
+        </li>
+        {% endif %}
         {% if edit_url %}
         <li><a class="dropdown-item" href="{{ edit_url }}"><i class="fa-solid fa-pen me-2"></i>Edit</a></li>
         {% endif %}

@@ -1,0 +1,15 @@
+{% extends "store/base.html" %}
+{% block title %}Adjust stock — {{ item.name }}{% endblock %}
+{% block content %}
+<div class="container my-4">
+    <div class="card shadow-sm" style="max-width: 480px;">
+        <div class="card-header">
+            <h5 class="mb-0">Adjust stock — {{ item.name }}</h5>
+        </div>
+        <div class="card-body">
+            {% include "store/partials/stock_adjust_form.html" %}
+        </div>
+    </div>
+    <a href="{% url 'productslist' %}" class="btn btn-link btn-sm mt-2">Back to inventory</a>
+</div>
+{% endblock %}

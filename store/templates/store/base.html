@@ -143,10 +143,32 @@
                   </div>
                 </div>
               </nav>
+          {% if messages %}
+          <div class="container-fluid px-4 pt-3">
+            {% for message in messages %}
+            <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags|default:'info' }}{% endif %} alert-dismissible fade show mb-2" role="alert">
+              {{ message }}
+              <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+            {% endfor %}
+          </div>
+          {% endif %}
           {% block content%}
 
           {% endblock content%}
         </section>
+        </div>
+
+        <div class="modal fade" id="stockAdjustModal" tabindex="-1" aria-labelledby="stockAdjustModalTitle" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="stockAdjustModalTitle">Adjust stock</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body" id="stockAdjustModalBody"></div>
+                </div>
+            </div>
         </div>
 
         <div class="offcanvas offcanvas-end" tabindex="-1" id="imsPreviewDrawer" aria-labelledby="imsPreviewTitle" style="width: min(420px, 95vw);">
@@ -160,6 +182,8 @@
         <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
         <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
         <script src="{% static 'js/preview_drawer.js' %}"></script>
+        <script>window.STOCK_ADJUST_URL_TPL = "{% url 'stock-adjust' 999999 %}".replace("999999", "__ID__");</script>
+        <script src="{% static 'js/stock_adjust.js' %}"></script>
         {% block javascripts %}{% endblock javascripts %}
       </body>
 </html>

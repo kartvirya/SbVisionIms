@@ -62,6 +62,16 @@ class Sale(models.Model):
         decimal_places=2,
         default=0.0
     )
+    amount_remaining = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=0.0,
+    )
+    payment_status = models.CharField(
+        max_length=1,
+        choices=PAYMENT_STATUS_CHOICES,
+        default="U",
+    )
     inventory_transaction = models.OneToOneField(
         "InventoryTransaction",
         on_delete=models.SET_NULL,
@@ -82,6 +92,18 @@ class Sale(models.Model):
             if qs is not None and qs.exists():
                 agg = qs.aggregate(s=Sum("amount"))
                 self.amount_paid = _d(agg["s"])
+        grand_total = _d(self.grand_total)
+        amount_paid = _d(self.amount_paid)
+        self.amount_remaining = grand_total - amount_paid
+        if amount_paid == 0:
+            self.payment_status = "U"
+        elif self.amount_remaining > 0:
+            self.payment_status = "T"
+        elif self.amount_remaining == 0:
+            self.payment_status = "D"
+        else:
+            self.payment_status = "X"
+        self.amount_change = amount_paid - grand_total
         super().save(*args, **kwargs)
 
     def __str__(self):

@@ -39,6 +39,11 @@ urlpatterns = [
         name='productslist'
     ),
     path(
+        'product/<int:pk>/adjust-stock/',
+        views.stock_adjust_view,
+        name='stock-adjust',
+    ),
+    path(
         'product/<slug:slug>/',
         ProductDetailView.as_view(),
         name='product-detail'

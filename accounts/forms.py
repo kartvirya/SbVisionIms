@@ -2,6 +2,12 @@ from django import forms
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import User
 
+from decimal import Decimal
+
+from django.utils import timezone
+
+from transactions.models import PAYMENT_METHOD_CHOICES, CustomerPayment, Purchase, Sale, VendorPayment
+
 from .models import Profile, Customer, Vendor, Logistics
 
 
@@ -143,3 +149,112 @@ class LogisticsForm(forms.ModelForm):
         labels = {
             'is_active': 'Active',
         }
+
+
+class OpeningBalanceForm(forms.Form):
+    opening_balance = forms.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        label="Opening balance (Rs)",
+        widget=forms.NumberInput(attrs={"class": "form-control", "step": "0.01"}),
+    )
+
+
+class CustomerPaymentForm(forms.Form):
+    sale = forms.ModelChoiceField(
+        queryset=Sale.objects.none(),
+        label="Sale bill",
+        widget=forms.Select(attrs={"class": "form-select"}),
+    )
+    amount = forms.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        min_value=Decimal("0.01"),
+        label="Amount (Rs)",
+        widget=forms.NumberInput(attrs={"class": "form-control", "step": "0.01"}),
+    )
+    method = forms.ChoiceField(
+        choices=PAYMENT_METHOD_CHOICES,
+        initial="cash",
+        label="Payment method",
+        widget=forms.Select(attrs={"class": "form-select"}),
+    )
+    notes = forms.CharField(
+        required=False,
+        label="Notes",
+        widget=forms.TextInput(attrs={"class": "form-control"}),
+    )
+
+    def __init__(self, *args, customer=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        if customer is not None:
+            self.fields["sale"].queryset = (
+                Sale.objects.filter(customer=customer)
+                .order_by("-date_added")
+            )
+            self.fields["sale"].label_from_instance = (
+                lambda s: f"#{s.id} — Rs {s.grand_total} (due Rs {s.amount_remaining})"
+            )
+
+    def clean(self):
+        cleaned = super().clean()
+        sale = cleaned.get("sale")
+        amount = cleaned.get("amount")
+        if sale and amount is not None:
+            remaining = sale.amount_remaining
+            if amount > remaining and remaining >= 0:
+                self.add_error(
+                    "amount",
+                    f"Amount cannot exceed unpaid balance (Rs {remaining}).",
+                )
+        return cleaned
+
+
+class VendorPaymentForm(forms.Form):
+    purchase = forms.ModelChoiceField(
+        queryset=Purchase.objects.none(),
+        label="Purchase bill",
+        widget=forms.Select(attrs={"class": "form-select"}),
+    )
+    amount = forms.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        min_value=Decimal("0.01"),
+        label="Amount (Rs)",
+        widget=forms.NumberInput(attrs={"class": "form-control", "step": "0.01"}),
+    )
+    method = forms.ChoiceField(
+        choices=PAYMENT_METHOD_CHOICES,
+        initial="cash",
+        label="Payment method",
+        widget=forms.Select(attrs={"class": "form-select"}),
+    )
+    notes = forms.CharField(
+        required=False,
+        label="Notes",
+        widget=forms.TextInput(attrs={"class": "form-control"}),
+    )
+
+    def __init__(self, *args, vendor=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        if vendor is not None:
+            self.fields["purchase"].queryset = (
+                Purchase.objects.filter(vendor=vendor)
+                .order_by("-order_date")
+            )
+            self.fields["purchase"].label_from_instance = (
+                lambda p: f"{p.display_bill_number} — Rs {p.net_amount} (due Rs {p.amount_remaining})"
+            )
+
+    def clean(self):
+        cleaned = super().clean()
+        purchase = cleaned.get("purchase")
+        amount = cleaned.get("amount")
+        if purchase and amount is not None:
+            remaining = purchase.amount_remaining
+            if amount > remaining and remaining >= 0:
+                self.add_error(
+                    "amount",
+                    f"Amount cannot exceed outstanding (Rs {remaining}).",
+                )
+        return cleaned

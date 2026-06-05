@@ -48,9 +48,10 @@
                 <td>{{ customer.phone }}</td>
                 <td>{{ customer.loyalty_points }}</td>
                 <td>
+                    {% url 'customer-detail' customer.pk as customer_view_url %}
                     {% url 'customer_update' customer.pk as customer_edit_url %}
                     {% url 'customer_delete' customer.pk as customer_delete_url %}
-                    {% include "store/partials/actions_dropdown.html" with edit_url=customer_edit_url delete_url=customer_delete_url %}
+                    {% include "store/partials/actions_dropdown.html" with view_url=customer_view_url edit_url=customer_edit_url delete_url=customer_delete_url %}
                 </td>
             </tr>
             {% endfor %}

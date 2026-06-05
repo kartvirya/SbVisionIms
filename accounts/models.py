@@ -113,6 +113,12 @@ class Vendor(models.Model):
         verbose_name='Payables adjustment',
         help_text='Manual adjustment (+/-) applied on the payables aging report.',
     )
+    opening_balance = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=0,
+        help_text="Amount owed to this supplier before system records.",
+    )
 
     def __str__(self):
         """
@@ -133,6 +139,12 @@ class Customer(models.Model):
     email = models.EmailField(max_length=256, blank=True, null=True)
     phone = models.CharField(max_length=30, blank=True, null=True)
     loyalty_points = models.IntegerField(default=0)
+    opening_balance = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=0,
+        help_text="Amount the customer owed before system records (debit balance).",
+    )
 
     class Meta:
         db_table = 'Customers'

@@ -190,31 +190,7 @@
                     <h4 class="mb-0"><i class="fas fa-boxes"></i> Adjust stock</h4>
                 </div>
                 <div class="card-body">
-                    <form method="post">
-                        {% csrf_token %}
-                        <div class="mb-3">
-                            <label class="form-label">{{ stock_form.mode.label }}</label>
-                            {{ stock_form.mode }}
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">{{ stock_form.quantity.label }}</label>
-                            {{ stock_form.quantity }}
-                        </div>
-                        {% if stock_form.variation.field.queryset.exists %}
-                        <div class="mb-3">
-                            <label class="form-label">{{ stock_form.variation.label }}</label>
-                            {{ stock_form.variation }}
-                            <small class="text-muted d-block">Leave empty to adjust base ledger stock.</small>
-                        </div>
-                        {% endif %}
-                        <div class="mb-3">
-                            <label class="form-label">{{ stock_form.reason.label }}</label>
-                            {{ stock_form.reason }}
-                        </div>
-                        <button type="submit" class="btn btn-primary btn-sm">
-                            <i class="fas fa-save"></i> Apply adjustment
-                        </button>
-                    </form>
+                    {% include "store/partials/stock_adjust_form.html" with next_url=stock_adjust_next modal=False %}
                 </div>
             </div>
         </div>

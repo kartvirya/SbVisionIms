@@ -1,0 +1,35 @@
+<form method="post" action="{% url 'stock-adjust' item.id %}">
+    {% csrf_token %}
+    <input type="hidden" name="next" value="{{ next_url }}">
+    <p class="text-muted small mb-3">
+        Current stock: <strong>{{ current_stock|default:item.quantity }}</strong>
+        {% if item.variations.exists %}<span class="text-muted">(variants may have separate qty)</span>{% endif %}
+    </p>
+    <div class="mb-3">
+        <label class="form-label">{{ stock_form.mode.label }}</label>
+        {{ stock_form.mode }}
+    </div>
+    <div class="mb-3">
+        <label class="form-label">{{ stock_form.quantity.label }}</label>
+        {{ stock_form.quantity }}
+    </div>
+    {% if stock_form.variation.field.queryset.exists %}
+    <div class="mb-3">
+        <label class="form-label">{{ stock_form.variation.label }}</label>
+        {{ stock_form.variation }}
+        <small class="text-muted d-block">Leave empty to adjust base ledger stock.</small>
+    </div>
+    {% endif %}
+    <div class="mb-3">
+        <label class="form-label">{{ stock_form.reason.label }}</label>
+        {{ stock_form.reason }}
+    </div>
+    <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-primary btn-sm">
+            <i class="fas fa-save"></i> Apply adjustment
+        </button>
+        {% if modal %}
+        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+        {% endif %}
+    </div>
+</form>

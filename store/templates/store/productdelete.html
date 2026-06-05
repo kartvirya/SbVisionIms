@@ -6,9 +6,15 @@
         <fieldset class="form-group">
             <legend class="border-bottom mb-4">Delete Item</legend>
             <h5>Are you sure you want to delete the item "{{ object.name }}"</h5>
+            {% if delete_blockers %}
+            <div class="alert alert-warning mt-3">
+                This product cannot be deleted because it is linked to:
+                <strong>{{ delete_blockers|join:", " }}</strong>.
+            </div>
+            {% endif %}
         </fieldset>
         <div class="form-group">
-            <button class="btn btn-outline-danger btn-sm" type="submit">Yes, Delete</button>
+            <button class="btn btn-outline-danger btn-sm" type="submit" {% if delete_blockers %}disabled{% endif %}>Yes, Delete</button>
             <a class="btn btn-outline-success btn-sm" href="{% url 'productslist' %}">Cancel</a>
         </div>
     </form>

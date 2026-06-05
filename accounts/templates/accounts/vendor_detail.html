@@ -1,0 +1,87 @@
+{% extends 'store/base.html' %}
+{% block title %}{{ vendor.name }} — Account{% endblock %}
+{% block content %}
+<div class="container my-4">
+    <div class="mb-3">
+        <a href="{% url 'vendor-list' %}" class="btn btn-outline-success btn-sm"><i class="fa-solid fa-arrow-left"></i> Suppliers</a>
+        <a href="{% url 'vendor-update' vendor.pk %}" class="btn btn-outline-primary btn-sm">Edit</a>
+    </div>
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <h4 class="text-success mb-1">{{ vendor.name }}</h4>
+            <p class="text-muted small mb-2">{{ vendor.phone_number|default:"" }} {{ vendor.address|default:"" }}</p>
+            <div class="fs-5">Balance due: <strong class="{% if balance_due > 0 %}text-danger{% else %}text-success{% endif %}">Rs {{ balance_due }}</strong></div>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-md-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-light"><strong>Opening balance</strong></div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="opening_balance">
+                        {{ opening_form.opening_balance.label_tag }}
+                        {{ opening_form.opening_balance }}
+                        <button type="submit" class="btn btn-primary btn-sm mt-2">Save opening balance</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-light"><strong>Record payment</strong></div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="record_payment">
+                        <div class="mb-2">{{ payment_form.purchase.label_tag }}{{ payment_form.purchase }}</div>
+                        <div class="mb-2">{{ payment_form.amount.label_tag }}{{ payment_form.amount }}</div>
+                        <div class="mb-2">{{ payment_form.method.label_tag }}{{ payment_form.method }}</div>
+                        <div class="mb-2">{{ payment_form.notes.label_tag }}{{ payment_form.notes }}</div>
+                        <button type="submit" class="btn btn-success btn-sm">Record payment</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-header bg-light"><strong>Transaction history</strong></div>
+        <div class="table-responsive">
+            <table class="table table-sm table-striped mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Date</th>
+                        <th>Type</th>
+                        <th>Reference</th>
+                        <th class="text-end">Debit</th>
+                        <th class="text-end">Credit</th>
+                        <th>Method</th>
+                        <th class="text-end">Balance</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in ledger_rows %}
+                    <tr>
+                        <td>{% if row.date %}{{ row.date|date:"Y-m-d H:i" }}{% else %}—{% endif %}</td>
+                        <td>{{ row.type }}</td>
+                        <td>
+                            {% if row.url %}<a href="{{ row.url }}">{{ row.reference }}</a>{% else %}{{ row.reference }}{% endif %}
+                        </td>
+                        <td class="text-end">{% if row.debit %}Rs {{ row.debit }}{% else %}—{% endif %}</td>
+                        <td class="text-end">{% if row.credit %}Rs {{ row.credit }}{% else %}—{% endif %}</td>
+                        <td>{{ row.method|default:"—" }}</td>
+                        <td class="text-end fw-semibold">Rs {{ row.balance }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="7" class="text-center text-muted py-3">No transactions yet.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

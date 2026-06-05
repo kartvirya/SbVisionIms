@@ -1,0 +1,9 @@
+{% if status == 'U' %}
+<span class="badge bg-danger">Unpaid</span>
+{% elif status == 'T' %}
+<span class="badge bg-warning text-dark">Partial</span>
+{% elif status == 'D' %}
+<span class="badge bg-success">Paid</span>
+{% else %}
+<span class="badge bg-dark">Overpaid</span>
+{% endif %}

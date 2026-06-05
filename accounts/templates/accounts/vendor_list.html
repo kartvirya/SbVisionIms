@@ -43,9 +43,10 @@
                 <td>{{ vendor.phone_number }}</td>
                 <td>{{ vendor.address }}</td>
                 <td>
+                    {% url 'vendor-detail' vendor.pk as vendor_view_url %}
                     {% url 'vendor-update' vendor.pk as vendor_edit_url %}
                     {% url 'vendor-delete' vendor.pk as vendor_delete_url %}
-                    {% include "store/partials/actions_dropdown.html" with edit_url=vendor_edit_url delete_url=vendor_delete_url %}
+                    {% include "store/partials/actions_dropdown.html" with view_url=vendor_view_url edit_url=vendor_edit_url delete_url=vendor_delete_url %}
                 </td>
             </tr>
             {% endfor %}

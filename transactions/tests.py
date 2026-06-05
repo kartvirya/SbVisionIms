@@ -22,6 +22,7 @@ from transactions.services import (
     create_sale_transaction,
     get_payables_aging,
     get_payables_aging_report,
+    get_stock_ledger_rows,
     post_vendor_payment_ledger,
     process_purchase_return,
     process_sale_return,
@@ -484,3 +485,58 @@ class PayablesCreditAllocationTests(TestCase):
         self.assertEqual(applied, Decimal("40"))
         self.assertEqual(self.purchase.amount_paid, Decimal("40"))
         self.assertEqual(self.purchase.payment_status, "T")
+
+
+class StockLedgerTests(TestCase):
+    def setUp(self):
+        self.vendor = Vendor.objects.create(name="Ledger Vendor")
+        self.customer = Customer.objects.create(first_name="Ledger", last_name="Buyer")
+        self.category = Category.objects.create(name="Ledger Cat")
+        self.item = Item.objects.create(
+            name="Ledger Item",
+            description="Test",
+            category=self.category,
+            quantity=10,
+            price=50,
+            cost_price=30,
+            vendor=self.vendor,
+        )
+
+    def test_stock_ledger_handles_sale_without_source_ref(self):
+        reconcile_ledger_stock_to_target(self.item, target_ledger_qty=10, notes="Test setup")
+        sale = Sale.objects.create(
+            customer=self.customer,
+            sub_total=Decimal("100"),
+            grand_total=Decimal("100"),
+            amount_paid=Decimal("100"),
+        )
+        SaleDetail.objects.create(
+            sale=sale,
+            item=self.item,
+            price=Decimal("50"),
+            quantity=2,
+            total_detail=Decimal("100"),
+        )
+        txn = create_sale_transaction(
+            customer=self.customer,
+            items=[{"item": self.item.pk, "quantity": 2, "unit_price": 50}],
+            notes=f"Sale #{sale.id}",
+        )
+        sale.inventory_transaction = txn
+        sale.save()
+
+        rows = get_stock_ledger_rows(item=self.item)
+        self.assertTrue(rows)
+        self.assertIn("Sale", rows[-1]["source_ref"])
+
+    def test_sale_payment_status_computed_on_save(self):
+        sale = Sale.objects.create(
+            customer=self.customer,
+            sub_total=Decimal("100"),
+            grand_total=Decimal("100"),
+            amount_paid=Decimal("40"),
+        )
+        sale.save()
+        sale.refresh_from_db()
+        self.assertEqual(sale.payment_status, "T")
+        self.assertEqual(sale.amount_remaining, Decimal("60"))

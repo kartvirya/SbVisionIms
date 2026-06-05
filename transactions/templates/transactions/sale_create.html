@@ -154,6 +154,13 @@
                             <input name="grand_total" type="number" class="form-control" id="grand_total" aria-label="Grand Total" required>
                         </div>
                         <div class="mb-3">
+                            <label for="payment_method" class="form-label">Payment method</label>
+                            <select name="payment_method" id="payment_method" class="form-select" aria-label="Payment method">
+                                <option value="cash" selected>Cash</option>
+                                <option value="bank">Bank transfer</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
                             <label for="amount_paid" class="form-label">Amount Payed</label>
                             <input name="amount_paid" type="number" class="form-control" id="amount_paid" aria-label="Amount Paid" required>
                             <div class="form-check mt-2">
@@ -710,6 +717,7 @@
                 grand_total: grandTotal,
                 amount_paid: amountPaid,
                 amount_change: amountChange,
+                payment_method: $('#payment_method').val() || 'cash',
                 items: itemsToSubmit
             };
 

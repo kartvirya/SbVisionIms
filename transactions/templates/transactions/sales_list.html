@@ -89,7 +89,9 @@
                 <th>Customer</th>
                 <th>Products</th>
                 <th>Grand Total</th>
+                <th>Payment</th>
                 <th>Paid</th>
+                <th>Unpaid</th>
                 <th class="no-preview">Actions</th>
             </tr>
         </thead>
@@ -108,7 +110,15 @@
                         {% empty %}<span class="text-muted">—</span>{% endfor %}
                     </td>
                     <td><strong>Rs {{ sale.grand_total }}</strong></td>
+                    <td>{% include "store/partials/payment_status_badge.html" with status=sale.payment_status %}</td>
                     <td>Rs {{ sale.amount_paid }}</td>
+                    <td>
+                        {% if sale.amount_remaining > 0 %}
+                        <span class="text-danger fw-semibold">Rs {{ sale.amount_remaining }}</span>
+                        {% else %}
+                        <span class="text-muted">—</span>
+                        {% endif %}
+                    </td>
                     <td class="text-nowrap sale-actions">
                         {% url 'sale-detail' sale.id as sale_view_url %}
                         {% url 'preview-sale' sale.id as sale_preview_url %}
@@ -120,7 +130,7 @@
                 {% endfor %}
             {% else %}
                 <tr>
-                    <td colspan="7" class="text-center py-4">
+                    <td colspan="9" class="text-center py-4">
                         <div class="alert alert-info" role="alert">
                             <i class="fa-solid fa-info-circle me-2"></i>
                             No sales found. <a href="{% url 'sale-create' %}" class="alert-link">Create your first sale</a> to get started.

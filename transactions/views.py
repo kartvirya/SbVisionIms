@@ -33,6 +33,7 @@ from .forms import (
     PurchaseForm,
     PurchaseLineFormSet,
     SaleEditForm,
+    _sync_purchase_vendor_payment,
 )
 from .filters import SaleFilter, PurchaseFilter
 from .services import (
@@ -347,15 +348,19 @@ class SaleUpdateView(LoginRequiredMixin, UpdateView):
         sale.amount_paid = paid
         sale.amount_change = paid - sale.grand_total
         sale.save()
+        method = form.cleaned_data.get("payment_method") or "cash"
+        if method not in ("cash", "bank"):
+            method = "cash"
         payment = sale.customer_payments.order_by("id").first()
         if payment:
             payment.amount = paid
+            payment.method = method
             payment.save()
         elif paid > 0:
             CustomerPayment.objects.create(
                 sale=sale,
                 amount=paid,
-                method="cash",
+                method=method,
                 notes="Updated from sale edit",
             )
         messages.success(self.request, "Sale updated successfully.")
@@ -461,13 +466,18 @@ def SaleCreateView(request):
                     )
                     new_sale.inventory_transaction = inventory_transaction
                     new_sale.save(update_fields=["inventory_transaction"])
+                    inventory_transaction.source_ref = f"sale:{new_sale.id}"
+                    inventory_transaction.save(update_fields=["source_ref"])
 
                     paid = Decimal(str(data["amount_paid"]))
                     if paid > 0:
+                        method = data.get("payment_method") or "cash"
+                        if method not in ("cash", "bank"):
+                            method = "cash"
                         CustomerPayment.objects.create(
                             sale=new_sale,
                             amount=paid,
-                            method="cash",
+                            method=method,
                             notes="POS",
                         )
 
@@ -729,6 +739,15 @@ class PurchaseCreateView(LoginRequiredMixin, CreateView):
                 line_formset.instance = purchase
                 line_formset.save()
                 purchase.save()
+                paid = form.cleaned_data.get("amount_paid")
+                if form.fields["amount_paid"].disabled:
+                    paid = purchase.amount_paid
+                _sync_purchase_vendor_payment(
+                    purchase,
+                    paid,
+                    form.cleaned_data.get("payment_method"),
+                )
+                purchase.save()
                 sync_purchase_inventory_transaction(purchase=purchase)
             if purchase.receipt_status == "S":
                 messages.success(
@@ -780,6 +799,20 @@ class PurchaseUpdateView(LoginRequiredMixin, UpdateView):
                 line_formset.instance = purchase
                 line_formset.save()
                 purchase.save()
+                paid = form.cleaned_data.get("amount_paid")
+                if form.fields["amount_paid"].disabled:
+                    paid = purchase.amount_paid
+                    payment = purchase.vendor_payments.order_by("id").first()
+                    if payment and form.cleaned_data.get("payment_method"):
+                        payment.method = form.cleaned_data["payment_method"]
+                        payment.save()
+                else:
+                    _sync_purchase_vendor_payment(
+                        purchase,
+                        paid,
+                        form.cleaned_data.get("payment_method"),
+                    )
+                purchase.save()
                 sync_purchase_inventory_transaction(purchase=purchase, notes_suffix=" (updated)")
             if purchase.receipt_status == "S":
                 messages.success(
@@ -828,7 +861,12 @@ class StockLedgerView(LoginRequiredMixin, ListView):
         item_id = self.request.GET.get("item")
         date_from = self.request.GET.get("date_from")
         date_to = self.request.GET.get("date_to")
-        item = Item.objects.filter(pk=item_id).first() if item_id else None
+        item = None
+        if item_id:
+            try:
+                item = Item.objects.filter(pk=int(item_id)).first()
+            except (ValueError, TypeError):
+                item = None
         return get_stock_ledger_rows(item=item, date_from=date_from, date_to=date_to)
 
     def get_context_data(self, **kwargs):

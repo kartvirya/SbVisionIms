@@ -19,7 +19,7 @@ from functools import reduce
 logger = logging.getLogger(__name__)
 
 # Django core imports
-from django.shortcuts import render
+from django.shortcuts import render, get_object_or_404
 from django.urls import reverse, reverse_lazy
 from django.http import JsonResponse, HttpResponse
 from django.views.decorators.http import require_POST
@@ -257,6 +257,64 @@ class ItemSearchListView(ProductListView):
         return result
 
 
+def _redirect_after_stock_adjust(request, item, default_url=None):
+    next_url = (request.POST.get("next") or default_url or item.get_absolute_url()).strip()
+    if next_url.startswith("/"):
+        return auth_redirect(next_url)
+    return auth_redirect(item.get_absolute_url())
+
+
+def _apply_stock_adjustment_request(request, item):
+    form = StockAdjustmentForm(item, request.POST)
+    if not form.is_valid():
+        messages.error(request, "Please correct the stock adjustment form.")
+        return False
+    try:
+        apply_manual_stock_adjustment(
+            item,
+            mode=form.cleaned_data["mode"],
+            quantity=form.cleaned_data["quantity"],
+            reason=form.cleaned_data.get("reason", ""),
+            user=request.user,
+            variation=form.cleaned_data.get("variation"),
+        )
+        messages.success(request, f"Stock updated for {item.name}.")
+        return True
+    except ValueError as exc:
+        messages.error(request, str(exc))
+        return False
+
+
+@login_required
+def stock_adjust_view(request, pk):
+    """Adjust stock from inventory list modal or direct link."""
+    item = get_object_or_404(
+        Item.objects.prefetch_related("variations"), pk=pk
+    )
+    default_next = reverse("productslist")
+
+    if request.method == "POST":
+        _apply_stock_adjustment_request(request, item)
+        return _redirect_after_stock_adjust(request, item, default_next)
+
+    stock_map = build_item_stock_map([item])
+    context = {
+        "item": item,
+        "stock_form": StockAdjustmentForm(item),
+        "current_stock": stock_map.get(item.id, item.quantity),
+        "next_url": request.GET.get("next") or default_next,
+        "modal": request.headers.get("X-Requested-With") == "XMLHttpRequest",
+    }
+    template = "store/partials/stock_adjust_modal_body.html"
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        return render(request, template, context)
+    return render(
+        request,
+        "store/stock_adjust_page.html",
+        {**context, "modal": False},
+    )
+
+
 class ProductDetailView(LoginRequiredMixin, DetailView):
     """
     View class to display detailed information about a product.
@@ -269,33 +327,16 @@ class ProductDetailView(LoginRequiredMixin, DetailView):
     model = Item
     template_name = "store/productdetail.html"
 
-    def post(self, request, *args, **kwargs):
-        self.object = self.get_object()
-        form = StockAdjustmentForm(self.object, request.POST)
-        if form.is_valid():
-            try:
-                apply_manual_stock_adjustment(
-                    self.object,
-                    mode=form.cleaned_data["mode"],
-                    quantity=form.cleaned_data["quantity"],
-                    reason=form.cleaned_data.get("reason", ""),
-                    user=request.user,
-                    variation=form.cleaned_data.get("variation"),
-                )
-                messages.success(request, "Stock updated successfully.")
-            except ValueError as exc:
-                messages.error(request, str(exc))
-        else:
-            messages.error(request, "Please correct the stock adjustment form.")
-        return auth_redirect(self.object.get_absolute_url())
-
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["variations"] = self.object.variations.filter(is_active=True)
         context["adjustment_logs"] = (
             self.object.adjustment_logs.select_related("variation", "created_by")[:50]
         )
+        stock_map = build_item_stock_map([self.object])
+        context["current_stock"] = stock_map.get(self.object.id, self.object.quantity)
         context["stock_form"] = StockAdjustmentForm(self.object)
+        context["stock_adjust_next"] = self.object.get_absolute_url()
         context["can_manage_products"] = user_can_manage_products(self.request.user)
         return context
 
@@ -419,6 +460,21 @@ class ProductUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
         return profile is not None and getattr(profile, "role", None) == "AD"
 
 
+def _item_delete_blockers(item):
+    from transactions.models import PurchaseLine, SaleDetail, StockMovement
+
+    blockers = []
+    if PurchaseLine.objects.filter(item=item).exists():
+        blockers.append("purchase lines")
+    if SaleDetail.objects.filter(item=item).exists():
+        blockers.append("sales")
+    if StockMovement.objects.filter(item=item).exists():
+        blockers.append("stock movements")
+    if item.adjustment_logs.exists():
+        blockers.append("stock adjustments")
+    return blockers
+
+
 def user_can_manage_products(user):
     if not user.is_authenticated:
         return False
@@ -445,14 +501,29 @@ class ProductDeleteView(LoginRequiredMixin, UserPassesTestMixin, DeleteView):
     def test_func(self):
         return user_can_manage_products(self.request.user)
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["delete_blockers"] = _item_delete_blockers(self.object)
+        return context
+
     def delete(self, request, *args, **kwargs):
+        from django.db import IntegrityError
         from django.db.models.deletion import ProtectedError
 
         self.object = self.get_object()
+        blockers = _item_delete_blockers(self.object)
+        if blockers:
+            messages.error(
+                request,
+                "Cannot delete this product — it is linked to "
+                + ", ".join(blockers)
+                + ".",
+            )
+            return auth_redirect(self.get_success_url())
         try:
             with transaction.atomic():
                 return super().delete(request, *args, **kwargs)
-        except ProtectedError:
+        except (ProtectedError, IntegrityError):
             messages.error(
                 request,
                 "Cannot delete this product — it is linked to purchases, "

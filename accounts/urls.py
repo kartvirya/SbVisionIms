@@ -13,6 +13,7 @@ from .views import (
     ProfileUpdateView,
     ProfileDeleteView,
     CustomerListView,
+    CustomerDetailView,
     CustomerCreateView,
     CustomerUpdateView,
     CustomerDeleteView,
@@ -20,6 +21,7 @@ from .views import (
     create_customer_quick,
     create_vendor_quick,
     VendorListView,
+    VendorDetailView,
     VendorCreateView,
     VendorUpdateView,
     VendorDeleteView,
@@ -50,6 +52,7 @@ urlpatterns = [
 
     # Customer URLs
     path('customers/', CustomerListView.as_view(), name='customer_list'),
+    path('customers/<int:pk>/', CustomerDetailView.as_view(), name='customer-detail'),
     path('customers/create/', CustomerCreateView.as_view(),
          name='customer_create'),
     path('customers/<int:pk>/update/', CustomerUpdateView.as_view(),
@@ -62,6 +65,7 @@ urlpatterns = [
     # Vendor URLs
     path('vendors/quick-create/', create_vendor_quick, name='vendor-quick-create'),
     path('vendors/', VendorListView.as_view(), name='vendor-list'),
+    path('vendors/<int:pk>/', VendorDetailView.as_view(), name='vendor-detail'),
     path('vendors/new/', VendorCreateView.as_view(), name='vendor-create'),
     path('vendors/<int:pk>/update/', VendorUpdateView.as_view(),
          name='vendor-update'),

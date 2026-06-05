@@ -22,7 +22,10 @@
         <div class="card-header"><strong>Return from customer</strong></div>
         <div class="card-body">
             <p class="text-muted small">Restores stock and reduces the sale bill total.</p>
-            <form method="post">
+            <div class="mb-2">
+                <button type="button" class="btn btn-outline-warning btn-sm" id="return-all-sold-btn">Return all sold items</button>
+            </div>
+            <form method="post" id="sale-return-form">
                 {% csrf_token %}
                 <input type="hidden" name="action" value="sale_return">
                 <table class="table table-sm align-middle">
@@ -42,7 +45,10 @@
                             </td>
                             <td class="text-end">{{ detail.quantity }}</td>
                             <td>
-                                <input type="number" name="return_qty_{{ detail.id }}" class="form-control form-control-sm" min="0" max="{{ detail.quantity }}" placeholder="0">
+                                <div class="d-flex align-items-center gap-1">
+                                    <input type="number" name="return_qty_{{ detail.id }}" class="form-control form-control-sm return-qty-input" min="0" max="{{ detail.quantity }}" placeholder="0" data-max="{{ detail.quantity }}">
+                                    <button type="button" class="btn btn-link btn-sm text-nowrap p-0 return-line-all" data-target="return_qty_{{ detail.id }}" data-qty="{{ detail.quantity }}">Return all</button>
+                                </div>
                             </td>
                         </tr>
                         {% endfor %}
@@ -518,11 +524,19 @@
                 </div>
                 {% endif %}
                 <div class="col2">
+                    <p>Payment</p>
+                    <p class="prix">{% include "store/partials/payment_status_badge.html" with status=sale.payment_status %}</p>
+                </div>
+                <div class="col2">
                     <p>Amount Paid</p>
                     <p class="prix"><b>Rs {{ sale.amount_paid }}</b></p>
                 </div>
                 <div class="col2">
-                    <p>Balance</p>
+                    <p>Unpaid</p>
+                    <p class="prix"><b>{% if sale.amount_remaining > 0 %}Rs {{ sale.amount_remaining }}{% else %}—{% endif %}</b></p>
+                </div>
+                <div class="col2">
+                    <p>Change</p>
                     <p class="prix"><b>Rs {{ sale.amount_change }}</b></p>
                 </div>
                 {% if total_profit %}
@@ -553,4 +567,20 @@
 </section>
 
 </div>
+<script>
+document.querySelectorAll('.return-line-all').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+        var input = document.querySelector('[name="' + btn.dataset.target + '"]');
+        if (input) input.value = btn.dataset.qty || input.dataset.max || '';
+    });
+});
+var returnAllBtn = document.getElementById('return-all-sold-btn');
+if (returnAllBtn) {
+    returnAllBtn.addEventListener('click', function () {
+        document.querySelectorAll('.return-qty-input').forEach(function (input) {
+            input.value = input.dataset.max || '';
+        });
+    });
+}
+</script>
 {% endblock %}

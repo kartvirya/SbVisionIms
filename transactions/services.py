@@ -578,10 +578,16 @@ def get_stock_ledger_rows(*, item=None, date_from=None, date_to=None):
         running_totals[key] = running_totals[key] + (direction * move.quantity)
         txn = move.transaction
         ref = txn.source_ref
-        if not ref and txn.legacy_sale_id:
-            ref = f"sale:{txn.legacy_sale_id}"
-        elif not ref and txn.legacy_purchase_id:
-            ref = f"purchase:{txn.legacy_purchase_id}"
+        if not ref:
+            from django.core.exceptions import ObjectDoesNotExist
+
+            try:
+                ref = f"sale:{txn.legacy_sale.pk}"
+            except ObjectDoesNotExist:
+                try:
+                    ref = f"purchase:{txn.legacy_purchase.pk}"
+                except ObjectDoesNotExist:
+                    ref = ""
         rows.append(
             {
                 "created_at": move.created_at,

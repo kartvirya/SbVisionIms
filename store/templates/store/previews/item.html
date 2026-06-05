@@ -34,7 +34,10 @@
         {% endfor %}
     </ul>
     {% endif %}
-    <div class="mt-3">
+    <div class="mt-3 d-flex gap-2 flex-wrap">
+        <button type="button" class="btn btn-sm btn-outline-success" onclick="openStockAdjustModal({{ object.id }}, '{{ object.name|escapejs }}')">
+            Adjust stock
+        </button>
         <a href="{% url 'item-detail' object.slug %}" class="btn btn-sm btn-outline-primary">Open full page</a>
     </div>
 </div>
