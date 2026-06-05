@@ -63,14 +63,10 @@ DATABASES = {
     }
 }
 
-# Static files (CSS, JavaScript, Images)
-STATIC_URL = '/static/'
+# Static / media roots (STATIC_URL and MEDIA_URL set above for /ims subpath)
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
-
-# Media files
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
-MEDIA_URL = '/media/'
 
 # Security settings for production
 SECURE_SSL_REDIRECT = os.environ.get('SECURE_SSL_REDIRECT', 'False') == 'True'

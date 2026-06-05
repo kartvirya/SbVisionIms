@@ -281,15 +281,30 @@ class SaleUpdateView(LoginRequiredMixin, UpdateView):
         sale.sub_total = sub_total
         tax_pct = Decimal(str(form.cleaned_data.get("tax_percentage") or 0))
         tax_amount = form.cleaned_data.get("tax_amount")
-        if tax_amount is not None and tax_amount != "":
+        if tax_pct > 0:
+            sale.tax_amount = (sub_total * (tax_pct / Decimal("100"))).quantize(
+                Decimal("0.01")
+            )
+        elif tax_amount is not None and tax_amount != "":
             sale.tax_amount = Decimal(str(tax_amount))
-        elif tax_pct:
-            sale.tax_amount = sub_total * (tax_pct / Decimal("100"))
         else:
             sale.tax_amount = Decimal("0")
-        sale.grand_total = sub_total + sale.tax_amount
-        sale.amount_change = (sale.amount_paid or Decimal("0")) - sale.grand_total
+        sale.grand_total = sale.sub_total + sale.tax_amount
+        paid = Decimal(str(form.cleaned_data.get("amount_paid") or 0))
+        sale.amount_paid = paid
+        sale.amount_change = paid - sale.grand_total
         sale.save()
+        payment = sale.customer_payments.order_by("id").first()
+        if payment:
+            payment.amount = paid
+            payment.save()
+        elif paid > 0:
+            CustomerPayment.objects.create(
+                sale=sale,
+                amount=paid,
+                method="cash",
+                notes="Updated from sale edit",
+            )
         messages.success(self.request, "Sale updated successfully.")
         return HttpResponseRedirect(self.get_success_url())
 
@@ -523,6 +538,13 @@ class PurchaseListView(LoginRequiredMixin, ListView):
             total=Sum("amount_remaining")
         )["total"]
         context["total_outstanding"] = outstanding or Decimal("0")
+        vendor_adj = Vendor.objects.aggregate(total=Sum("payables_adjustment"))[
+            "total"
+        ]
+        context["vendor_payables_adjustment"] = vendor_adj or Decimal("0")
+        context["total_outstanding_adjusted"] = (
+            context["total_outstanding"] + context["vendor_payables_adjustment"]
+        )
         context["can_delete_purchases"] = user_can_delete_transactions(
             self.request.user
         )

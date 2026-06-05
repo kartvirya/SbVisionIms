@@ -27,8 +27,11 @@ from django.views.decorators.csrf import csrf_exempt
 from django.db.models import Q, Count, Sum
 
 # Authentication and permissions
+from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
+from django.db import transaction
+from django.shortcuts import redirect as auth_redirect
 
 # Class-based views
 from django.views.generic import (
@@ -377,6 +380,15 @@ class ProductUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
         return profile is not None and getattr(profile, "role", None) == "AD"
 
 
+def user_can_manage_products(user):
+    if not user.is_authenticated:
+        return False
+    if user.is_superuser:
+        return True
+    profile = getattr(user, "profile", None)
+    return profile is not None and getattr(profile, "role", None) == "AD"
+
+
 class ProductDeleteView(LoginRequiredMixin, UserPassesTestMixin, DeleteView):
     """
     View class to delete a product.
@@ -392,10 +404,22 @@ class ProductDeleteView(LoginRequiredMixin, UserPassesTestMixin, DeleteView):
     success_url = reverse_lazy("productslist")
 
     def test_func(self):
-        if self.request.user.is_superuser:
-            return True
-        else:
-            return False
+        return user_can_manage_products(self.request.user)
+
+    def delete(self, request, *args, **kwargs):
+        from django.db.models.deletion import ProtectedError
+
+        self.object = self.get_object()
+        try:
+            with transaction.atomic():
+                return super().delete(request, *args, **kwargs)
+        except ProtectedError:
+            messages.error(
+                request,
+                "Cannot delete this product — it is linked to purchases, "
+                "sales, or stock movements. Remove those records first.",
+            )
+            return auth_redirect(self.get_success_url())
 
 
 class DeliveryListView(
@@ -412,7 +436,7 @@ class DeliveryListView(
     """
 
     model = Delivery
-    pagination = 10
+    paginate_by = 10
     template_name = "store/deliveries.html"
     context_object_name = "deliveries"
 
@@ -516,6 +540,16 @@ class CategoryListView(LoginRequiredMixin, ListView):
     context_object_name = 'categories'
     paginate_by = 10
     login_url = 'login'
+
+    def get_queryset(self):
+        return super().get_queryset().order_by("-pk")
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        annotate_list_row_numbers(
+            list(context.get("categories") or []), context.get("page_obj")
+        )
+        return context
 
 
 class CategoryDetailView(LoginRequiredMixin, DetailView):

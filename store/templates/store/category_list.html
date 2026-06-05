@@ -26,16 +26,16 @@
     <table class="table table-sm table-striped table-bordered">
         <thead class="thead-light">
             <tr>
-                <th>ID</th>
+                <th>#</th>
                 <th>Name</th>
                 <th>Action</th>
             </tr>
         </thead>
         <tbody>
-            {% for category in page_obj %}
+            {% for category in categories %}
             <tr>
-                <td>{{ category.pk }}</td>
-                <td>{{ category.name }}</td>
+                <td class="text-muted">{{ category.list_row_number }}</td>
+                <td><a href="{% url 'category-detail' category.pk %}" class="text-success text-decoration-none">{{ category.name }}</a></td>
                 <td>
                     <a href="{% url 'category-detail' category.pk %}" class="btn btn-outline-primary btn-sm">
                         <i class="fa-solid fa-info-circle me-2"></i> View Details

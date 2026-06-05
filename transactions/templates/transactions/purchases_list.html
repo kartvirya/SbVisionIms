@@ -63,6 +63,18 @@
 </div>
 
 <div class="container">
+    {% if total_outstanding is not None %}
+    <div class="alert alert-light border small py-2 mb-3 d-flex flex-wrap justify-content-between align-items-center gap-2">
+        <span>
+            <strong>Purchases outstanding:</strong> Rs {{ total_outstanding }}
+            {% if vendor_payables_adjustment %}
+            &nbsp;|&nbsp; <strong>Payables adjustments:</strong> Rs {{ vendor_payables_adjustment }}
+            &nbsp;|&nbsp; <strong>Adjusted total:</strong> Rs {{ total_outstanding_adjusted }}
+            {% endif %}
+        </span>
+        <a href="{% url 'payables-aging' %}" class="btn btn-outline-success btn-sm">Payables book</a>
+    </div>
+    {% endif %}
     <div class="table-responsive">
         <table class="table table-sm table-striped table-bordered align-middle">
             <thead class="table-light">

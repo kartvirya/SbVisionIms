@@ -19,13 +19,33 @@
             <p class="text-muted small">
                 Line items cannot be changed here. Delete the sale and create a new one if products or quantities need to change.
             </p>
-            <form method="post">
+            <form method="post" id="sale-edit-form">
                 {% csrf_token %}
                 <div class="row g-3">
                     <div class="col-md-6">{{ form.customer.label_tag }}{{ form.customer }}{{ form.customer.errors }}</div>
                     <div class="col-md-3">{{ form.tax_percentage.label_tag }}{{ form.tax_percentage }}{{ form.tax_percentage.errors }}</div>
                     <div class="col-md-3">{{ form.tax_amount.label_tag }}{{ form.tax_amount }}{{ form.tax_amount.errors }}</div>
                     <div class="col-md-4">{{ form.amount_paid.label_tag }}{{ form.amount_paid }}{{ form.amount_paid.errors }}</div>
+                    <div class="col-md-4 d-flex align-items-end">
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="checkbox" id="sale-pay-full" checked>
+                            <label class="form-check-label" for="sale-pay-full">Mark fully paid (auto-fill)</label>
+                        </div>
+                    </div>
+                </div>
+                <div class="row g-3 mt-1">
+                    <div class="col-md-3">
+                        <label class="form-label text-muted small">Subtotal (lines)</label>
+                        <input type="text" class="form-control form-control-sm" id="preview-subtotal" readonly value="{{ object.sub_total }}">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label text-muted small">Grand total</label>
+                        <input type="text" class="form-control form-control-sm fw-semibold" id="preview-grand" readonly value="{{ object.grand_total }}">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label text-muted small">Balance due</label>
+                        <input type="text" class="form-control form-control-sm" id="preview-due" readonly value="{{ object.grand_total|floatformat:2 }}">
+                    </div>
                 </div>
                 <div class="mt-4">
                     <button type="submit" class="btn btn-success">Save changes</button>
@@ -49,7 +69,7 @@
                 </thead>
                 <tbody>
                     {% for detail in sale_details %}
-                    <tr>
+                    <tr data-line-total="{{ detail.total_detail }}">
                         <td>
                             {{ detail.item.name }}
                             {% if detail.variation %}
@@ -66,4 +86,48 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block javascripts %}
+<script>
+(function () {
+    const subtotal = {{ object.sub_total|default:0 }};
+    const taxPctEl = document.getElementById("id_tax_percentage");
+    const taxAmtEl = document.getElementById("id_tax_amount");
+    const paidEl = document.getElementById("id_amount_paid");
+    const payFull = document.getElementById("sale-pay-full");
+    const previewSub = document.getElementById("preview-subtotal");
+    const previewGrand = document.getElementById("preview-grand");
+    const previewDue = document.getElementById("preview-due");
+
+    function round2(n) {
+        return Math.round(n * 100) / 100;
+    }
+
+    function recalc() {
+        const pct = parseFloat(taxPctEl?.value || "0");
+        let tax = 0;
+        if (pct > 0) {
+            tax = round2(subtotal * pct / 100);
+            if (taxAmtEl) taxAmtEl.value = tax.toFixed(2);
+        } else {
+            tax = parseFloat(taxAmtEl?.value || "0");
+        }
+        const grand = round2(subtotal + tax);
+        if (previewSub) previewSub.value = subtotal.toFixed(2);
+        if (previewGrand) previewGrand.value = grand.toFixed(2);
+        if (payFull && payFull.checked && paidEl) {
+            paidEl.value = grand.toFixed(2);
+        }
+        const paid = parseFloat(paidEl?.value || "0");
+        if (previewDue) previewDue.value = round2(grand - paid).toFixed(2);
+    }
+
+    [taxPctEl, taxAmtEl, paidEl].forEach((el) => {
+        if (el) el.addEventListener("input", recalc);
+    });
+    if (payFull) payFull.addEventListener("change", recalc);
+    recalc();
+})();
+</script>
 {% endblock %}

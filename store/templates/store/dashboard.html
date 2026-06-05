@@ -31,6 +31,24 @@
                     </div>
                 </div>
 
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <div class="card border-0 shadow-sm">
+                            <div class="card-body py-3 d-flex flex-wrap gap-2 align-items-center">
+                                <span class="text-muted small me-2">Quick actions:</span>
+                                <a href="{% url 'customer_create' %}" class="btn btn-outline-success btn-sm">
+                                    <i class="fa-solid fa-user-plus"></i> New customer
+                                </a>
+                                <a href="{% url 'vendor-create' %}" class="btn btn-outline-success btn-sm">
+                                    <i class="fa-solid fa-truck-field"></i> New supplier
+                                </a>
+                                <a href="{% url 'customer_list' %}" class="btn btn-outline-secondary btn-sm">Customers</a>
+                                <a href="{% url 'vendor-list' %}" class="btn btn-outline-secondary btn-sm">Suppliers</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Key Metrics Cards -->
                 <div class="row g-4 mb-4">
                     <style>

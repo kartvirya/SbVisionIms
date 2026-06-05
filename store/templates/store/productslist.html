@@ -122,7 +122,7 @@
                         {% if item.image %}
                         <img src="{{ item.image.url }}" alt="{{ item.name }}" class="img-thumbnail" style="width: 40px; height: 40px; object-fit: cover; margin-right: 8px;">
                         {% endif %}
-                        {{ item.name }}
+                        <a href="{% url 'item-detail' item.slug %}" class="text-success fw-semibold text-decoration-none">{{ item.name }}</a>
                         {% with stock=item.current_stock|default:item.quantity %}
                         {% if stock <= item.low_stock_threshold %}
                             <span class="badge bg-warning text-dark ms-1">
@@ -177,7 +177,10 @@
                     <td>{{ item.expiring_date|date:"Y-m-d" }}</td>
                     <td>{{ item.vendor }}</td>
                     <td>
-                        <a class="btn btn-outline-info btn-sm" href="{% url 'product-update' item.slug %}">
+                        <a class="btn btn-outline-info btn-sm" href="{% url 'item-detail' item.slug %}" title="Preview">
+                            <i class="fa-solid fa-eye"></i>
+                        </a>
+                        <a class="btn btn-outline-primary btn-sm" href="{% url 'product-update' item.slug %}">
                             <i class="fa-solid fa-pen"></i> Edit
                         </a>
                         <a class="btn btn-outline-danger btn-sm float-end" href="{% url 'product-delete' item.slug %}">

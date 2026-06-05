@@ -105,9 +105,13 @@ class PurchaseForm(BootstrapMixin, forms.ModelForm):
         receipt_date = cleaned_data.get("receipt_date")
         receipt_status = cleaned_data.get("receipt_status")
 
-        if receipt_date and receipt_status != "S":
-            cleaned_data["receipt_status"] = "S"
-        elif receipt_status == "S" and not receipt_date:
+        if receipt_date:
+            rd = receipt_date
+            if timezone.is_naive(rd):
+                rd = timezone.make_aware(rd, timezone.get_current_timezone())
+            if timezone.localtime(rd).date() <= timezone.localdate():
+                cleaned_data["receipt_status"] = "S"
+        if cleaned_data.get("receipt_status") == "S" and not cleaned_data.get("receipt_date"):
             cleaned_data["receipt_date"] = timezone.now()
 
         return cleaned_data
@@ -243,10 +247,9 @@ class SaleEditForm(BootstrapMixin, forms.ModelForm):
         self.fields["customer"].queryset = Customer.objects.order_by(
             "first_name", "last_name"
         )
-        if self.instance and self.instance.pk and self.instance.customer_payments.exists():
-            self.fields["amount_paid"].disabled = True
+        if self.instance and self.instance.pk:
             self.fields["amount_paid"].help_text = (
-                "Controlled by customer payment records."
+                "Updates the sale and linked customer payment record."
             )
 
 
