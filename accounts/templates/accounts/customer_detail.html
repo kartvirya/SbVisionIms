@@ -2,9 +2,9 @@
 {% block title %}{{ customer.get_full_name }} — Account{% endblock %}
 {% block content %}
 <div class="container my-4">
-    <div class="mb-3">
-        <a href="{% url 'customer_list' %}" class="btn btn-outline-success btn-sm"><i class="fa-solid fa-arrow-left"></i> Customers</a>
-        <a href="{% url 'customer_update' customer.pk %}" class="btn btn-outline-primary btn-sm">Edit</a>
+    <div class="mb-3 d-flex flex-wrap gap-2">
+        <a href="{% url 'accounts-book' %}?tab=customers" class="btn btn-outline-success btn-sm"><i class="fa-solid fa-arrow-left"></i> Accounts Book</a>
+        <a href="{% url 'customer_update' customer.pk %}" class="btn btn-outline-primary btn-sm">Edit contact</a>
     </div>
 
     <div class="card shadow-sm mb-4">
@@ -47,6 +47,8 @@
             </div>
         </div>
     </div>
+
+    {% include "accounts/partials/payment_records.html" %}
 
     <div class="card shadow-sm">
         <div class="card-header bg-light"><strong>Transaction history</strong></div>

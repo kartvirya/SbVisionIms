@@ -160,6 +160,36 @@ class OpeningBalanceForm(forms.Form):
     )
 
 
+class PayablesAdjustmentForm(forms.Form):
+    payables_adjustment = forms.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        label="Payables adjustment (Rs)",
+        help_text="Manual +/- adjustment on supplier balance.",
+        widget=forms.NumberInput(attrs={"class": "form-control", "step": "0.01"}),
+    )
+
+
+class PaymentEditForm(forms.Form):
+    amount = forms.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        min_value=Decimal("0.01"),
+        label="Amount (Rs)",
+        widget=forms.NumberInput(attrs={"class": "form-control form-control-sm", "step": "0.01"}),
+    )
+    method = forms.ChoiceField(
+        choices=PAYMENT_METHOD_CHOICES,
+        label="Method",
+        widget=forms.Select(attrs={"class": "form-select form-select-sm"}),
+    )
+    notes = forms.CharField(
+        required=False,
+        label="Notes",
+        widget=forms.TextInput(attrs={"class": "form-control form-control-sm"}),
+    )
+
+
 class CustomerPaymentForm(forms.Form):
     sale = forms.ModelChoiceField(
         queryset=Sale.objects.none(),

@@ -39,6 +39,8 @@ from .forms import (
     OpeningBalanceForm,
     CustomerPaymentForm,
     VendorPaymentForm,
+    PayablesAdjustmentForm,
+    PaymentEditForm,
 )
 from .tables import ProfileTable
 
@@ -195,6 +197,83 @@ class CustomerListView(LoginRequiredMixin, ListView):
     context_object_name = 'customers'
 
 
+class AccountsBookView(LoginRequiredMixin, View):
+    """Customer and supplier account balances with links to transaction pages."""
+
+    template_name = "accounts/accounts_book.html"
+
+    def get(self, request):
+        from django.shortcuts import render
+
+        tab = request.GET.get("tab", "customers")
+        if tab not in ("customers", "suppliers"):
+            tab = "customers"
+        customer_rows = [
+            {
+                "customer": customer,
+                "balance_due": get_customer_balance_due(customer),
+            }
+            for customer in Customer.objects.order_by("first_name", "last_name", "id")
+        ]
+        supplier_rows = [
+            {
+                "vendor": vendor,
+                "balance_due": get_vendor_balance_due(vendor),
+            }
+            for vendor in Vendor.objects.order_by("name")
+        ]
+        return render(
+            request,
+            self.template_name,
+            {
+                "active_tab": tab,
+                "customer_rows": customer_rows,
+                "supplier_rows": supplier_rows,
+            },
+        )
+
+
+def _customer_detail_context(customer):
+    from transactions.models import CustomerPayment
+
+    ledger_rows, _ = get_customer_ledger_rows(customer)
+    return {
+        "customer": customer,
+        "party_type": "customer",
+        "ledger_rows": ledger_rows,
+        "balance_due": get_customer_balance_due(customer),
+        "opening_form": OpeningBalanceForm(
+            initial={"opening_balance": customer.opening_balance}
+        ),
+        "payment_form": CustomerPaymentForm(customer=customer),
+        "payment_records": CustomerPayment.objects.filter(
+            sale__customer=customer
+        ).select_related("sale").order_by("-received_at", "-id"),
+    }
+
+
+def _vendor_detail_context(vendor):
+    from transactions.models import VendorPayment
+
+    ledger_rows, _ = get_vendor_ledger_rows(vendor)
+    return {
+        "vendor": vendor,
+        "party_type": "vendor",
+        "ledger_rows": ledger_rows,
+        "balance_due": get_vendor_balance_due(vendor),
+        "opening_form": OpeningBalanceForm(
+            initial={"opening_balance": vendor.opening_balance}
+        ),
+        "payables_form": PayablesAdjustmentForm(
+            initial={"payables_adjustment": vendor.payables_adjustment}
+        ),
+        "payment_form": VendorPaymentForm(vendor=vendor),
+        "payment_records": VendorPayment.objects.filter(
+            purchase__vendor=vendor
+        ).select_related("purchase").order_by("-paid_at", "-id"),
+    }
+
+
 class CustomerCreateView(LoginRequiredMixin, CreateView):
     """
     View for creating a new customer.
@@ -227,22 +306,10 @@ class CustomerDetailView(LoginRequiredMixin, View):
     template_name = "accounts/customer_detail.html"
 
     def get(self, request, pk):
-        from django.contrib import messages
         from django.shortcuts import get_object_or_404, render
-        from transactions.models import CustomerPayment
 
         customer = get_object_or_404(Customer, pk=pk)
-        ledger_rows, _ = get_customer_ledger_rows(customer)
-        context = {
-            "customer": customer,
-            "ledger_rows": ledger_rows,
-            "balance_due": get_customer_balance_due(customer),
-            "opening_form": OpeningBalanceForm(
-                initial={"opening_balance": customer.opening_balance}
-            ),
-            "payment_form": CustomerPaymentForm(customer=customer),
-        }
-        return render(request, self.template_name, context)
+        return render(request, self.template_name, _customer_detail_context(customer))
 
     def post(self, request, pk):
         from django.contrib import messages
@@ -272,26 +339,45 @@ class CustomerDetailView(LoginRequiredMixin, View):
                 sale.save()
                 messages.success(request, "Payment recorded.")
                 return redirect("customer-detail", pk=customer.pk)
+        elif action == "update_payment":
+            form = PaymentEditForm(request.POST)
+            payment = CustomerPayment.objects.filter(
+                pk=request.POST.get("payment_id"),
+                sale__customer=customer,
+            ).select_related("sale").first()
+            if payment and form.is_valid():
+                payment.amount = form.cleaned_data["amount"]
+                payment.method = form.cleaned_data["method"]
+                payment.notes = form.cleaned_data.get("notes") or ""
+                payment.save()
+                payment.sale.save()
+                messages.success(request, "Payment updated.")
+                return redirect("customer-detail", pk=customer.pk)
+            messages.error(request, "Could not update payment.")
+            return redirect("customer-detail", pk=customer.pk)
+        elif action == "delete_payment":
+            payment = CustomerPayment.objects.filter(
+                pk=request.POST.get("payment_id"),
+                sale__customer=customer,
+            ).select_related("sale").first()
+            if payment:
+                sale = payment.sale
+                payment.delete()
+                sale.save()
+                messages.success(request, "Payment deleted.")
+            else:
+                messages.error(request, "Payment not found.")
+            return redirect("customer-detail", pk=customer.pk)
         else:
             messages.error(request, "Unknown action.")
             return redirect("customer-detail", pk=customer.pk)
 
-        ledger_rows, _ = get_customer_ledger_rows(customer)
-        return render(
-            request,
-            self.template_name,
-            {
-                "customer": customer,
-                "ledger_rows": ledger_rows,
-                "balance_due": get_customer_balance_due(customer),
-                "opening_form": form if action == "opening_balance" else OpeningBalanceForm(
-                    initial={"opening_balance": customer.opening_balance}
-                ),
-                "payment_form": form if action == "record_payment" else CustomerPaymentForm(
-                    customer=customer
-                ),
-            },
-        )
+        ctx = _customer_detail_context(customer)
+        if action == "opening_balance":
+            ctx["opening_form"] = form
+        elif action == "record_payment":
+            ctx["payment_form"] = form
+        return render(request, self.template_name, ctx)
 
 
 class CustomerDeleteView(LoginRequiredMixin, DeleteView):
@@ -436,23 +522,9 @@ class VendorDetailView(LoginRequiredMixin, View):
 
     def get(self, request, pk):
         from django.shortcuts import get_object_or_404, render
-        from transactions.models import VendorPayment
 
         vendor = get_object_or_404(Vendor, pk=pk)
-        ledger_rows, _ = get_vendor_ledger_rows(vendor)
-        return render(
-            request,
-            self.template_name,
-            {
-                "vendor": vendor,
-                "ledger_rows": ledger_rows,
-                "balance_due": get_vendor_balance_due(vendor),
-                "opening_form": OpeningBalanceForm(
-                    initial={"opening_balance": vendor.opening_balance}
-                ),
-                "payment_form": VendorPaymentForm(vendor=vendor),
-            },
-        )
+        return render(request, self.template_name, _vendor_detail_context(vendor))
 
     def post(self, request, pk):
         from django.contrib import messages
@@ -469,6 +541,13 @@ class VendorDetailView(LoginRequiredMixin, View):
                 vendor.save(update_fields=["opening_balance"])
                 messages.success(request, "Opening balance updated.")
                 return redirect("vendor-detail", pk=vendor.pk)
+        elif action == "payables_adjustment":
+            form = PayablesAdjustmentForm(request.POST)
+            if form.is_valid():
+                vendor.payables_adjustment = form.cleaned_data["payables_adjustment"]
+                vendor.save(update_fields=["payables_adjustment"])
+                messages.success(request, "Payables adjustment updated.")
+                return redirect("vendor-detail", pk=vendor.pk)
         elif action == "record_payment":
             form = VendorPaymentForm(request.POST, vendor=vendor)
             if form.is_valid():
@@ -482,26 +561,47 @@ class VendorDetailView(LoginRequiredMixin, View):
                 purchase.save()
                 messages.success(request, "Payment recorded.")
                 return redirect("vendor-detail", pk=vendor.pk)
+        elif action == "update_payment":
+            form = PaymentEditForm(request.POST)
+            payment = VendorPayment.objects.filter(
+                pk=request.POST.get("payment_id"),
+                purchase__vendor=vendor,
+            ).select_related("purchase").first()
+            if payment and form.is_valid():
+                payment.amount = form.cleaned_data["amount"]
+                payment.method = form.cleaned_data["method"]
+                payment.notes = form.cleaned_data.get("notes") or ""
+                payment.save()
+                payment.purchase.save()
+                messages.success(request, "Payment updated.")
+                return redirect("vendor-detail", pk=vendor.pk)
+            messages.error(request, "Could not update payment.")
+            return redirect("vendor-detail", pk=vendor.pk)
+        elif action == "delete_payment":
+            payment = VendorPayment.objects.filter(
+                pk=request.POST.get("payment_id"),
+                purchase__vendor=vendor,
+            ).select_related("purchase").first()
+            if payment:
+                purchase = payment.purchase
+                payment.delete()
+                purchase.save()
+                messages.success(request, "Payment deleted.")
+            else:
+                messages.error(request, "Payment not found.")
+            return redirect("vendor-detail", pk=vendor.pk)
         else:
             messages.error(request, "Unknown action.")
             return redirect("vendor-detail", pk=vendor.pk)
 
-        ledger_rows, _ = get_vendor_ledger_rows(vendor)
-        return render(
-            request,
-            self.template_name,
-            {
-                "vendor": vendor,
-                "ledger_rows": ledger_rows,
-                "balance_due": get_vendor_balance_due(vendor),
-                "opening_form": form if action == "opening_balance" else OpeningBalanceForm(
-                    initial={"opening_balance": vendor.opening_balance}
-                ),
-                "payment_form": form if action == "record_payment" else VendorPaymentForm(
-                    vendor=vendor
-                ),
-            },
-        )
+        ctx = _vendor_detail_context(vendor)
+        if action == "opening_balance":
+            ctx["opening_form"] = form
+        elif action == "payables_adjustment":
+            ctx["payables_form"] = form
+        elif action == "record_payment":
+            ctx["payment_form"] = form
+        return render(request, self.template_name, ctx)
 
 
 class VendorDeleteView(LoginRequiredMixin, DeleteView):

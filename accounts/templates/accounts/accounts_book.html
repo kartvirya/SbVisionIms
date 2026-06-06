@@ -1,0 +1,109 @@
+{% extends 'store/base.html' %}
+{% block title %}Accounts Book{% endblock %}
+{% block content %}
+<div class="container my-4">
+    <div class="card shadow-sm rounded p-3 mb-4">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h4 class="display-6 mb-0 text-success">Accounts Book</h4>
+                <small class="text-muted">Customer and supplier balances with transaction history</small>
+            </div>
+            <div class="col-md-4 d-flex justify-content-end gap-2 flex-wrap">
+                <a class="btn btn-outline-success btn-sm" href="{% url 'customer_create' %}"><i class="fa-solid fa-plus"></i> New customer</a>
+                <a class="btn btn-outline-success btn-sm" href="{% url 'vendor-create' %}"><i class="fa-solid fa-plus"></i> New supplier</a>
+            </div>
+        </div>
+    </div>
+
+    <ul class="nav nav-tabs mb-3" role="tablist">
+        <li class="nav-item" role="presentation">
+            <a class="nav-link {% if active_tab == 'customers' %}active{% endif %}" href="?tab=customers">
+                <i class="fa-solid fa-users me-1"></i> Customers
+                <span class="badge bg-secondary ms-1">{{ customer_rows|length }}</span>
+            </a>
+        </li>
+        <li class="nav-item" role="presentation">
+            <a class="nav-link {% if active_tab == 'suppliers' %}active{% endif %}" href="?tab=suppliers">
+                <i class="fa-solid fa-truck-field me-1"></i> Suppliers
+                <span class="badge bg-secondary ms-1">{{ supplier_rows|length }}</span>
+            </a>
+        </li>
+    </ul>
+
+    {% if active_tab == 'customers' %}
+    <div class="card shadow-sm">
+        <div class="table-responsive">
+            <table class="table table-sm table-striped table-hover mb-0 align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>#</th>
+                        <th>Customer</th>
+                        <th>Phone</th>
+                        <th class="text-end">Balance due (Rs)</th>
+                        <th style="width:10rem;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in customer_rows %}
+                    <tr>
+                        <td class="text-muted">{{ forloop.counter }}</td>
+                        <td>
+                            <a href="{% url 'customer-detail' row.customer.pk %}" class="fw-semibold text-success text-decoration-none">
+                                {{ row.customer.get_full_name }}
+                            </a>
+                        </td>
+                        <td>{{ row.customer.phone|default:"—" }}</td>
+                        <td class="text-end fw-semibold {% if row.balance_due > 0 %}text-danger{% elif row.balance_due < 0 %}text-success{% endif %}">
+                            {{ row.balance_due }}
+                        </td>
+                        <td>
+                            <a href="{% url 'customer-detail' row.customer.pk %}" class="btn btn-outline-primary btn-sm">Transactions</a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="5" class="text-center text-muted py-4">No customers yet.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% else %}
+    <div class="card shadow-sm">
+        <div class="table-responsive">
+            <table class="table table-sm table-striped table-hover mb-0 align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>#</th>
+                        <th>Supplier</th>
+                        <th>Phone</th>
+                        <th class="text-end">Balance due (Rs)</th>
+                        <th style="width:10rem;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in supplier_rows %}
+                    <tr>
+                        <td class="text-muted">{{ forloop.counter }}</td>
+                        <td>
+                            <a href="{% url 'vendor-detail' row.vendor.pk %}" class="fw-semibold text-success text-decoration-none">
+                                {{ row.vendor.name }}
+                            </a>
+                        </td>
+                        <td>{{ row.vendor.phone_number|default:"—" }}</td>
+                        <td class="text-end fw-semibold {% if row.balance_due > 0 %}text-danger{% elif row.balance_due < 0 %}text-success{% endif %}">
+                            {{ row.balance_due }}
+                        </td>
+                        <td>
+                            <a href="{% url 'vendor-detail' row.vendor.pk %}" class="btn btn-outline-primary btn-sm">Transactions</a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="5" class="text-center text-muted py-4">No suppliers yet.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

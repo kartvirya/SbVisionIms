@@ -13,6 +13,7 @@ from .views import (
     ProfileUpdateView,
     ProfileDeleteView,
     CustomerListView,
+    AccountsBookView,
     CustomerDetailView,
     CustomerCreateView,
     CustomerUpdateView,
@@ -51,6 +52,7 @@ urlpatterns = [
          name='profile-delete'),
 
     # Customer URLs
+    path('accounts-book/', AccountsBookView.as_view(), name='accounts-book'),
     path('customers/', CustomerListView.as_view(), name='customer_list'),
     path('customers/<int:pk>/', CustomerDetailView.as_view(), name='customer-detail'),
     path('customers/create/', CustomerCreateView.as_view(),
