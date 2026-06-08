@@ -24,6 +24,7 @@ from transactions.models import (
     InventoryTransactionItem,
     LedgerEntry,
     Purchase,
+    Sale,
     StockMovement,
     VendorPayment,
 )
@@ -988,6 +989,36 @@ def process_sale_return(sale, line_returns, *, reason="", user=None):
     if affected_items:
         sync_item_quantity_cache(affected_items)
     return total_credit
+
+
+def create_receivable_quick_entry(
+    customer,
+    *,
+    reference="",
+    amount=0,
+    amount_received=0,
+    description="",
+    payment_method="cash",
+):
+    """Create a sale bill for the customer account (no stock movement)."""
+    amount_dec = _to_decimal(amount)
+    sale = Sale.objects.create(
+        customer=customer,
+        sub_total=amount_dec,
+        grand_total=amount_dec,
+        amount_paid=Decimal("0"),
+    )
+    notes = (description or "").strip() or f"Account entry {reference}".strip()
+    received = _to_decimal(amount_received)
+    if received > 0:
+        CustomerPayment.objects.create(
+            sale=sale,
+            amount=received,
+            method=payment_method if payment_method in ("cash", "bank") else "cash",
+            notes=notes or f"Sale #{sale.id}",
+        )
+    sale.save()
+    return sale
 
 
 def create_payable_quick_entry(

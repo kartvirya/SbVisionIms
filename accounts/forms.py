@@ -11,6 +11,10 @@ from transactions.models import PAYMENT_METHOD_CHOICES, CustomerPayment, Purchas
 from .models import Profile, Customer, Vendor, Logistics
 
 
+def _d(value):
+    return Decimal(str(value or 0))
+
+
 class CreateUserForm(UserCreationForm):
     """Form for creating a new user with an email field."""
     email = forms.EmailField()
@@ -51,8 +55,43 @@ class ProfileUpdateForm(forms.ModelForm):
         ]
 
 
+OPENING_SIGN_WIDGET = forms.Select(attrs={"class": "form-select"})
+OPENING_AMOUNT_WIDGET = forms.NumberInput(
+    attrs={"class": "form-control", "placeholder": "0.00", "step": "0.01", "min": "0"}
+)
+
+
+def _signed_opening_initial(balance):
+    value = _d(balance)
+    return {
+        "opening_sign": "+" if value >= 0 else "-",
+        "opening_amount": abs(value),
+    }
+
+
+def _signed_opening_value(sign, amount):
+    value = abs(_d(amount))
+    return value if sign == "+" else -value
+
+
 class CustomerForm(forms.ModelForm):
     """Form for creating/updating customer information."""
+
+    opening_sign = forms.ChoiceField(
+        choices=[("+", "Receivable (+)"), ("-", "Payable (−)")],
+        initial="+",
+        required=False,
+        label="Opening balance type",
+        widget=OPENING_SIGN_WIDGET,
+        help_text="Receivable: customer owes you. Payable: customer credit.",
+    )
+    opening_amount = forms.DecimalField(
+        required=False,
+        min_value=Decimal("0"),
+        label="Opening balance amount (Rs)",
+        widget=OPENING_AMOUNT_WIDGET,
+    )
+
     class Meta:
         model = Customer
         fields = [
@@ -61,8 +100,8 @@ class CustomerForm(forms.ModelForm):
             'address',
             'email',
             'phone',
-            'opening_balance',
-            'loyalty_points'
+            'pan_number',
+            'loyalty_points',
         ]
         widgets = {
             'first_name': forms.TextInput(attrs={
@@ -86,10 +125,9 @@ class CustomerForm(forms.ModelForm):
                 'class': 'form-control',
                 'placeholder': 'Enter phone number'
             }),
-            'opening_balance': forms.NumberInput(attrs={
+            'pan_number': forms.TextInput(attrs={
                 'class': 'form-control',
-                'placeholder': '0.00',
-                'step': '0.01',
+                'placeholder': 'PAN / tax ID (optional)',
             }),
             'loyalty_points': forms.NumberInput(attrs={
                 'class': 'form-control',
@@ -97,12 +135,49 @@ class CustomerForm(forms.ModelForm):
             }),
         }
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance.pk:
+            initial = _signed_opening_initial(self.instance.opening_balance)
+            self.fields["opening_sign"].initial = initial["opening_sign"]
+            self.fields["opening_amount"].initial = initial["opening_amount"]
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        amount = self.cleaned_data.get("opening_amount")
+        if amount in (None, ""):
+            instance.opening_balance = Decimal("0")
+        else:
+            instance.opening_balance = _signed_opening_value(
+                self.cleaned_data.get("opening_sign", "+"),
+                amount,
+            )
+        if commit:
+            instance.save()
+        return instance
+
 
 class VendorForm(forms.ModelForm):
     """Form for creating/updating vendor information."""
+
+    opening_sign = forms.ChoiceField(
+        choices=[("+", "Payable (+)"), ("-", "Receivable (−)")],
+        initial="+",
+        required=False,
+        label="Opening balance type",
+        widget=OPENING_SIGN_WIDGET,
+        help_text="Payable: you owe supplier. Receivable: supplier credit.",
+    )
+    opening_amount = forms.DecimalField(
+        required=False,
+        min_value=Decimal("0"),
+        label="Opening balance amount (Rs)",
+        widget=OPENING_AMOUNT_WIDGET,
+    )
+
     class Meta:
         model = Vendor
-        fields = ['name', 'phone_number', 'address', 'opening_balance']
+        fields = ['name', 'phone_number', 'pan_number', 'address']
         widgets = {
             'name': forms.TextInput(
                 attrs={'class': 'form-control', 'placeholder': 'Vendor Name'}
@@ -110,17 +185,34 @@ class VendorForm(forms.ModelForm):
             'phone_number': forms.NumberInput(
                 attrs={'class': 'form-control', 'placeholder': 'Phone Number'}
             ),
+            'pan_number': forms.TextInput(
+                attrs={'class': 'form-control', 'placeholder': 'PAN / tax ID (optional)'}
+            ),
             'address': forms.TextInput(
                 attrs={'class': 'form-control', 'placeholder': 'Address'}
             ),
-            'opening_balance': forms.NumberInput(
-                attrs={
-                    'class': 'form-control',
-                    'placeholder': '0.00',
-                    'step': '0.01',
-                }
-            ),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance.pk:
+            initial = _signed_opening_initial(self.instance.opening_balance)
+            self.fields["opening_sign"].initial = initial["opening_sign"]
+            self.fields["opening_amount"].initial = initial["opening_amount"]
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        amount = self.cleaned_data.get("opening_amount")
+        if amount in (None, ""):
+            instance.opening_balance = Decimal("0")
+        else:
+            instance.opening_balance = _signed_opening_value(
+                self.cleaned_data.get("opening_sign", "+"),
+                amount,
+            )
+        if commit:
+            instance.save()
+        return instance
 
 
 class LogisticsForm(forms.ModelForm):
@@ -164,12 +256,103 @@ class LogisticsForm(forms.ModelForm):
         }
 
 
-class OpeningBalanceForm(forms.Form):
-    opening_balance = forms.DecimalField(
+class SignedOpeningBalanceForm(forms.Form):
+    """Signed opening balance: + receivable/payable, − opposite credit."""
+
+    opening_sign = forms.ChoiceField(
+        choices=[("+", "Receivable / Payable (+)"), ("-", "Payable / Receivable (−)")],
+        initial="+",
+        label="Type",
+        widget=forms.Select(attrs={"class": "form-select form-select-sm"}),
+    )
+    opening_amount = forms.DecimalField(
         max_digits=12,
         decimal_places=2,
-        label="Opening balance (Rs)",
-        widget=forms.NumberInput(attrs={"class": "form-control", "step": "0.01"}),
+        min_value=Decimal("0"),
+        label="Amount (Rs)",
+        widget=forms.NumberInput(
+            attrs={"class": "form-control form-control-sm", "step": "0.01", "min": "0"}
+        ),
+    )
+
+    def opening_balance_value(self):
+        return _signed_opening_value(
+            self.cleaned_data["opening_sign"],
+            self.cleaned_data["opening_amount"],
+        )
+
+
+class CustomerAccountTransactionForm(forms.Form):
+    transaction_type = forms.ChoiceField(
+        choices=[
+            ("sale_in", "Sale in (add receivable)"),
+            ("payment_in", "Payment in (receive money)"),
+        ],
+        label="Transaction",
+        widget=forms.Select(attrs={"class": "form-select form-select-sm"}),
+    )
+    amount = forms.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        min_value=Decimal("0.01"),
+        label="Amount (Rs)",
+        widget=forms.NumberInput(attrs={"class": "form-control form-control-sm", "step": "0.01"}),
+    )
+    reference = forms.CharField(
+        required=False,
+        label="Reference",
+        widget=forms.TextInput(attrs={"class": "form-control form-control-sm"}),
+    )
+    method = forms.ChoiceField(
+        choices=PAYMENT_METHOD_CHOICES,
+        initial="cash",
+        label="Method",
+        widget=forms.Select(attrs={"class": "form-select form-select-sm"}),
+    )
+    notes = forms.CharField(
+        required=False,
+        label="Notes",
+        widget=forms.TextInput(attrs={"class": "form-control form-control-sm"}),
+    )
+
+
+class VendorAccountTransactionForm(forms.Form):
+    transaction_type = forms.ChoiceField(
+        choices=[
+            ("bill_in", "Bill in (add payable)"),
+            ("payment_out", "Payment out (pay supplier)"),
+        ],
+        label="Transaction",
+        widget=forms.Select(attrs={"class": "form-select form-select-sm"}),
+    )
+    amount = forms.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        min_value=Decimal("0.01"),
+        label="Amount (Rs)",
+        widget=forms.NumberInput(attrs={"class": "form-control form-control-sm", "step": "0.01"}),
+    )
+    reference = forms.CharField(
+        required=False,
+        label="Bill / reference",
+        widget=forms.TextInput(attrs={"class": "form-control form-control-sm"}),
+    )
+    amount_paid = forms.DecimalField(
+        required=False,
+        min_value=Decimal("0"),
+        label="Paid now (Rs)",
+        widget=forms.NumberInput(attrs={"class": "form-control form-control-sm", "step": "0.01"}),
+    )
+    method = forms.ChoiceField(
+        choices=PAYMENT_METHOD_CHOICES,
+        initial="cash",
+        label="Method",
+        widget=forms.Select(attrs={"class": "form-select form-select-sm"}),
+    )
+    notes = forms.CharField(
+        required=False,
+        label="Notes",
+        widget=forms.TextInput(attrs={"class": "form-control form-control-sm"}),
     )
 
 
@@ -262,10 +445,6 @@ class CustomerPaymentForm(forms.Form):
                     f"Amount cannot exceed unpaid balance (Rs {remaining}).",
                 )
         return cleaned
-
-
-def _d(value):
-    return Decimal(str(value or 0))
 
 
 class VendorPaymentForm(forms.Form):

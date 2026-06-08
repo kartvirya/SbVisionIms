@@ -33,6 +33,7 @@
                 <th scope="col">Address</th>
                 <th scope="col">Email</th>
                 <th scope="col">Phone</th>
+                <th scope="col">PAN</th>
                 <th scope="col">Opening bal. (Rs)</th>
                 <th scope="col">Loyalty Points</th>
                 <th scope="col">Actions</th>
@@ -47,6 +48,7 @@
                 <td>{{ customer.address }}</td>
                 <td>{{ customer.email }}</td>
                 <td>{{ customer.phone }}</td>
+                <td>{{ customer.pan_number|default:"—" }}</td>
                 <td>
                     {% if customer.opening_balance != 0 %}{{ customer.opening_balance }}{% else %}<span class="text-muted">—</span>{% endif %}
                 </td>

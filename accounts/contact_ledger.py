@@ -20,6 +20,11 @@ def _d(value):
     return Decimal(str(value or 0))
 
 
+def should_show_opening_balance(opening, adjustment):
+    """Hide opening in lists once a manual balance adjustment has been recorded."""
+    return _d(opening) != 0 and _d(adjustment) == 0
+
+
 def get_customer_ledger_rows(customer: Customer):
     """Chronological ledger: opening balance, sales, returns, payments."""
     rows = []
@@ -116,7 +121,7 @@ def get_vendor_ledger_rows(vendor: Vendor):
                 "date": None,
                 "type": "Opening balance",
                 "reference": "—",
-                "debit": Decimal("0"),
+                "debit": abs(opening) if opening < 0 else Decimal("0"),
                 "credit": opening if opening > 0 else Decimal("0"),
                 "method": "",
                 "url": "",

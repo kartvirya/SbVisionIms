@@ -103,6 +103,13 @@ class Vendor(models.Model):
     phone_number = models.BigIntegerField(
         blank=True, null=True, verbose_name='Phone Number'
     )
+    pan_number = models.CharField(
+        max_length=20,
+        blank=True,
+        null=True,
+        verbose_name='PAN number',
+        help_text='PAN / tax ID (optional)',
+    )
     address = models.CharField(
         max_length=50, blank=True, null=True, verbose_name='Address'
     )
@@ -138,6 +145,13 @@ class Customer(models.Model):
     address = models.TextField(max_length=256, blank=True, null=True)
     email = models.EmailField(max_length=256, blank=True, null=True)
     phone = models.CharField(max_length=30, blank=True, null=True)
+    pan_number = models.CharField(
+        max_length=20,
+        blank=True,
+        null=True,
+        verbose_name='PAN number',
+        help_text='PAN / tax ID (optional)',
+    )
     loyalty_points = models.IntegerField(default=0)
     opening_balance = models.DecimalField(
         max_digits=12,

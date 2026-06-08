@@ -28,28 +28,40 @@
         </div>
       </div>
       <div class="row mb-3">
-        <div class="col-md-6">
+        <div class="col-md-4">
           <div class="form-group">
             {{ form.email.label_tag }}
             {{ form.email }}
           </div>
         </div>
-        <div class="col-md-6">
+        <div class="col-md-4">
           <div class="form-group">
             {{ form.phone.label_tag }}
             {{ form.phone }}
           </div>
         </div>
-      </div>
-      <div class="row mb-3">
-        <div class="col-md-6">
+        <div class="col-md-4">
           <div class="form-group">
-            {{ form.opening_balance.label_tag }}
-            {{ form.opening_balance }}
-            <small class="text-muted">Amount the customer owed before system records.</small>
+            {{ form.pan_number.label_tag }}
+            {{ form.pan_number }}
           </div>
         </div>
-        <div class="col-md-6">
+      </div>
+      <div class="row mb-3">
+        <div class="col-md-4">
+          <div class="form-group">
+            {{ form.opening_sign.label_tag }}
+            {{ form.opening_sign }}
+            <small class="text-muted d-block">{{ form.opening_sign.help_text }}</small>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="form-group">
+            {{ form.opening_amount.label_tag }}
+            {{ form.opening_amount }}
+          </div>
+        </div>
+        <div class="col-md-4">
           <div class="form-group">
             {{ form.loyalty_points.label_tag }}
             {{ form.loyalty_points }}

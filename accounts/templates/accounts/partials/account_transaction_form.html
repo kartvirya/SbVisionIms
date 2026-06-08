@@ -1,0 +1,32 @@
+<form method="post">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="account_transaction">
+    <div class="mb-2">
+        <label class="form-label small mb-1">{{ form.transaction_type.label }}</label>
+        {{ form.transaction_type }}
+    </div>
+    <div class="mb-2">
+        <label class="form-label small mb-1">{{ form.amount.label }}</label>
+        {{ form.amount }}
+    </div>
+    <div class="mb-2">
+        <label class="form-label small mb-1">{{ form.reference.label }}</label>
+        {{ form.reference }}
+    </div>
+    {% if form.amount_paid %}
+    <div class="mb-2">
+        <label class="form-label small mb-1">{{ form.amount_paid.label }}</label>
+        {{ form.amount_paid }}
+    </div>
+    {% endif %}
+    <div class="mb-2">
+        <label class="form-label small mb-1">{{ form.method.label }}</label>
+        {{ form.method }}
+    </div>
+    <div class="mb-2">
+        <label class="form-label small mb-1">{{ form.notes.label }}</label>
+        {{ form.notes }}
+    </div>
+    <button type="submit" class="btn btn-success btn-sm">Save transaction</button>
+</form>
+{% if help_text %}<p class="text-muted small mb-0 mt-2">{{ help_text }}</p>{% endif %}

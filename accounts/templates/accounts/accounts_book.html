@@ -55,7 +55,7 @@
                         </td>
                         <td>{{ row.customer.phone|default:"—" }}</td>
                         <td class="text-end">
-                            {% if row.customer.opening_balance != 0 %}
+                            {% if row.show_opening_balance %}
                             {{ row.customer.opening_balance }}
                             {% else %}<span class="text-muted">—</span>{% endif %}
                         </td>
@@ -101,7 +101,7 @@
                         </td>
                         <td>{{ row.vendor.phone_number|default:"—" }}</td>
                         <td class="text-end">
-                            {% if row.vendor.opening_balance != 0 %}
+                            {% if row.show_opening_balance %}
                             {{ row.vendor.opening_balance }}
                             {% else %}<span class="text-muted">—</span>{% endif %}
                         </td>

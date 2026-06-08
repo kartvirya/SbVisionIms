@@ -32,6 +32,7 @@
             <tr>
                 <th>Name</th>
                 <th>Phone Number</th>
+                <th>PAN</th>
                 <th>Address</th>
                 <th>Opening bal. (Rs)</th>
                 <th>Actions</th>
@@ -42,6 +43,7 @@
             <tr>
                 <td>{{ vendor.name }}</td>
                 <td>{{ vendor.phone_number }}</td>
+                <td>{{ vendor.pan_number|default:"—" }}</td>
                 <td>{{ vendor.address }}</td>
                 <td>
                     {% if vendor.opening_balance != 0 %}{{ vendor.opening_balance }}{% else %}<span class="text-muted">—</span>{% endif %}

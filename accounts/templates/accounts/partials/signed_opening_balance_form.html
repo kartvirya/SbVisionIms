@@ -1,0 +1,14 @@
+<form method="post">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="opening_balance">
+    <div class="mb-2">
+        <label class="form-label small mb-1">{{ form.opening_sign.label }}</label>
+        {{ form.opening_sign }}
+    </div>
+    <div class="mb-2">
+        <label class="form-label small mb-1">{{ form.opening_amount.label }}</label>
+        {{ form.opening_amount }}
+    </div>
+    {% if help_text %}<p class="text-muted small mb-2">{{ help_text }}</p>{% endif %}
+    <button type="submit" class="btn btn-primary btn-sm">Save</button>
+</form>

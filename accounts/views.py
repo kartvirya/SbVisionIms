@@ -1,4 +1,6 @@
 # Django core imports
+from decimal import Decimal
+
 from django.shortcuts import render, redirect
 from django.http import JsonResponse
 from django.urls import reverse_lazy, reverse
@@ -31,17 +33,21 @@ from .contact_ledger import (
     get_customer_ledger_rows,
     get_vendor_balance_due,
     get_vendor_ledger_rows,
+    should_show_opening_balance,
     update_customer_receivables_adjustment,
 )
 from .forms import (
     CreateUserForm, UserUpdateForm,
     ProfileUpdateForm, CustomerForm,
     VendorForm, LogisticsForm,
-    OpeningBalanceForm,
+    SignedOpeningBalanceForm,
     CustomerPaymentForm,
     VendorPaymentForm,
     SignedAdjustmentForm,
     PaymentEditForm,
+    CustomerAccountTransactionForm,
+    VendorAccountTransactionForm,
+    _signed_opening_initial,
 )
 from .tables import ProfileTable
 from store.list_display import NormalizePageMixin, annotate_list_row_numbers
@@ -214,6 +220,10 @@ class AccountsBookView(LoginRequiredMixin, View):
             {
                 "customer": customer,
                 "balance_due": get_customer_balance_due(customer),
+                "show_opening_balance": should_show_opening_balance(
+                    customer.opening_balance,
+                    customer.receivables_adjustment,
+                ),
             }
             for customer in Customer.objects.order_by("first_name", "last_name", "id")
         ]
@@ -221,6 +231,10 @@ class AccountsBookView(LoginRequiredMixin, View):
             {
                 "vendor": vendor,
                 "balance_due": get_vendor_balance_due(vendor),
+                "show_opening_balance": should_show_opening_balance(
+                    vendor.opening_balance,
+                    vendor.payables_adjustment,
+                ),
             }
             for vendor in Vendor.objects.order_by("name")
         ]
@@ -235,6 +249,28 @@ class AccountsBookView(LoginRequiredMixin, View):
         )
 
 
+def _customer_opening_form(customer):
+    form = SignedOpeningBalanceForm(
+        initial=_signed_opening_initial(customer.opening_balance)
+    )
+    form.fields["opening_sign"].choices = [
+        ("+", "Receivable (+)"),
+        ("-", "Payable (−)"),
+    ]
+    return form
+
+
+def _vendor_opening_form(vendor):
+    form = SignedOpeningBalanceForm(
+        initial=_signed_opening_initial(vendor.opening_balance)
+    )
+    form.fields["opening_sign"].choices = [
+        ("+", "Payable (+)"),
+        ("-", "Receivable (−)"),
+    ]
+    return form
+
+
 def _customer_detail_context(customer):
     from transactions.models import CustomerPayment
 
@@ -244,9 +280,8 @@ def _customer_detail_context(customer):
         "party_type": "customer",
         "ledger_rows": ledger_rows,
         "balance_due": get_customer_balance_due(customer),
-        "opening_form": OpeningBalanceForm(
-            initial={"opening_balance": customer.opening_balance}
-        ),
+        "opening_form": _customer_opening_form(customer),
+        "account_txn_form": CustomerAccountTransactionForm(),
         "payment_form": CustomerPaymentForm(customer=customer),
         "receivables_form": SignedAdjustmentForm(
             initial={
@@ -269,9 +304,8 @@ def _vendor_detail_context(vendor):
         "party_type": "vendor",
         "ledger_rows": ledger_rows,
         "balance_due": get_vendor_balance_due(vendor),
-        "opening_form": OpeningBalanceForm(
-            initial={"opening_balance": vendor.opening_balance}
-        ),
+        "opening_form": _vendor_opening_form(vendor),
+        "account_txn_form": VendorAccountTransactionForm(),
         "payables_form": SignedAdjustmentForm(
             initial={
                 "adjustment_sign": "+" if vendor.payables_adjustment >= 0 else "-",
@@ -331,12 +365,55 @@ class CustomerDetailView(LoginRequiredMixin, View):
         action = request.POST.get("action")
 
         if action == "opening_balance":
-            form = OpeningBalanceForm(request.POST)
+            form = SignedOpeningBalanceForm(request.POST)
             if form.is_valid():
-                customer.opening_balance = form.cleaned_data["opening_balance"]
+                customer.opening_balance = form.opening_balance_value()
                 customer.save(update_fields=["opening_balance"])
                 messages.success(request, "Opening balance updated.")
                 return redirect("customer-detail", pk=customer.pk)
+        elif action == "account_transaction":
+            from transactions.services import (
+                allocate_customer_credit_to_sales,
+                create_receivable_quick_entry,
+            )
+
+            form = CustomerAccountTransactionForm(request.POST)
+            if form.is_valid():
+                txn_type = form.cleaned_data["transaction_type"]
+                amount = form.cleaned_data["amount"]
+                method = form.cleaned_data["method"]
+                notes = form.cleaned_data.get("notes") or ""
+                reference = form.cleaned_data.get("reference") or ""
+                try:
+                    if txn_type == "sale_in":
+                        create_receivable_quick_entry(
+                            customer,
+                            reference=reference,
+                            amount=amount,
+                            description=notes or "Account book sale in",
+                            payment_method=method,
+                        )
+                        messages.success(request, "Sale in recorded.")
+                    else:
+                        applied = allocate_customer_credit_to_sales(customer, amount)
+                        if applied == 0:
+                            messages.warning(
+                                request,
+                                "No unpaid sales to apply this payment to.",
+                            )
+                        elif applied < amount:
+                            messages.warning(
+                                request,
+                                f"Rs {applied} applied to sales; "
+                                f"Rs {amount - applied} had no bill to pay.",
+                            )
+                        else:
+                            messages.success(request, "Payment in recorded.")
+                    return redirect("customer-detail", pk=customer.pk)
+                except Exception as exc:
+                    messages.error(request, f"Could not save transaction: {exc}")
+            else:
+                messages.error(request, "Enter valid transaction details.")
         elif action == "record_payment":
             form = CustomerPaymentForm(request.POST, customer=customer)
             if form.is_valid():
@@ -406,6 +483,8 @@ class CustomerDetailView(LoginRequiredMixin, View):
             ctx["opening_form"] = form
         elif action == "receivables_adjustment":
             ctx["receivables_form"] = form
+        elif action == "account_transaction":
+            ctx["account_txn_form"] = form
         elif action == "record_payment":
             ctx["payment_form"] = form
         return render(request, self.template_name, ctx)
@@ -574,12 +653,52 @@ class VendorDetailView(LoginRequiredMixin, View):
         action = request.POST.get("action")
 
         if action == "opening_balance":
-            form = OpeningBalanceForm(request.POST)
+            form = SignedOpeningBalanceForm(request.POST)
             if form.is_valid():
-                vendor.opening_balance = form.cleaned_data["opening_balance"]
+                vendor.opening_balance = form.opening_balance_value()
                 vendor.save(update_fields=["opening_balance"])
                 messages.success(request, "Opening balance updated.")
                 return redirect("vendor-detail", pk=vendor.pk)
+        elif action == "account_transaction":
+            from transactions.services import (
+                allocate_vendor_credit_to_purchases,
+                create_payable_quick_entry,
+            )
+
+            form = VendorAccountTransactionForm(request.POST)
+            if form.is_valid():
+                txn_type = form.cleaned_data["transaction_type"]
+                amount = form.cleaned_data["amount"]
+                method = form.cleaned_data["method"]
+                notes = form.cleaned_data.get("notes") or ""
+                reference = form.cleaned_data.get("reference") or ""
+                try:
+                    if txn_type == "bill_in":
+                        paid_now = form.cleaned_data.get("amount_paid") or Decimal("0")
+                        create_payable_quick_entry(
+                            vendor,
+                            bill_number=reference,
+                            net_amount=amount,
+                            amount_paid=paid_now,
+                            description=notes or "Account book bill in",
+                            payment_method=method,
+                        )
+                        messages.success(request, "Bill in recorded.")
+                    else:
+                        applied = allocate_vendor_credit_to_purchases(vendor, amount)
+                        if applied < amount:
+                            messages.warning(
+                                request,
+                                f"Rs {applied} applied to bills; "
+                                f"Rs {amount - applied} had no outstanding bill to pay.",
+                            )
+                        else:
+                            messages.success(request, "Payment out recorded.")
+                    return redirect("vendor-detail", pk=vendor.pk)
+                except Exception as exc:
+                    messages.error(request, f"Could not save transaction: {exc}")
+            else:
+                messages.error(request, "Enter valid transaction details.")
         elif action == "payables_adjustment":
             from transactions.services import update_vendor_payables_adjustment
 
@@ -653,6 +772,8 @@ class VendorDetailView(LoginRequiredMixin, View):
             ctx["payables_form"] = form
         elif action == "receivables_adjustment":
             ctx["receivables_form"] = form
+        elif action == "account_transaction":
+            ctx["account_txn_form"] = form
         elif action == "record_payment":
             ctx["payment_form"] = form
         return render(request, self.template_name, ctx)

@@ -10,28 +10,33 @@
     <div class="card shadow-sm mb-4">
         <div class="card-body">
             <h4 class="text-success mb-1">{{ customer.get_full_name }}</h4>
-            <p class="text-muted small mb-2">{{ customer.phone|default:"" }} {{ customer.email|default:"" }}</p>
+            <p class="text-muted small mb-2">
+                {{ customer.phone|default:"" }}
+                {% if customer.pan_number %}&nbsp;|&nbsp; PAN: {{ customer.pan_number }}{% endif %}
+                {{ customer.email|default:"" }}
+            </p>
             <div class="fs-5">Balance due: <strong class="{% if balance_due > 0 %}text-danger{% else %}text-success{% endif %}">Rs {{ balance_due }}</strong></div>
         </div>
     </div>
 
     <div class="row g-3 mb-4">
-        <div class="col-md-4">
+        <div class="col-md-3">
             <div class="card shadow-sm h-100">
                 <div class="card-header bg-light"><strong>Opening balance</strong></div>
                 <div class="card-body">
-                    <form method="post">
-                        {% csrf_token %}
-                        <input type="hidden" name="action" value="opening_balance">
-                        {{ opening_form.opening_balance.label_tag }}
-                        {{ opening_form.opening_balance }}
-                        <p class="text-muted small">Negative = customer credit at start.</p>
-                        <button type="submit" class="btn btn-primary btn-sm mt-2">Save</button>
-                    </form>
+                    {% include "accounts/partials/signed_opening_balance_form.html" with form=opening_form help_text="+ receivable (customer owes), − payable (customer credit). Set amount to 0 to clear." %}
                 </div>
             </div>
         </div>
-        <div class="col-md-4">
+        <div class="col-md-3">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-light"><strong>Account transaction</strong></div>
+                <div class="card-body">
+                    {% include "accounts/partials/account_transaction_form.html" with form=account_txn_form help_text="Sale in adds receivable. Payment in applies to unpaid sales." %}
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
             <div class="card shadow-sm h-100">
                 <div class="card-header bg-light"><strong>Balance adjustment</strong></div>
                 <div class="card-body">
@@ -39,7 +44,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-md-4">
+        <div class="col-md-3">
             <div class="card shadow-sm h-100">
                 <div class="card-header bg-light"><strong>Record payment</strong></div>
                 <div class="card-body">
