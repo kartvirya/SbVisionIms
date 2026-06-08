@@ -44,6 +44,13 @@
       <div class="row mb-3">
         <div class="col-md-6">
           <div class="form-group">
+            {{ form.opening_balance.label_tag }}
+            {{ form.opening_balance }}
+            <small class="text-muted">Amount the customer owed before system records.</small>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <div class="form-group">
             {{ form.loyalty_points.label_tag }}
             {{ form.loyalty_points }}
           </div>

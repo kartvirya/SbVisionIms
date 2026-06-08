@@ -56,8 +56,11 @@
                         <td class="text-end fw-semibold {% if row.balance_due > 0 %}text-danger{% elif row.balance_due < 0 %}text-success{% endif %}">
                             {{ row.balance_due }}
                         </td>
-                        <td>
-                            <a href="{% url 'customer-detail' row.customer.pk %}" class="btn btn-outline-primary btn-sm">Transactions</a>
+                        <td class="text-nowrap">
+                            {% url 'customer-detail' row.customer.pk as customer_view_url %}
+                            {% url 'customer_update' row.customer.pk as customer_edit_url %}
+                            {% url 'customer_delete' row.customer.pk as customer_delete_url %}
+                            {% include "store/partials/actions_dropdown.html" with view_url=customer_view_url edit_url=customer_edit_url delete_url=customer_delete_url %}
                         </td>
                     </tr>
                     {% empty %}
@@ -93,8 +96,11 @@
                         <td class="text-end fw-semibold {% if row.balance_due > 0 %}text-danger{% elif row.balance_due < 0 %}text-success{% endif %}">
                             {{ row.balance_due }}
                         </td>
-                        <td>
-                            <a href="{% url 'vendor-detail' row.vendor.pk %}" class="btn btn-outline-primary btn-sm">Transactions</a>
+                        <td class="text-nowrap">
+                            {% url 'vendor-detail' row.vendor.pk as vendor_view_url %}
+                            {% url 'vendor-update' row.vendor.pk as vendor_edit_url %}
+                            {% url 'vendor-delete' row.vendor.pk as vendor_delete_url %}
+                            {% include "store/partials/actions_dropdown.html" with view_url=vendor_view_url edit_url=vendor_edit_url delete_url=vendor_delete_url %}
                         </td>
                     </tr>
                     {% empty %}

@@ -12,13 +12,18 @@
         text-align: center;
     }
   </style>
-    <div class="mb-3">
+    <div class="mb-3 d-flex justify-content-between flex-wrap gap-2">
         <a class="btn btn-success btn-sm" href="{% url 'invoice-create' %}">
             <i class="fa-solid fa-plus me-2"></i> Create Invoice
         </a>
-        <a class="float-end btn btn-success btn-sm" href="{% querystring '_export'='xlsx' %}">
-            <i class="fa-solid fa-download me-2"></i> Export to Excel
-        </a>
+        <div class="d-flex gap-2">
+            <a class="btn btn-outline-primary btn-sm" href="{% url 'import-data' kind='invoices' %}">
+                <i class="fa-solid fa-file-import me-2"></i> Import Excel
+            </a>
+            <a class="btn btn-success btn-sm" href="{% querystring '_export'='xlsx' %}">
+                <i class="fa-solid fa-download me-2"></i> Export to Excel
+            </a>
+        </div>
     </div>
 
     <!-- Filter Section -->

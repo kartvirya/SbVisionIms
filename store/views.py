@@ -760,6 +760,9 @@ IMPORT_LABELS = {
     "suppliers": "Suppliers",
     "purchases": "Purchase Book",
     "sales": "Sales Book",
+    "deliveries": "Deliveries",
+    "invoices": "Customer Invoices",
+    "bills": "Miscellaneous Bills",
 }
 
 IMPORT_REDIRECTS = {
@@ -768,6 +771,9 @@ IMPORT_REDIRECTS = {
     "suppliers": "vendor-list",
     "purchases": "purchaseslist",
     "sales": "saleslist",
+    "deliveries": "deliverieslist",
+    "invoices": "invoicelist",
+    "bills": "bill_list",
 }
 
 

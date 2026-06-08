@@ -140,7 +140,7 @@
                         {% url 'preview-purchase' slug=purchase.slug as purchase_preview_url %}
                         {% url 'purchase-update' purchase.id as purchase_edit_url %}
                         {% if can_delete_purchases %}{% url 'purchase-delete' purchase.id as purchase_delete_url %}{% endif %}
-                        {% include "store/partials/actions_dropdown.html" with view_url=purchase_view_url preview_url=purchase_preview_url edit_url=purchase_edit_url delete_url=purchase_delete_url %}
+                        {% include "store/partials/actions_dropdown.html" with view_url=purchase_view_url preview_url=purchase_preview_url return_url=purchase_view_url|add:"#purchase-return" edit_url=purchase_edit_url delete_url=purchase_delete_url %}
                     </td>
                 </tr>
                 {% empty %}

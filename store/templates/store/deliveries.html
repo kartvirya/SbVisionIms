@@ -26,9 +26,14 @@
         <a class="btn btn-success btn-sm" href="{% url 'delivery-create' %}">
             Add Delivery
         </a>
-        <a class="btn btn-success btn-sm" href="{% querystring '_export'='xlsx' %}">
-            <i class="fa-solid fa-download"></i> Export to Excel
-        </a>
+        <div class="d-flex gap-2">
+            <a class="btn btn-outline-primary btn-sm" href="{% url 'import-data' kind='deliveries' %}">
+                <i class="fa-solid fa-file-import"></i> Import Excel
+            </a>
+            <a class="btn btn-success btn-sm" href="{% querystring '_export'='xlsx' %}">
+                <i class="fa-solid fa-download"></i> Export to Excel
+            </a>
+        </div>
     </div>
 
     <!-- Filter Section -->

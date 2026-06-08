@@ -770,15 +770,14 @@ def allocate_vendor_credit_to_purchases(vendor, credit_amount):
 
 
 def update_vendor_payables_adjustment(vendor_id, amount, sign="+"):
-    """Persist a manual payables adjustment (+ increases balance, - reduces it)."""
+    """Persist a manual payables adjustment (+ sets balance owed, − applies credit)."""
     vendor = Vendor.objects.get(pk=vendor_id)
     value = abs(_to_decimal(amount))
     if sign == "-":
         applied = allocate_vendor_credit_to_purchases(vendor, value)
         remainder = value - applied
-        vendor.payables_adjustment = (
-            -remainder if remainder > 0 else Decimal("0")
-        )
+        if remainder > 0:
+            vendor.payables_adjustment = _to_decimal(vendor.payables_adjustment) - remainder
     else:
         vendor.payables_adjustment = value
     vendor.save(update_fields=["payables_adjustment"])

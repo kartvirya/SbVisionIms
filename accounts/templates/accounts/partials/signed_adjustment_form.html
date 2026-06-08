@@ -4,11 +4,20 @@
     <div>
         <label class="form-label small mb-1">{{ form.adjustment_sign.label }}</label>
         {{ form.adjustment_sign }}
+        {% if form.adjustment_sign.errors %}
+        <div class="text-danger small">{{ form.adjustment_sign.errors|join:", " }}</div>
+        {% endif %}
     </div>
     <div class="flex-grow-1" style="min-width: 7rem;">
         <label class="form-label small mb-1">{{ form.adjustment_amount.label }}</label>
         {{ form.adjustment_amount }}
+        {% if form.adjustment_amount.errors %}
+        <div class="text-danger small">{{ form.adjustment_amount.errors|join:", " }}</div>
+        {% endif %}
     </div>
     <button type="submit" class="btn btn-primary btn-sm">Save</button>
 </form>
+{% if form.non_field_errors %}
+<p class="text-danger small mb-0 mt-2">{{ form.non_field_errors|join:", " }}</p>
+{% endif %}
 {% if help_text %}<p class="text-muted small mb-0 mt-2">{{ help_text }}</p>{% endif %}

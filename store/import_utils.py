@@ -6,8 +6,10 @@ from decimal import Decimal, InvalidOperation
 
 from openpyxl import Workbook, load_workbook
 
-from accounts.models import Customer, Vendor
-from store.models import Category, Item
+from accounts.models import Customer, Logistics, Vendor
+from bills.models import Bill
+from invoice.models import Invoice
+from store.models import Category, Delivery, Item
 from transactions.models import Purchase, PurchaseLine, Sale, SaleDetail
 from transactions.services import reconcile_ledger_stock_to_target, sync_item_quantity_cache
 
@@ -24,9 +26,16 @@ INVENTORY_HEADERS = [
     "low_stock_threshold",
 ]
 
-CUSTOMER_HEADERS = ["first_name", "last_name", "phone", "email", "address"]
+CUSTOMER_HEADERS = [
+    "first_name",
+    "last_name",
+    "phone",
+    "email",
+    "address",
+    "opening_balance",
+]
 
-SUPPLIER_HEADERS = ["name", "phone_number", "address"]
+SUPPLIER_HEADERS = ["name", "phone_number", "address", "opening_balance"]
 
 PURCHASE_HEADERS = [
     "vendor",
@@ -52,6 +61,37 @@ SALE_HEADERS = [
     "tax_percentage",
     "amount_paid",
     "description",
+]
+
+DELIVERY_HEADERS = [
+    "item_name",
+    "customer_name",
+    "phone_number",
+    "location",
+    "date",
+    "logistics",
+    "tracking_number",
+    "is_delivered",
+]
+
+INVOICE_HEADERS = [
+    "customer_name",
+    "contact_number",
+    "item_name",
+    "price_per_item",
+    "quantity",
+    "shipping",
+]
+
+BILL_HEADERS = [
+    "institution_name",
+    "phone_number",
+    "email",
+    "address",
+    "description",
+    "payment_details",
+    "amount",
+    "status",
 ]
 
 
@@ -81,7 +121,7 @@ def customer_template_workbook():
     ws = wb.active
     ws.title = "Customers"
     ws.append(CUSTOMER_HEADERS)
-    ws.append(["Ram", "Sharma", "9800000000", "ram@example.com", "Kathmandu"])
+    ws.append(["Ram", "Sharma", "9800000000", "ram@example.com", "Kathmandu", 0])
     return wb
 
 
@@ -90,7 +130,7 @@ def supplier_template_workbook():
     ws = wb.active
     ws.title = "Suppliers"
     ws.append(SUPPLIER_HEADERS)
-    ws.append(["ABC Traders", "9811111111", "Kathmandu"])
+    ws.append(["ABC Traders", "9811111111", "Kathmandu", 0])
     return wb
 
 
@@ -138,12 +178,73 @@ def sale_template_workbook():
     return wb
 
 
+def delivery_template_workbook():
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Deliveries"
+    ws.append(DELIVERY_HEADERS)
+    ws.append(
+        [
+            "Sample Product",
+            "Ram Sharma",
+            "9800000000",
+            "Kathmandu",
+            "2026-06-01",
+            "",
+            "TRK-001",
+            "no",
+        ]
+    )
+    return wb
+
+
+def invoice_template_workbook():
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Invoices"
+    ws.append(INVOICE_HEADERS)
+    ws.append(
+        [
+            "Ram Sharma",
+            "9800000000",
+            "Sample Product",
+            100,
+            2,
+            50,
+        ]
+    )
+    return wb
+
+
+def bill_template_workbook():
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Bills"
+    ws.append(BILL_HEADERS)
+    ws.append(
+        [
+            "Electricity Board",
+            "014412345",
+            "info@example.com",
+            "Kathmandu",
+            "Monthly bill",
+            "Bank transfer",
+            1500,
+            "no",
+        ]
+    )
+    return wb
+
+
 TEMPLATE_BUILDERS = {
     "inventory": inventory_template_workbook,
     "customers": customer_template_workbook,
     "suppliers": supplier_template_workbook,
     "purchases": purchase_template_workbook,
     "sales": sale_template_workbook,
+    "deliveries": delivery_template_workbook,
+    "invoices": invoice_template_workbook,
+    "bills": bill_template_workbook,
 }
 
 IMPORT_HEADERS = {
@@ -152,6 +253,9 @@ IMPORT_HEADERS = {
     "suppliers": SUPPLIER_HEADERS,
     "purchases": PURCHASE_HEADERS,
     "sales": SALE_HEADERS,
+    "deliveries": DELIVERY_HEADERS,
+    "invoices": INVOICE_HEADERS,
+    "bills": BILL_HEADERS,
 }
 
 
@@ -166,6 +270,32 @@ def _parse_decimal(value, default="0"):
         return Decimal(str(value if value not in (None, "") else default))
     except (InvalidOperation, ValueError):
         return Decimal(default)
+
+
+def _parse_bool(value):
+    text = _cell_str(value).lower()
+    if text in ("1", "true", "yes", "y", "paid"):
+        return True
+    if text in ("0", "false", "no", "n", "unpaid", ""):
+        return False
+    return False
+
+
+def _parse_import_datetime(value):
+    from datetime import datetime
+
+    from django.utils import timezone
+    from django.utils.dateparse import parse_date, parse_datetime
+
+    raw = _cell_str(value)
+    if not raw:
+        return timezone.now()
+    parsed = parse_datetime(raw)
+    if not parsed:
+        d = parse_date(raw)
+        if d:
+            parsed = timezone.make_aware(datetime.combine(d, datetime.min.time()))
+    return parsed or timezone.now()
 
 
 def _read_csv_rows(uploaded_file, expected_headers):
@@ -275,6 +405,9 @@ def import_customer_rows(rows):
                 existing.last_name = last
                 existing.email = _cell_str(row.get("email")) or existing.email
                 existing.address = _cell_str(row.get("address")) or existing.address
+                opening = row.get("opening_balance")
+                if opening not in (None, ""):
+                    existing.opening_balance = _parse_decimal(opening, 0)
                 existing.save()
                 updated += 1
                 continue
@@ -284,6 +417,7 @@ def import_customer_rows(rows):
             phone=phone,
             email=_cell_str(row.get("email")) or None,
             address=_cell_str(row.get("address")) or None,
+            opening_balance=_parse_decimal(row.get("opening_balance"), 0),
         )
         created += 1
     return created, updated, errors
@@ -305,12 +439,16 @@ def import_supplier_rows(rows):
             except ValueError:
                 errors.append(f"Row {i}: invalid phone_number.")
                 continue
+        defaults = {
+            "phone_number": phone_val,
+            "address": _cell_str(row.get("address")) or None,
+        }
+        opening = row.get("opening_balance")
+        if opening not in (None, ""):
+            defaults["opening_balance"] = _parse_decimal(opening, 0)
         vendor, was_created = Vendor.objects.update_or_create(
             name=name,
-            defaults={
-                "phone_number": phone_val,
-                "address": _cell_str(row.get("address")) or None,
-            },
+            defaults=defaults,
         )
         if was_created:
             created += 1
@@ -487,10 +625,109 @@ def import_sale_rows(rows):
     return created, 0, errors
 
 
+def import_delivery_rows(rows):
+    created = 0
+    errors = []
+    for i, row in enumerate(rows, start=2):
+        item_name = _cell_str(row.get("item_name"))
+        customer_name = _cell_str(row.get("customer_name"))
+        if not item_name or not customer_name:
+            errors.append(f"Row {i}: item_name and customer_name are required.")
+            continue
+        item = Item.objects.filter(name=item_name).first()
+        if not item:
+            errors.append(f"Row {i}: item '{item_name}' not found.")
+            continue
+        logistics = None
+        logistics_name = _cell_str(row.get("logistics"))
+        if logistics_name:
+            logistics = Logistics.objects.filter(name=logistics_name).first()
+            if not logistics:
+                errors.append(f"Row {i}: logistics '{logistics_name}' not found.")
+                continue
+        try:
+            Delivery.objects.create(
+                item=item,
+                customer_name=customer_name,
+                phone_number=_cell_str(row.get("phone_number")) or None,
+                location=_cell_str(row.get("location")) or None,
+                date=_parse_import_datetime(row.get("date")),
+                logistics=logistics,
+                tracking_number=_cell_str(row.get("tracking_number")) or None,
+                is_delivered=_parse_bool(row.get("is_delivered")),
+            )
+            created += 1
+        except Exception as exc:
+            errors.append(f"Row {i}: {exc}")
+    return created, 0, errors
+
+
+def import_invoice_rows(rows):
+    created = 0
+    errors = []
+    for i, row in enumerate(rows, start=2):
+        customer_name = _cell_str(row.get("customer_name"))
+        contact_number = _cell_str(row.get("contact_number"))
+        item_name = _cell_str(row.get("item_name"))
+        if not customer_name or not contact_number or not item_name:
+            errors.append(
+                f"Row {i}: customer_name, contact_number, and item_name are required."
+            )
+            continue
+        item = Item.objects.filter(name=item_name).first()
+        if not item:
+            errors.append(f"Row {i}: item '{item_name}' not found.")
+            continue
+        try:
+            Invoice.objects.create(
+                customer_name=customer_name,
+                contact_number=contact_number,
+                item=item,
+                price_per_item=float(_parse_decimal(row.get("price_per_item"), 0)),
+                quantity=float(_parse_decimal(row.get("quantity"), 1)),
+                shipping=float(_parse_decimal(row.get("shipping"), 0)),
+            )
+            created += 1
+        except Exception as exc:
+            errors.append(f"Row {i}: {exc}")
+    return created, 0, errors
+
+
+def import_bill_rows(rows):
+    created = 0
+    errors = []
+    for i, row in enumerate(rows, start=2):
+        institution_name = _cell_str(row.get("institution_name"))
+        payment_details = _cell_str(row.get("payment_details"))
+        if not institution_name or not payment_details:
+            errors.append(
+                f"Row {i}: institution_name and payment_details are required."
+            )
+            continue
+        try:
+            Bill.objects.create(
+                institution_name=institution_name,
+                phone_number=_cell_str(row.get("phone_number")) or None,
+                email=_cell_str(row.get("email")) or None,
+                address=_cell_str(row.get("address")) or None,
+                description=_cell_str(row.get("description")) or None,
+                payment_details=payment_details,
+                amount=float(_parse_decimal(row.get("amount"), 0)),
+                status=_parse_bool(row.get("status")),
+            )
+            created += 1
+        except Exception as exc:
+            errors.append(f"Row {i}: {exc}")
+    return created, 0, errors
+
+
 IMPORT_HANDLERS = {
     "inventory": import_inventory_rows,
     "customers": import_customer_rows,
     "suppliers": import_supplier_rows,
     "purchases": import_purchase_rows,
     "sales": import_sale_rows,
+    "deliveries": import_delivery_rows,
+    "invoices": import_invoice_rows,
+    "bills": import_bill_rows,
 }

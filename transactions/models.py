@@ -122,6 +122,21 @@ class Sale(models.Model):
         """
         return sum(detail.quantity for detail in self.saledetail_set.all())
 
+    @property
+    def return_status(self):
+        """None if no returns, otherwise 'partial' or 'full'."""
+        if not self.returns.exists():
+            return None
+        sold_qty = sum(detail.quantity for detail in self.saledetail_set.all())
+        returned_qty = sum(
+            line.quantity
+            for sale_return in self.returns.all()
+            for line in sale_return.lines.all()
+        )
+        if sold_qty > 0 and returned_qty >= sold_qty:
+            return "full"
+        return "partial"
+
 
 class SaleDetail(models.Model):
     """

@@ -206,6 +206,7 @@ class SaleListView(LoginRequiredMixin, ListView):
             .prefetch_related(
                 "saledetail_set__item",
                 "saledetail_set__variation",
+                "returns__lines",
             )
             .order_by("-date_added")
         )

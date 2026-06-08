@@ -61,6 +61,7 @@ class CustomerForm(forms.ModelForm):
             'address',
             'email',
             'phone',
+            'opening_balance',
             'loyalty_points'
         ]
         widgets = {
@@ -85,6 +86,11 @@ class CustomerForm(forms.ModelForm):
                 'class': 'form-control',
                 'placeholder': 'Enter phone number'
             }),
+            'opening_balance': forms.NumberInput(attrs={
+                'class': 'form-control',
+                'placeholder': '0.00',
+                'step': '0.01',
+            }),
             'loyalty_points': forms.NumberInput(attrs={
                 'class': 'form-control',
                 'placeholder': 'Enter loyalty points'
@@ -96,7 +102,7 @@ class VendorForm(forms.ModelForm):
     """Form for creating/updating vendor information."""
     class Meta:
         model = Vendor
-        fields = ['name', 'phone_number', 'address']
+        fields = ['name', 'phone_number', 'address', 'opening_balance']
         widgets = {
             'name': forms.TextInput(
                 attrs={'class': 'form-control', 'placeholder': 'Vendor Name'}
@@ -106,6 +112,13 @@ class VendorForm(forms.ModelForm):
             ),
             'address': forms.TextInput(
                 attrs={'class': 'form-control', 'placeholder': 'Address'}
+            ),
+            'opening_balance': forms.NumberInput(
+                attrs={
+                    'class': 'form-control',
+                    'placeholder': '0.00',
+                    'step': '0.01',
+                }
             ),
         }
 

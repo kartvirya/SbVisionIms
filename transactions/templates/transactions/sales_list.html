@@ -92,6 +92,7 @@
                 <th>Payment</th>
                 <th>Paid</th>
                 <th>Unpaid</th>
+                <th>Returns</th>
                 <th class="no-preview">Actions</th>
             </tr>
         </thead>
@@ -119,6 +120,15 @@
                         <span class="text-muted">—</span>
                         {% endif %}
                     </td>
+                    <td>
+                        {% if sale.return_status == "full" %}
+                        <span class="badge bg-warning text-dark">Fully returned</span>
+                        {% elif sale.return_status == "partial" %}
+                        <span class="badge bg-info text-dark">Partial return</span>
+                        {% else %}
+                        <span class="text-muted">—</span>
+                        {% endif %}
+                    </td>
                     <td class="text-nowrap sale-actions">
                         {% url 'sale-detail' sale.id as sale_view_url %}
                         {% url 'preview-sale' sale.id as sale_preview_url %}
@@ -130,7 +140,7 @@
                 {% endfor %}
             {% else %}
                 <tr>
-                    <td colspan="9" class="text-center py-4">
+                    <td colspan="10" class="text-center py-4">
                         <div class="alert alert-info" role="alert">
                             <i class="fa-solid fa-info-circle me-2"></i>
                             No sales found. <a href="{% url 'sale-create' %}" class="alert-link">Create your first sale</a> to get started.

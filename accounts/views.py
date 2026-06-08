@@ -352,13 +352,21 @@ class CustomerDetailView(LoginRequiredMixin, View):
         elif action == "receivables_adjustment":
             form = SignedAdjustmentForm(request.POST)
             if form.is_valid():
-                update_customer_receivables_adjustment(
-                    customer.pk,
-                    form.cleaned_data["adjustment_amount"],
-                    sign=form.cleaned_data["adjustment_sign"],
+                try:
+                    update_customer_receivables_adjustment(
+                        customer.pk,
+                        form.cleaned_data["adjustment_amount"],
+                        sign=form.cleaned_data["adjustment_sign"],
+                    )
+                    messages.success(request, "Balance adjustment saved.")
+                    return redirect("customer-detail", pk=customer.pk)
+                except Exception as exc:
+                    messages.error(request, f"Could not save adjustment: {exc}")
+            else:
+                messages.error(
+                    request,
+                    "Enter a valid adjustment amount (0 or greater).",
                 )
-                messages.success(request, "Balance adjustment saved.")
-                return redirect("customer-detail", pk=customer.pk)
         elif action == "update_payment":
             form = PaymentEditForm(request.POST)
             payment = CustomerPayment.objects.filter(
@@ -408,11 +416,14 @@ class CustomerDeleteView(LoginRequiredMixin, DeleteView):
 
     Requires the user to be logged in.
     Displays a confirmation page for deleting an existing Customer object.
-    On confirmation, deletes the object and redirects to the customer list.
+    On confirmation, deletes the object and redirects to the accounts book.
     """
     model = Customer
     template_name = 'accounts/customer_confirm_delete.html'
-    success_url = reverse_lazy('customer_list')
+    success_url = reverse_lazy('accounts-book')
+
+    def get_success_url(self):
+        return reverse('accounts-book') + '?tab=customers'
 
     def delete(self, request, *args, **kwargs):
         from django.db import IntegrityError
@@ -427,7 +438,7 @@ class CustomerDeleteView(LoginRequiredMixin, DeleteView):
                 request,
                 "Cannot delete this customer — they are linked to sales records.",
             )
-            return redirect(self.success_url)
+            return redirect(self.get_success_url())
 
 
 def is_ajax(request):
@@ -568,13 +579,21 @@ class VendorDetailView(LoginRequiredMixin, View):
 
             form = SignedAdjustmentForm(request.POST)
             if form.is_valid():
-                update_vendor_payables_adjustment(
-                    vendor.pk,
-                    form.cleaned_data["adjustment_amount"],
-                    sign=form.cleaned_data["adjustment_sign"],
+                try:
+                    update_vendor_payables_adjustment(
+                        vendor.pk,
+                        form.cleaned_data["adjustment_amount"],
+                        sign=form.cleaned_data["adjustment_sign"],
+                    )
+                    messages.success(request, "Payables adjustment saved.")
+                    return redirect("vendor-detail", pk=vendor.pk)
+                except Exception as exc:
+                    messages.error(request, f"Could not save adjustment: {exc}")
+            else:
+                messages.error(
+                    request,
+                    "Enter a valid adjustment amount (0 or greater).",
                 )
-                messages.success(request, "Payables adjustment saved.")
-                return redirect("vendor-detail", pk=vendor.pk)
         elif action == "record_payment":
             form = VendorPaymentForm(request.POST, vendor=vendor)
             if form.is_valid():
@@ -636,7 +655,25 @@ class VendorDetailView(LoginRequiredMixin, View):
 class VendorDeleteView(LoginRequiredMixin, DeleteView):
     model = Vendor
     template_name = 'accounts/vendor_confirm_delete.html'
-    success_url = reverse_lazy('vendor-list')
+    success_url = reverse_lazy('accounts-book')
+
+    def get_success_url(self):
+        return reverse('accounts-book') + '?tab=suppliers'
+
+    def delete(self, request, *args, **kwargs):
+        from django.db import IntegrityError
+        from django.contrib import messages
+        from django.shortcuts import redirect
+
+        self.object = self.get_object()
+        try:
+            return super().delete(request, *args, **kwargs)
+        except IntegrityError:
+            messages.error(
+                request,
+                "Cannot delete this supplier — they are linked to purchase records.",
+            )
+            return redirect(self.get_success_url())
 
 
 class LogisticsListView(LoginRequiredMixin, ListView):

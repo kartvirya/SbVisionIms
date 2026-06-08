@@ -34,7 +34,7 @@
             <div class="card shadow-sm h-100">
                 <div class="card-header bg-light"><strong>Payables adjustment</strong></div>
                 <div class="card-body">
-                    {% include "accounts/partials/signed_adjustment_form.html" with form=payables_form action_name="payables_adjustment" help_text="+ increases amount owed to supplier, − applies credit to bills." %}
+                    {% include "accounts/partials/signed_adjustment_form.html" with form=payables_form action_name="payables_adjustment" help_text="Current adjustment: Rs {{ vendor.payables_adjustment }}. + sets the adjustment total; − applies credit to outstanding bills first." %}
                 </div>
             </div>
         </div>
