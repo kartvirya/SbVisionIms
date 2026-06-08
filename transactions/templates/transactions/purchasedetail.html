@@ -88,7 +88,9 @@
                         <tr>
                             <th>Item</th>
                             <th class="text-end">Purchased</th>
+                            <th class="text-end">Unit price (Rs)</th>
                             <th class="text-end" style="width: 120px;">Return qty</th>
+                            <th class="text-end">Credit (Rs)</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -96,12 +98,20 @@
                         <tr>
                             <td>{{ line.item.name }}</td>
                             <td class="text-end">{{ line.quantity }}</td>
+                            <td class="text-end">{{ line.unit_price }}</td>
                             <td>
-                                <input type="number" name="return_qty_{{ line.id }}" class="form-control form-control-sm" min="0" max="{{ line.quantity }}" placeholder="0">
+                                <input type="number" name="return_qty_{{ line.id }}" class="form-control form-control-sm purchase-return-qty" min="0" max="{{ line.quantity }}" placeholder="0" data-unit-price="{{ line.unit_price }}">
                             </td>
+                            <td class="text-end purchase-return-credit text-muted">0.00</td>
                         </tr>
                         {% endfor %}
                     </tbody>
+                    <tfoot>
+                        <tr class="table-light">
+                            <th colspan="4" class="text-end">Total credit</th>
+                            <th class="text-end" id="purchase-return-total">0.00</th>
+                        </tr>
+                    </tfoot>
                 </table>
                 <div class="mb-3">
                     <label class="form-label">Reason (optional)</label>
@@ -113,5 +123,23 @@
     </div>
     {% endif %}
 </div>
+<script>
+function updatePurchaseReturnCredits() {
+    var total = 0;
+    document.querySelectorAll('.purchase-return-qty').forEach(function (input) {
+        var qty = parseFloat(input.value) || 0;
+        var price = parseFloat(input.dataset.unitPrice) || 0;
+        var credit = qty * price;
+        total += credit;
+        var cell = input.closest('tr').querySelector('.purchase-return-credit');
+        if (cell) cell.textContent = credit.toFixed(2);
+    });
+    var totalEl = document.getElementById('purchase-return-total');
+    if (totalEl) totalEl.textContent = total.toFixed(2);
+}
+document.querySelectorAll('.purchase-return-qty').forEach(function (input) {
+    input.addEventListener('input', updatePurchaseReturnCredits);
+});
+</script>
 {% endblock %}
 

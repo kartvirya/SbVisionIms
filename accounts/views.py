@@ -44,6 +44,7 @@ from .forms import (
     PaymentEditForm,
 )
 from .tables import ProfileTable
+from store.list_display import NormalizePageMixin, annotate_list_row_numbers
 
 
 def register(request):
@@ -529,11 +530,16 @@ def create_vendor_quick(request):
     )
 
 
-class VendorListView(LoginRequiredMixin, ListView):
+class VendorListView(NormalizePageMixin, LoginRequiredMixin, ListView):
     model = Vendor
     template_name = 'accounts/vendor_list.html'
     context_object_name = 'vendors'
     paginate_by = 10
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        annotate_list_row_numbers(context.get("vendors") or [], context.get("page_obj"))
+        return context
 
 
 class VendorCreateView(LoginRequiredMixin, CreateView):

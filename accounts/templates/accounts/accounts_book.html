@@ -39,6 +39,7 @@
                         <th>#</th>
                         <th>Customer</th>
                         <th>Phone</th>
+                        <th class="text-end">Opening bal. (Rs)</th>
                         <th class="text-end">Balance due (Rs)</th>
                         <th style="width:10rem;">Actions</th>
                     </tr>
@@ -53,6 +54,11 @@
                             </a>
                         </td>
                         <td>{{ row.customer.phone|default:"—" }}</td>
+                        <td class="text-end">
+                            {% if row.customer.opening_balance != 0 %}
+                            {{ row.customer.opening_balance }}
+                            {% else %}<span class="text-muted">—</span>{% endif %}
+                        </td>
                         <td class="text-end fw-semibold {% if row.balance_due > 0 %}text-danger{% elif row.balance_due < 0 %}text-success{% endif %}">
                             {{ row.balance_due }}
                         </td>
@@ -64,7 +70,7 @@
                         </td>
                     </tr>
                     {% empty %}
-                    <tr><td colspan="5" class="text-center text-muted py-4">No customers yet.</td></tr>
+                    <tr><td colspan="6" class="text-center text-muted py-4">No customers yet.</td></tr>
                     {% endfor %}
                 </tbody>
             </table>
@@ -79,6 +85,7 @@
                         <th>#</th>
                         <th>Supplier</th>
                         <th>Phone</th>
+                        <th class="text-end">Opening bal. (Rs)</th>
                         <th class="text-end">Balance due (Rs)</th>
                         <th style="width:10rem;">Actions</th>
                     </tr>
@@ -93,6 +100,11 @@
                             </a>
                         </td>
                         <td>{{ row.vendor.phone_number|default:"—" }}</td>
+                        <td class="text-end">
+                            {% if row.vendor.opening_balance != 0 %}
+                            {{ row.vendor.opening_balance }}
+                            {% else %}<span class="text-muted">—</span>{% endif %}
+                        </td>
                         <td class="text-end fw-semibold {% if row.balance_due > 0 %}text-danger{% elif row.balance_due < 0 %}text-success{% endif %}">
                             {{ row.balance_due }}
                         </td>
@@ -104,7 +116,7 @@
                         </td>
                     </tr>
                     {% empty %}
-                    <tr><td colspan="5" class="text-center text-muted py-4">No suppliers yet.</td></tr>
+                    <tr><td colspan="6" class="text-center text-muted py-4">No suppliers yet.</td></tr>
                     {% endfor %}
                 </tbody>
             </table>

@@ -602,6 +602,7 @@ def get_stock_ledger_rows(*, item=None, date_from=None, date_to=None):
                 "running_qty": running_totals[key],
             }
         )
+    rows.reverse()
     return rows
 
 
@@ -732,6 +733,54 @@ def get_payables_aging_report():
     return groups
 
 
+def allocate_customer_credit_to_sales(customer, credit_amount):
+    """Apply customer credit to oldest outstanding sale bills."""
+    from transactions.models import Sale
+
+    remaining = abs(_to_decimal(credit_amount))
+    if remaining <= 0:
+        return Decimal("0")
+    applied = Decimal("0")
+    sales = (
+        Sale.objects.filter(customer=customer)
+        .order_by("date_added", "id")
+        .prefetch_related("customer_payments")
+    )
+    for sale in sales:
+        if remaining <= 0:
+            break
+        if sale.amount_paid > 0 and not sale.customer_payments.exists():
+            CustomerPayment.objects.create(
+                sale=sale,
+                amount=sale.amount_paid,
+                method="cash",
+                notes="Recorded payment",
+            )
+            _clear_prefetch(sale, "customer_payments")
+        sale.save()
+        outstanding = _to_decimal(sale.amount_remaining)
+        if outstanding <= 0:
+            continue
+        pay = min(remaining, outstanding)
+        CustomerPayment.objects.create(
+            sale=sale,
+            amount=pay,
+            method="cash",
+            notes="Accounts book credit",
+        )
+        _clear_prefetch(sale, "customer_payments")
+        sale.save()
+        applied += pay
+        remaining -= pay
+    return applied
+
+
+def _clear_prefetch(instance, relation):
+    cache = getattr(instance, "_prefetched_objects_cache", None)
+    if cache and relation in cache:
+        del cache[relation]
+
+
 def allocate_vendor_credit_to_purchases(vendor, credit_amount):
     """Apply payables credit to oldest outstanding purchase bills."""
     remaining = abs(_to_decimal(credit_amount))
@@ -753,6 +802,7 @@ def allocate_vendor_credit_to_purchases(vendor, credit_amount):
                 method="cash",
                 notes="Recorded payment",
             )
+            _clear_prefetch(purchase, "vendor_payments")
         purchase.save()
         outstanding = _to_decimal(purchase.amount_remaining)
         if outstanding <= 0:
@@ -764,6 +814,8 @@ def allocate_vendor_credit_to_purchases(vendor, credit_amount):
             method="cash",
             notes="Payables book credit",
         )
+        _clear_prefetch(purchase, "vendor_payments")
+        purchase.save()
         applied += pay
         remaining -= pay
     return applied

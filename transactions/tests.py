@@ -30,6 +30,7 @@ from transactions.services import (
     allocate_vendor_credit_to_purchases,
     reconcile_ledger_stock_to_target,
     sync_purchase_inventory_transaction,
+    allocate_customer_credit_to_sales,
     update_vendor_payables_adjustment,
 )
 
@@ -486,6 +487,30 @@ class PayablesCreditAllocationTests(TestCase):
         self.assertEqual(self.purchase.amount_paid, Decimal("40"))
         self.assertEqual(self.purchase.payment_status, "T")
 
+    def test_customer_credit_adjustment_updates_sale_payment(self):
+        from accounts.contact_ledger import update_customer_receivables_adjustment
+
+        customer = Customer.objects.create(first_name="Credit", last_name="Buyer")
+        sale = Sale.objects.create(
+            customer=customer,
+            sub_total=Decimal("100"),
+            grand_total=Decimal("100"),
+            amount_paid=Decimal("0"),
+        )
+        SaleDetail.objects.create(
+            sale=sale,
+            item=self.item,
+            price=Decimal("100"),
+            quantity=1,
+            total_detail=Decimal("100"),
+        )
+        sale.save()
+        update_customer_receivables_adjustment(customer.id, "40", sign="-")
+        sale.refresh_from_db()
+        self.assertEqual(sale.amount_paid, Decimal("40"))
+        self.assertEqual(sale.amount_remaining, Decimal("60"))
+        self.assertEqual(sale.payment_status, "T")
+
 
 class StockLedgerTests(TestCase):
     def setUp(self):
@@ -527,7 +552,7 @@ class StockLedgerTests(TestCase):
 
         rows = get_stock_ledger_rows(item=self.item)
         self.assertTrue(rows)
-        self.assertIn("Sale", rows[-1]["source_ref"])
+        self.assertIn("Sale", rows[0]["source_ref"])
 
     def test_sale_create_includes_tax_in_grand_total(self):
         reconcile_ledger_stock_to_target(self.item, target_ledger_qty=10, notes="Test")

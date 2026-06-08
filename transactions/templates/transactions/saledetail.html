@@ -33,7 +33,9 @@
                         <tr>
                             <th>Item</th>
                             <th class="text-end">Sold</th>
+                            <th class="text-end">Unit price (Rs)</th>
                             <th class="text-end" style="width:120px;">Return qty</th>
+                            <th class="text-end">Refund (Rs)</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -44,15 +46,23 @@
                                 {% if detail.variation %}<span class="badge bg-info">{{ detail.variation.name }}</span>{% endif %}
                             </td>
                             <td class="text-end">{{ detail.quantity }}</td>
+                            <td class="text-end">{{ detail.price }}</td>
                             <td>
                                 <div class="d-flex align-items-center gap-1">
-                                    <input type="number" name="return_qty_{{ detail.id }}" class="form-control form-control-sm return-qty-input" min="0" max="{{ detail.quantity }}" placeholder="0" data-max="{{ detail.quantity }}">
+                                    <input type="number" name="return_qty_{{ detail.id }}" class="form-control form-control-sm return-qty-input" min="0" max="{{ detail.quantity }}" placeholder="0" data-max="{{ detail.quantity }}" data-unit-price="{{ detail.price }}">
                                     <button type="button" class="btn btn-link btn-sm text-nowrap p-0 return-line-all" data-target="return_qty_{{ detail.id }}" data-qty="{{ detail.quantity }}">Return all</button>
                                 </div>
                             </td>
+                            <td class="text-end return-refund-cell text-muted">0.00</td>
                         </tr>
                         {% endfor %}
                     </tbody>
+                    <tfoot>
+                        <tr class="table-light">
+                            <th colspan="4" class="text-end">Total refund</th>
+                            <th class="text-end" id="return-refund-total">0.00</th>
+                        </tr>
+                    </tfoot>
                 </table>
                 <div class="mb-3">
                     <label class="form-label">Reason (optional)</label>
@@ -568,11 +578,28 @@
 
 </div>
 <script>
+function updateReturnRefunds() {
+    var total = 0;
+    document.querySelectorAll('.return-qty-input').forEach(function (input) {
+        var qty = parseFloat(input.value) || 0;
+        var price = parseFloat(input.dataset.unitPrice) || 0;
+        var refund = qty * price;
+        total += refund;
+        var cell = input.closest('tr').querySelector('.return-refund-cell');
+        if (cell) cell.textContent = refund.toFixed(2);
+    });
+    var totalEl = document.getElementById('return-refund-total');
+    if (totalEl) totalEl.textContent = total.toFixed(2);
+}
 document.querySelectorAll('.return-line-all').forEach(function (btn) {
     btn.addEventListener('click', function () {
         var input = document.querySelector('[name="' + btn.dataset.target + '"]');
         if (input) input.value = btn.dataset.qty || input.dataset.max || '';
+        updateReturnRefunds();
     });
+});
+document.querySelectorAll('.return-qty-input').forEach(function (input) {
+    input.addEventListener('input', updateReturnRefunds);
 });
 var returnAllBtn = document.getElementById('return-all-sold-btn');
 if (returnAllBtn) {
@@ -580,6 +607,7 @@ if (returnAllBtn) {
         document.querySelectorAll('.return-qty-input').forEach(function (input) {
             input.value = input.dataset.max || '';
         });
+        updateReturnRefunds();
     });
 }
 </script>

@@ -24,7 +24,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from openpyxl import Workbook
 
 # Local app imports
-from store.list_display import annotate_list_row_numbers
+from store.list_display import annotate_list_row_numbers, NormalizePageMixin
 from store.models import Item
 from accounts.models import Customer, Company, Vendor
 from .models import CustomerPayment, Purchase, Sale, SaleDetail
@@ -187,7 +187,7 @@ def export_purchases_to_excel(request):
     return response
 
 
-class SaleListView(LoginRequiredMixin, ListView):
+class SaleListView(NormalizePageMixin, LoginRequiredMixin, ListView):
     """
     View to list all sales with pagination and filtering.
     """
@@ -585,7 +585,7 @@ class SaleDeleteView(LoginRequiredMixin, UserPassesTestMixin, DeleteView):
         return user_can_delete_transactions(self.request.user)
 
 
-class PurchaseListView(LoginRequiredMixin, ListView):
+class PurchaseListView(NormalizePageMixin, LoginRequiredMixin, ListView):
     """
     View to list all purchases with pagination and filtering.
     """
@@ -873,7 +873,7 @@ class PurchaseDeleteView(LoginRequiredMixin, UserPassesTestMixin, DeleteView):
         return user_can_delete_transactions(self.request.user)
 
 
-class StockLedgerView(LoginRequiredMixin, ListView):
+class StockLedgerView(NormalizePageMixin, LoginRequiredMixin, ListView):
     template_name = "transactions/stock_ledger.html"
     context_object_name = "rows"
     paginate_by = 50

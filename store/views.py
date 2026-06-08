@@ -63,7 +63,7 @@ from .import_utils import (
 from .stock_adjust import apply_manual_stock_adjustment
 from .tables import ItemTable
 from .filters import ProductFilter, DeliveryFilter
-from .list_display import annotate_list_row_numbers
+from .list_display import annotate_list_row_numbers, NormalizePageMixin
 from .stock_utils import build_item_stock_map, get_variant_stock_total
 from transactions.services import reconcile_ledger_stock_to_target, sync_item_quantity_cache
 
@@ -193,7 +193,7 @@ def dashboard(request):
     return render(request, "store/dashboard.html", context)
 
 
-class ProductListView(LoginRequiredMixin, ExportMixin, tables.SingleTableView):
+class ProductListView(NormalizePageMixin, LoginRequiredMixin, ExportMixin, tables.SingleTableView):
     """
     View class to display a list of products with filtering.
 
@@ -532,7 +532,7 @@ class ProductDeleteView(LoginRequiredMixin, UserPassesTestMixin, DeleteView):
             return auth_redirect(self.get_success_url())
 
 
-class DeliveryListView(LoginRequiredMixin, ListView):
+class DeliveryListView(NormalizePageMixin, LoginRequiredMixin, ListView):
     """
     View class to display a list of deliveries.
 

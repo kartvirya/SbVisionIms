@@ -174,7 +174,7 @@ class OpeningBalanceForm(forms.Form):
 
 
 class SignedAdjustmentForm(forms.Form):
-    """+ increases balance owed, − reduces it (credit)."""
+    """+ sets adjustment total, − applies credit to outstanding bills."""
 
     adjustment_sign = forms.ChoiceField(
         choices=[("+", "Increase (+)"), ("-", "Decrease (−)")],
@@ -186,6 +186,7 @@ class SignedAdjustmentForm(forms.Form):
         max_digits=12,
         decimal_places=2,
         min_value=Decimal("0"),
+        required=True,
         label="Amount (Rs)",
         widget=forms.NumberInput(
             attrs={"class": "form-control form-control-sm", "step": "0.01", "min": "0"}

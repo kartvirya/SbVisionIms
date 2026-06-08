@@ -212,10 +212,20 @@ def get_customer_balance_due(customer: Customer):
 
 
 def update_customer_receivables_adjustment(customer_id, amount, sign="+"):
-    """Persist manual customer balance adjustment (+ increases due, − credit)."""
+    """Persist manual customer balance adjustment (+ sets adjustment, − applies credit to sales)."""
+    from transactions.services import allocate_customer_credit_to_sales
+
     customer = Customer.objects.get(pk=customer_id)
     value = abs(_d(amount))
-    customer.receivables_adjustment = value if sign == "+" else -value
+    if sign == "-":
+        applied = allocate_customer_credit_to_sales(customer, value)
+        remainder = value - applied
+        if remainder > 0:
+            customer.receivables_adjustment = (
+                _d(customer.receivables_adjustment) - remainder
+            )
+    else:
+        customer.receivables_adjustment = value
     customer.save(update_fields=["receivables_adjustment"])
     return customer
 

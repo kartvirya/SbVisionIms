@@ -106,7 +106,7 @@
                 <tr class="preview-row" style="cursor:pointer;"
                     data-preview-url="{% url 'preview-delivery' delivery.pk %}"
                     data-preview-title="Delivery #{{ delivery.id }}">
-                    <th scope="row" class="text-muted">{{ delivery.list_row_number|default:delivery.id }}</th>
+                    <th scope="row" class="text-muted">{{ delivery.list_row_number }}</th>
                     <td>{{ delivery.item.name }}</td>
                     <td>{{ delivery.customer_name }}</td>
                     <td>{{ delivery.phone_number }}</td>

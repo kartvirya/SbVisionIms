@@ -35,7 +35,7 @@
             <div class="card shadow-sm h-100">
                 <div class="card-header bg-light"><strong>Balance adjustment</strong></div>
                 <div class="card-body">
-                    {% include "accounts/partials/signed_adjustment_form.html" with form=receivables_form action_name="receivables_adjustment" help_text="Use − to reduce balance when customer has credit." %}
+                    {% include "accounts/partials/signed_adjustment_form.html" with form=receivables_form action_name="receivables_adjustment" help_text="Current adjustment: Rs {{ customer.receivables_adjustment }}. + sets the adjustment total; − applies credit to unpaid sales first." %}
                 </div>
             </div>
         </div>
