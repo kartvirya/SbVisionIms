@@ -771,7 +771,7 @@ IMPORT_REDIRECTS = {
     "suppliers": "vendor-list",
     "purchases": "purchaseslist",
     "sales": "saleslist",
-    "deliveries": "deliverieslist",
+    "deliveries": "deliveries",
     "invoices": "invoicelist",
     "bills": "bill_list",
 }
