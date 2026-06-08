@@ -529,6 +529,50 @@ class StockLedgerTests(TestCase):
         self.assertTrue(rows)
         self.assertIn("Sale", rows[-1]["source_ref"])
 
+    def test_sale_create_includes_tax_in_grand_total(self):
+        reconcile_ledger_stock_to_target(self.item, target_ledger_qty=10, notes="Test")
+        customer = Customer.objects.create(first_name="Tax", last_name="Test")
+        from django.test import Client
+        from django.contrib.auth import get_user_model
+
+        user = get_user_model().objects.create_user("taxuser", password="x")
+        client = Client()
+        client.force_login(user)
+        payload = {
+            "customer": customer.id,
+            "sub_total": "1000",
+            "tax_percentage": "13",
+            "tax_amount": "130",
+            "grand_total": "1130",
+            "amount_paid": "1130",
+            "amount_change": "0",
+            "payment_method": "cash",
+            "items": [
+                {
+                    "id": self.item.pk,
+                    "price": "1000",
+                    "quantity": 1,
+                    "total_item": "1000",
+                    "selected_variant": None,
+                }
+            ],
+        }
+        import json
+
+        response = client.post(
+            "/transactions/new-sale/",
+            data=json.dumps(payload),
+            content_type="application/json",
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+        self.assertEqual(response.status_code, 200)
+        sale = Sale.objects.order_by("-id").first()
+        self.assertEqual(sale.grand_total, Decimal("1130"))
+        self.assertEqual(sale.tax_amount, Decimal("130"))
+        self.assertEqual(sale.payment_status, "D")
+        customer.refresh_from_db()
+        self.assertEqual(customer.loyalty_points, 11)
+
     def test_sale_payment_status_computed_on_save(self):
         sale = Sale.objects.create(
             customer=self.customer,

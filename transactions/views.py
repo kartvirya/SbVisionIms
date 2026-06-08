@@ -397,8 +397,20 @@ def SaleCreateView(request):
                 tax_pct = Decimal(str(data.get("tax_percentage", 0)))
                 tax_amount = Decimal(str(data.get("tax_amount", 0)))
                 if tax_amount == 0 and tax_pct:
-                    tax_amount = sub_total * (tax_pct / Decimal("100"))
-                grand_total = sub_total + tax_amount
+                    tax_amount = (
+                        sub_total * (tax_pct / Decimal("100"))
+                    ).quantize(Decimal("0.01"))
+                client_grand = Decimal(str(data.get("grand_total", 0) or 0))
+                if client_grand > 0:
+                    grand_total = client_grand.quantize(Decimal("0.01"))
+                    if abs(grand_total - (sub_total + tax_amount)) > Decimal("0.01"):
+                        tax_amount = (grand_total - sub_total).quantize(
+                            Decimal("0.01")
+                        )
+                else:
+                    grand_total = (sub_total + tax_amount).quantize(
+                        Decimal("0.01")
+                    )
                 amount_paid = Decimal(str(data["amount_paid"]))
                 amount_change = amount_paid - grand_total
 
@@ -479,6 +491,14 @@ def SaleCreateView(request):
                             amount=paid,
                             method=method,
                             notes="POS",
+                        )
+                    new_sale.save()
+                    points_earned = int(grand_total // Decimal("100"))
+                    if points_earned > 0:
+                        from django.db.models import F
+
+                        Customer.objects.filter(pk=sale_attributes["customer"].pk).update(
+                            loyalty_points=F("loyalty_points") + points_earned
                         )
 
                 return JsonResponse(

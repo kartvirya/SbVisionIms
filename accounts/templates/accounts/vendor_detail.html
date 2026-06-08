@@ -34,14 +34,7 @@
             <div class="card shadow-sm h-100">
                 <div class="card-header bg-light"><strong>Payables adjustment</strong></div>
                 <div class="card-body">
-                    <form method="post">
-                        {% csrf_token %}
-                        <input type="hidden" name="action" value="payables_adjustment">
-                        {{ payables_form.payables_adjustment.label_tag }}
-                        {{ payables_form.payables_adjustment }}
-                        {% if payables_form.payables_adjustment.help_text %}<div class="form-text">{{ payables_form.payables_adjustment.help_text }}</div>{% endif %}
-                        <button type="submit" class="btn btn-primary btn-sm mt-2">Save</button>
-                    </form>
+                    {% include "accounts/partials/signed_adjustment_form.html" with form=payables_form action_name="payables_adjustment" help_text="+ increases amount owed to supplier, − applies credit to bills." %}
                 </div>
             </div>
         </div>

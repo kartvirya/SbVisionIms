@@ -1,0 +1,14 @@
+<form method="post" class="d-flex flex-wrap gap-2 align-items-end">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="{{ action_name }}">
+    <div>
+        <label class="form-label small mb-1">{{ form.adjustment_sign.label }}</label>
+        {{ form.adjustment_sign }}
+    </div>
+    <div class="flex-grow-1" style="min-width: 7rem;">
+        <label class="form-label small mb-1">{{ form.adjustment_amount.label }}</label>
+        {{ form.adjustment_amount }}
+    </div>
+    <button type="submit" class="btn btn-primary btn-sm">Save</button>
+</form>
+{% if help_text %}<p class="text-muted small mb-0 mt-2">{{ help_text }}</p>{% endif %}

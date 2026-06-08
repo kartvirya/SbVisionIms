@@ -80,11 +80,11 @@
                     <thead class="table-light">
                         <tr>
                             <th>Vendor</th>
+                            <th class="text-end">Stock (units)</th>
+                            <th class="text-end">Stock value</th>
                             <th>Bill number</th>
                             <th>Billed date</th>
                             <th>Last transaction</th>
-                            <th class="text-end">Stock (units)</th>
-                            <th class="text-end">Stock value</th>
                             <th class="text-end">Outstanding</th>
                             <th class="text-end">Adjustment</th>
                             <th class="text-end">Balance due</th>
@@ -95,21 +95,21 @@
                         {% for group in vendor_groups %}
                         {% for bill in group.bills %}
                         <tr>
-                            <td>{% if forloop.first %}{{ group.vendor.name }}{% endif %}</td>
+                            {% if forloop.first %}
+                            <td rowspan="{{ group.bills|length }}">{{ group.vendor.name }}</td>
+                            <td rowspan="{{ group.bills|length }}" class="text-end">{{ group.total_stock }}</td>
+                            <td rowspan="{{ group.bills|length }}" class="text-end">{{ group.total_stock_value|floatformat:2 }}</td>
+                            {% endif %}
                             <td>
                                 <a href="{% url 'purchase-detail' slug=bill.purchase.slug %}">{{ bill.bill_number }}</a>
                             </td>
                             <td>{{ bill.billed_date|date:"Y-m-d H:i" }}</td>
                             <td>{{ bill.last_transaction_date|date:"Y-m-d H:i" }}</td>
-                            <td class="text-end">{% if forloop.first %}{{ group.total_stock }}{% endif %}</td>
-                            <td class="text-end">{% if forloop.first %}{{ group.total_stock_value|floatformat:2 }}{% endif %}</td>
                             <td class="text-end">{{ bill.outstanding|floatformat:2 }}</td>
-                            <td></td>
-                            <td></td>
                         </tr>
                         {% endfor %}
                         <tr class="table-secondary">
-                            <td colspan="6" class="text-end small">
+                            <td colspan="5" class="text-end small">
                                 Subtotal — {{ group.vendor.name }}
                             </td>
                             <td class="text-end fw-semibold">{{ group.total_outstanding|floatformat:2 }}</td>
@@ -148,7 +148,7 @@
                     {% if vendor_groups %}
                     <tfoot class="table-light">
                         <tr>
-                            <th colspan="4">Total</th>
+                            <th colspan="6">Total</th>
                             <th class="text-end">{{ totals.stock_units }}</th>
                             <th class="text-end">{{ totals.stock_value|floatformat:2 }}</th>
                             <th class="text-end">{{ totals.outstanding|floatformat:2 }}</th>

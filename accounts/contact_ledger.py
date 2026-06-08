@@ -37,6 +37,20 @@ def get_customer_ledger_rows(customer: Customer):
             }
         )
 
+    adjustment = _d(customer.receivables_adjustment)
+    if adjustment != 0:
+        rows.append(
+            {
+                "date": None,
+                "type": "Balance adjustment",
+                "reference": "Manual",
+                "debit": adjustment if adjustment > 0 else Decimal("0"),
+                "credit": abs(adjustment) if adjustment < 0 else Decimal("0"),
+                "method": "",
+                "url": "",
+            }
+        )
+
     for sale in Sale.objects.filter(customer=customer).order_by("date_added", "id"):
         rows.append(
             {
@@ -188,9 +202,22 @@ def get_customer_balance_due(customer: Customer):
     returns_total = SaleReturn.objects.filter(sale__customer=customer).aggregate(
         s=Sum("total_credit")
     )["s"] or Decimal("0")
-    return _d(customer.opening_balance) + _d(sales_total) - _d(returns_total) - _d(
-        paid_total
+    return (
+        _d(customer.opening_balance)
+        + _d(customer.receivables_adjustment)
+        + _d(sales_total)
+        - _d(returns_total)
+        - _d(paid_total)
     )
+
+
+def update_customer_receivables_adjustment(customer_id, amount, sign="+"):
+    """Persist manual customer balance adjustment (+ increases due, − credit)."""
+    customer = Customer.objects.get(pk=customer_id)
+    value = abs(_d(amount))
+    customer.receivables_adjustment = value if sign == "+" else -value
+    customer.save(update_fields=["receivables_adjustment"])
+    return customer
 
 
 def get_vendor_balance_due(vendor: Vendor):

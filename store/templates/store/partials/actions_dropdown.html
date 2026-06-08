@@ -20,6 +20,9 @@
             </button>
         </li>
         {% endif %}
+        {% if return_url %}
+        <li><a class="dropdown-item" href="{{ return_url }}"><i class="fa-solid fa-rotate-left me-2"></i>Return items</a></li>
+        {% endif %}
         {% if edit_url %}
         <li><a class="dropdown-item" href="{{ edit_url }}"><i class="fa-solid fa-pen me-2"></i>Edit</a></li>
         {% endif %}

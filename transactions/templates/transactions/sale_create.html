@@ -257,6 +257,10 @@
             );
             if ($('#round-to-rupee').is(':checked')) {
                 this.products.grand_total = Math.round(this.products.grand_total);
+                this.products.tax_amount = roundTo(
+                    this.products.grand_total - this.products.sub_total,
+                    2
+                );
             }
 
             $('input[name="sub_total"]').val(this.products.sub_total);
@@ -714,6 +718,8 @@
             var formData = {
                 customer: $('select[name="customer"]').val(),
                 sub_total: $('input[name="sub_total"]').val(),
+                tax_percentage: $('input[name="tax_percentage"]').val(),
+                tax_amount: $('input[name="tax_amount"]').val(),
                 grand_total: grandTotal,
                 amount_paid: amountPaid,
                 amount_change: amountChange,

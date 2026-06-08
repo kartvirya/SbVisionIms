@@ -16,7 +16,7 @@
     </div>
 
     <div class="row g-3 mb-4">
-        <div class="col-md-6">
+        <div class="col-md-4">
             <div class="card shadow-sm h-100">
                 <div class="card-header bg-light"><strong>Opening balance</strong></div>
                 <div class="card-body">
@@ -25,12 +25,21 @@
                         <input type="hidden" name="action" value="opening_balance">
                         {{ opening_form.opening_balance.label_tag }}
                         {{ opening_form.opening_balance }}
-                        <button type="submit" class="btn btn-primary btn-sm mt-2">Save opening balance</button>
+                        <p class="text-muted small">Negative = customer credit at start.</p>
+                        <button type="submit" class="btn btn-primary btn-sm mt-2">Save</button>
                     </form>
                 </div>
             </div>
         </div>
-        <div class="col-md-6">
+        <div class="col-md-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-light"><strong>Balance adjustment</strong></div>
+                <div class="card-body">
+                    {% include "accounts/partials/signed_adjustment_form.html" with form=receivables_form action_name="receivables_adjustment" help_text="Use − to reduce balance when customer has credit." %}
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
             <div class="card shadow-sm h-100">
                 <div class="card-header bg-light"><strong>Record payment</strong></div>
                 <div class="card-body">

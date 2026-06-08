@@ -31,6 +31,7 @@ from .contact_ledger import (
     get_customer_ledger_rows,
     get_vendor_balance_due,
     get_vendor_ledger_rows,
+    update_customer_receivables_adjustment,
 )
 from .forms import (
     CreateUserForm, UserUpdateForm,
@@ -39,7 +40,7 @@ from .forms import (
     OpeningBalanceForm,
     CustomerPaymentForm,
     VendorPaymentForm,
-    PayablesAdjustmentForm,
+    SignedAdjustmentForm,
     PaymentEditForm,
 )
 from .tables import ProfileTable
@@ -246,6 +247,12 @@ def _customer_detail_context(customer):
             initial={"opening_balance": customer.opening_balance}
         ),
         "payment_form": CustomerPaymentForm(customer=customer),
+        "receivables_form": SignedAdjustmentForm(
+            initial={
+                "adjustment_sign": "+" if customer.receivables_adjustment >= 0 else "-",
+                "adjustment_amount": abs(customer.receivables_adjustment),
+            }
+        ),
         "payment_records": CustomerPayment.objects.filter(
             sale__customer=customer
         ).select_related("sale").order_by("-received_at", "-id"),
@@ -264,8 +271,11 @@ def _vendor_detail_context(vendor):
         "opening_form": OpeningBalanceForm(
             initial={"opening_balance": vendor.opening_balance}
         ),
-        "payables_form": PayablesAdjustmentForm(
-            initial={"payables_adjustment": vendor.payables_adjustment}
+        "payables_form": SignedAdjustmentForm(
+            initial={
+                "adjustment_sign": "+" if vendor.payables_adjustment >= 0 else "-",
+                "adjustment_amount": abs(vendor.payables_adjustment),
+            }
         ),
         "payment_form": VendorPaymentForm(vendor=vendor),
         "payment_records": VendorPayment.objects.filter(
@@ -339,6 +349,16 @@ class CustomerDetailView(LoginRequiredMixin, View):
                 sale.save()
                 messages.success(request, "Payment recorded.")
                 return redirect("customer-detail", pk=customer.pk)
+        elif action == "receivables_adjustment":
+            form = SignedAdjustmentForm(request.POST)
+            if form.is_valid():
+                update_customer_receivables_adjustment(
+                    customer.pk,
+                    form.cleaned_data["adjustment_amount"],
+                    sign=form.cleaned_data["adjustment_sign"],
+                )
+                messages.success(request, "Balance adjustment saved.")
+                return redirect("customer-detail", pk=customer.pk)
         elif action == "update_payment":
             form = PaymentEditForm(request.POST)
             payment = CustomerPayment.objects.filter(
@@ -375,6 +395,8 @@ class CustomerDetailView(LoginRequiredMixin, View):
         ctx = _customer_detail_context(customer)
         if action == "opening_balance":
             ctx["opening_form"] = form
+        elif action == "receivables_adjustment":
+            ctx["receivables_form"] = form
         elif action == "record_payment":
             ctx["payment_form"] = form
         return render(request, self.template_name, ctx)
@@ -542,11 +564,16 @@ class VendorDetailView(LoginRequiredMixin, View):
                 messages.success(request, "Opening balance updated.")
                 return redirect("vendor-detail", pk=vendor.pk)
         elif action == "payables_adjustment":
-            form = PayablesAdjustmentForm(request.POST)
+            from transactions.services import update_vendor_payables_adjustment
+
+            form = SignedAdjustmentForm(request.POST)
             if form.is_valid():
-                vendor.payables_adjustment = form.cleaned_data["payables_adjustment"]
-                vendor.save(update_fields=["payables_adjustment"])
-                messages.success(request, "Payables adjustment updated.")
+                update_vendor_payables_adjustment(
+                    vendor.pk,
+                    form.cleaned_data["adjustment_amount"],
+                    sign=form.cleaned_data["adjustment_sign"],
+                )
+                messages.success(request, "Payables adjustment saved.")
                 return redirect("vendor-detail", pk=vendor.pk)
         elif action == "record_payment":
             form = VendorPaymentForm(request.POST, vendor=vendor)
@@ -599,6 +626,8 @@ class VendorDetailView(LoginRequiredMixin, View):
             ctx["opening_form"] = form
         elif action == "payables_adjustment":
             ctx["payables_form"] = form
+        elif action == "receivables_adjustment":
+            ctx["receivables_form"] = form
         elif action == "record_payment":
             ctx["payment_form"] = form
         return render(request, self.template_name, ctx)

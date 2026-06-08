@@ -160,13 +160,23 @@ class OpeningBalanceForm(forms.Form):
     )
 
 
-class PayablesAdjustmentForm(forms.Form):
-    payables_adjustment = forms.DecimalField(
+class SignedAdjustmentForm(forms.Form):
+    """+ increases balance owed, − reduces it (credit)."""
+
+    adjustment_sign = forms.ChoiceField(
+        choices=[("+", "Increase (+)"), ("-", "Decrease (−)")],
+        initial="+",
+        label="Direction",
+        widget=forms.Select(attrs={"class": "form-select form-select-sm"}),
+    )
+    adjustment_amount = forms.DecimalField(
         max_digits=12,
         decimal_places=2,
-        label="Payables adjustment (Rs)",
-        help_text="Manual +/- adjustment on supplier balance.",
-        widget=forms.NumberInput(attrs={"class": "form-control", "step": "0.01"}),
+        min_value=Decimal("0"),
+        label="Amount (Rs)",
+        widget=forms.NumberInput(
+            attrs={"class": "form-control form-control-sm", "step": "0.01", "min": "0"}
+        ),
     )
 
 
@@ -231,13 +241,17 @@ class CustomerPaymentForm(forms.Form):
         sale = cleaned.get("sale")
         amount = cleaned.get("amount")
         if sale and amount is not None:
-            remaining = sale.amount_remaining
-            if amount > remaining and remaining >= 0:
+            remaining = _d(sale.amount_remaining)
+            if remaining > 0 and amount > remaining:
                 self.add_error(
                     "amount",
                     f"Amount cannot exceed unpaid balance (Rs {remaining}).",
                 )
         return cleaned
+
+
+def _d(value):
+    return Decimal(str(value or 0))
 
 
 class VendorPaymentForm(forms.Form):

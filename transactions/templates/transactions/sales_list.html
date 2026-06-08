@@ -124,7 +124,7 @@
                         {% url 'preview-sale' sale.id as sale_preview_url %}
                         {% if can_edit_sales %}{% url 'sale-update' sale.id as sale_edit_url %}{% endif %}
                         {% if can_delete_sales %}{% url 'sale-delete' sale.id as sale_delete_url %}{% endif %}
-                        {% include "store/partials/actions_dropdown.html" with view_url=sale_view_url preview_url=sale_preview_url edit_url=sale_edit_url delete_url=sale_delete_url %}
+                        {% include "store/partials/actions_dropdown.html" with view_url=sale_view_url preview_url=sale_preview_url return_url=sale_view_url|add:"#sale-return" edit_url=sale_edit_url delete_url=sale_delete_url %}
                     </td>
                 </tr>
                 {% endfor %}

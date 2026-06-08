@@ -145,6 +145,12 @@ class Customer(models.Model):
         default=0,
         help_text="Amount the customer owed before system records (debit balance).",
     )
+    receivables_adjustment = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=0,
+        help_text="Manual +/- adjustment on customer balance (+ owes more, − credit).",
+    )
 
     class Meta:
         db_table = 'Customers'
