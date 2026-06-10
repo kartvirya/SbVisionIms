@@ -10,6 +10,22 @@
             <p class="text-muted">
                 Download the template, fill in your data, then upload an <strong>.xlsx</strong> or <strong>.csv</strong> file.
             </p>
+            {% if kind == 'suppliers' %}
+            <div class="alert alert-light border small mb-3">
+                <strong>Template columns:</strong>
+                <code>name</code>,
+                <code>phone_number</code>,
+                <code>pan_number</code>,
+                <code>vat_number</code>,
+                <code>address</code>,
+                <code>opening_balance</code>,
+                <code>brands</code>
+                <div class="mt-2 text-muted">
+                    Put multiple brands in one cell, separated by semicolons (e.g. <code>Samsung; LG; Sony</code>).
+                    Existing suppliers are updated by name; new brands are added without removing old ones.
+                </div>
+            </div>
+            {% endif %}
             <a href="?download=template" class="btn btn-outline-primary btn-sm mb-3">
                 <i class="fa-solid fa-download"></i> Download template
             </a>

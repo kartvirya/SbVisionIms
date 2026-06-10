@@ -37,7 +37,15 @@ CUSTOMER_HEADERS = [
     "opening_balance",
 ]
 
-SUPPLIER_HEADERS = ["name", "phone_number", "address", "opening_balance"]
+SUPPLIER_HEADERS = [
+    "name",
+    "phone_number",
+    "pan_number",
+    "vat_number",
+    "address",
+    "opening_balance",
+    "brands",
+]
 
 PURCHASE_HEADERS = [
     "vendor",
@@ -132,7 +140,17 @@ def supplier_template_workbook():
     ws = wb.active
     ws.title = "Suppliers"
     ws.append(SUPPLIER_HEADERS)
-    ws.append(["ABC Traders", "9811111111", "Kathmandu", 0])
+    ws.append(
+        [
+            "ABC Traders",
+            "9811111111",
+            "123456789",
+            "601234567",
+            "Kathmandu",
+            0,
+            "Samsung; LG",
+        ]
+    )
     return wb
 
 
@@ -265,6 +283,15 @@ def _cell_str(value):
     if value is None:
         return ""
     return str(value).strip()
+
+
+def _split_list_cell(value):
+    """Split a cell into multiple values (semicolon or comma separated)."""
+    raw = _cell_str(value)
+    if not raw:
+        return []
+    separator = ";" if ";" in raw else ","
+    return [part.strip() for part in raw.split(separator) if part.strip()]
 
 
 def _parse_decimal(value, default="0"):
@@ -455,6 +482,12 @@ def import_supplier_rows(rows):
             "phone_number": phone_val,
             "address": _cell_str(row.get("address")) or None,
         }
+        pan_number = _cell_str(row.get("pan_number"))
+        if pan_number:
+            defaults["pan_number"] = pan_number
+        vat_number = _cell_str(row.get("vat_number"))
+        if vat_number:
+            defaults["vat_number"] = vat_number
         opening = row.get("opening_balance")
         if opening not in (None, ""):
             defaults["opening_balance"] = _parse_decimal(opening, 0)
@@ -462,6 +495,8 @@ def import_supplier_rows(rows):
             name=name,
             defaults=defaults,
         )
+        for brand_name in _split_list_cell(row.get("brands")):
+            Brand.objects.get_or_create(vendor=vendor, name=brand_name)
         if was_created:
             created += 1
         else:
