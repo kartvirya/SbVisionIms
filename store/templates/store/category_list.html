@@ -36,10 +36,11 @@
             <tr>
                 <td class="text-muted">{{ category.list_row_number }}</td>
                 <td><a href="{% url 'category-detail' category.pk %}" class="text-success text-decoration-none">{{ category.name }}</a></td>
-                <td>
-                    <a href="{% url 'category-detail' category.pk %}" class="btn btn-outline-primary btn-sm">
-                        <i class="fa-solid fa-info-circle me-2"></i> View Details
-                    </a>
+                <td class="text-nowrap">
+                    {% url 'category-detail' category.pk as category_view_url %}
+                    {% url 'category-update' category.pk as category_edit_url %}
+                    {% url 'category-delete' category.pk as category_delete_url %}
+                    {% include "store/partials/actions_dropdown.html" with view_url=category_view_url edit_url=category_edit_url delete_url=category_delete_url %}
                 </td>
             </tr>
             {% endfor %}

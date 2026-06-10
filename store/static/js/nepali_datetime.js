@@ -1,5 +1,5 @@
 /**
- * B.S. date + time inputs synced to hidden A.D. datetime-local fields for Django forms.
+ * B.S. / A.D. date entry synced to hidden datetime-local fields for Django forms.
  */
 (function (window) {
     function pad(n) {
@@ -10,17 +10,47 @@
         return window.NepaliDate && window.NepaliDate.default ? window.NepaliDate.default : null;
     }
 
+    function parseAdDatetimeLocal(value) {
+        if (!value) {
+            return null;
+        }
+        const parts = value.split("T");
+        const ymd = parts[0].split("-").map(Number);
+        const hm = (parts[1] || "12:00").split(":").map(Number);
+        return {
+            year: ymd[0],
+            month: ymd[1],
+            day: ymd[2],
+            hours: hm[0] || 0,
+            minutes: hm[1] || 0,
+        };
+    }
+
+    function formatAdDatetimeLocal(ad) {
+        if (!ad) {
+            return "";
+        }
+        return (
+            ad.year +
+            "-" +
+            pad(ad.month) +
+            "-" +
+            pad(ad.day) +
+            "T" +
+            pad(ad.hours) +
+            ":" +
+            pad(ad.minutes)
+        );
+    }
+
     function adDatetimeLocalToBs(adValue) {
         const ND = getNepaliDateClass();
-        if (!ND || !adValue) {
+        const ad = parseAdDatetimeLocal(adValue);
+        if (!ND || !ad) {
             return { bs: "", time: "12:00" };
         }
-        const parts = adValue.split("T");
-        const datePart = parts[0];
-        const timePart = parts[1] || "12:00";
-        const ymd = datePart.split("-").map(Number);
-        const nd = ND.fromAD(new Date(ymd[0], ymd[1] - 1, ymd[2]));
-        return { bs: nd.format("YYYY-MM-DD"), time: timePart.slice(0, 5) };
+        const nd = ND.fromAD(new Date(ad.year, ad.month - 1, ad.day));
+        return { bs: nd.format("YYYY-MM-DD"), time: pad(ad.hours) + ":" + pad(ad.minutes) };
     }
 
     function bsAndTimeToAdDatetimeLocal(bsValue, timeValue) {
@@ -33,71 +63,134 @@
         const time = timeValue || "12:00";
         const hm = time.split(":").map(Number);
         js.setHours(hm[0] || 0, hm[1] || 0, 0, 0);
-        return (
-            js.getFullYear() +
-            "-" +
-            pad(js.getMonth() + 1) +
-            "-" +
-            pad(js.getDate()) +
-            "T" +
-            pad(hm[0] || 0) +
-            ":" +
-            pad(hm[1] || 0)
-        );
+        return formatAdDatetimeLocal({
+            year: js.getFullYear(),
+            month: js.getMonth() + 1,
+            day: js.getDate(),
+            hours: hm[0] || 0,
+            minutes: hm[1] || 0,
+        });
     }
 
-    function syncWrap(wrap) {
-        const hiddenId = wrap.dataset.hidden;
-        const hidden = document.getElementById(hiddenId);
-        const bsInput = wrap.querySelector(".nepali-bs-date");
-        const timeInput = wrap.querySelector(".nepali-bs-time");
+    function currentCal(wrap) {
+        return wrap.dataset.calMode || wrap.dataset.defaultCal || "bs";
+    }
+
+    function setCalMode(wrap, mode) {
+        wrap.dataset.calMode = mode;
+        const bsBlock = wrap.querySelector(".nepali-mode-bs");
+        const adBlock = wrap.querySelector(".nepali-mode-ad");
+        wrap.querySelectorAll(".nepali-cal-toggle [data-cal]").forEach(function (btn) {
+            btn.classList.toggle("active", btn.dataset.cal === mode);
+        });
+        if (bsBlock) {
+            bsBlock.classList.toggle("d-none", mode !== "bs");
+        }
+        if (adBlock) {
+            adBlock.classList.toggle("d-none", mode !== "ad");
+        }
+    }
+
+    function readHidden(wrap) {
+        const hidden = document.getElementById(wrap.dataset.hidden);
+        return hidden ? hidden.value : "";
+    }
+
+    function writeHidden(wrap, value) {
+        const hidden = document.getElementById(wrap.dataset.hidden);
+        if (hidden) {
+            hidden.value = value || "";
+        }
+    }
+
+    function updateHint(wrap, value) {
         const hint = wrap.querySelector(".nepali-ad-hint");
-        if (!hidden || !bsInput || !timeInput) {
+        if (!hint) {
             return;
         }
-        hidden.value = bsAndTimeToAdDatetimeLocal(bsInput.value, timeInput.value);
-        if (hint) {
-            hint.textContent = hidden.value
-                ? "A.D. " + hidden.value.replace("T", " ")
-                : "";
+        if (!value) {
+            hint.textContent = "";
+            return;
         }
+        const mode = currentCal(wrap);
+        if (mode === "bs") {
+            hint.textContent = "A.D. " + value.replace("T", " ");
+            return;
+        }
+        const bs = adDatetimeLocalToBs(value);
+        hint.textContent = bs.bs ? "B.S. " + bs.bs + " " + bs.time : "";
+    }
+
+    function syncFromVisible(wrap) {
+        const mode = currentCal(wrap);
+        let adValue = "";
+        if (mode === "bs") {
+            const bsInput = wrap.querySelector(".nepali-bs-date");
+            const timeInput = wrap.querySelector(".nepali-bs-time");
+            adValue = bsAndTimeToAdDatetimeLocal(
+                bsInput ? bsInput.value : "",
+                timeInput ? timeInput.value : ""
+            );
+        } else {
+            const adInput = wrap.querySelector(".nepali-ad-datetime");
+            adValue = adInput ? adInput.value : "";
+        }
+        writeHidden(wrap, adValue);
+        updateHint(wrap, adValue);
+    }
+
+    function loadIntoVisible(wrap, adValue) {
+        const bs = adDatetimeLocalToBs(adValue);
+        const bsInput = wrap.querySelector(".nepali-bs-date");
+        const timeInput = wrap.querySelector(".nepali-bs-time");
+        const adInput = wrap.querySelector(".nepali-ad-datetime");
+        if (bsInput && bs.bs) {
+            bsInput.value = bs.bs;
+        }
+        if (timeInput && bs.time) {
+            timeInput.value = bs.time;
+        }
+        if (adInput) {
+            adInput.value = adValue || "";
+        }
+        updateHint(wrap, adValue);
     }
 
     function initWrap(wrap) {
         const hiddenId = wrap.dataset.hidden;
         const hidden = document.getElementById(hiddenId);
-        const bsInput = wrap.querySelector(".nepali-bs-date");
-        const timeInput = wrap.querySelector(".nepali-bs-time");
-        if (!hidden || !bsInput || !timeInput) {
+        if (!hidden) {
             return;
         }
 
-        const initial = adDatetimeLocalToBs(hidden.value);
-        if (initial.bs) {
-            bsInput.value = initial.bs;
-        }
-        if (initial.time) {
-            timeInput.value = initial.time;
-        }
-        syncWrap(wrap);
+        setCalMode(wrap, wrap.dataset.defaultCal || "bs");
+        loadIntoVisible(wrap, hidden.value);
+        syncFromVisible(wrap);
 
-        bsInput.addEventListener("change", function () {
-            syncWrap(wrap);
-        });
-        timeInput.addEventListener("change", function () {
-            syncWrap(wrap);
-        });
-        timeInput.addEventListener("input", function () {
-            syncWrap(wrap);
+        wrap.querySelectorAll(".nepali-bs-date, .nepali-bs-time, .nepali-ad-datetime").forEach(function (el) {
+            el.addEventListener("change", function () {
+                syncFromVisible(wrap);
+            });
+            el.addEventListener("input", function () {
+                syncFromVisible(wrap);
+            });
         });
 
-        if (window.NepaliDatePicker && bsInput.id) {
+        wrap.querySelectorAll(".nepali-cal-toggle [data-cal]").forEach(function (btn) {
+            btn.addEventListener("click", function () {
+                syncFromVisible(wrap);
+                const adValue = readHidden(wrap);
+                setCalMode(wrap, btn.dataset.cal);
+                loadIntoVisible(wrap, adValue);
+                syncFromVisible(wrap);
+            });
+        });
+
+        const bsInput = wrap.querySelector(".nepali-bs-date");
+        if (window.NepaliDatePicker && bsInput && bsInput.id) {
             new NepaliDatePicker("#" + bsInput.id, {
                 format: "YYYY-MM-DD",
                 locale: "np",
-            });
-            bsInput.addEventListener("input", function () {
-                syncWrap(wrap);
             });
         }
     }
@@ -107,7 +200,7 @@
             document.querySelectorAll(selector || ".nepali-datetime-wrap").forEach(initWrap);
         },
         syncAll: function () {
-            document.querySelectorAll(".nepali-datetime-wrap").forEach(syncWrap);
+            document.querySelectorAll(".nepali-datetime-wrap").forEach(syncFromVisible);
         },
         setToday: function (hiddenId) {
             const wrap = document.querySelector('.nepali-datetime-wrap[data-hidden="' + hiddenId + '"]');
@@ -115,30 +208,16 @@
                 return;
             }
             const now = new Date();
-            const hidden = document.getElementById(hiddenId);
-            const adValue =
-                now.getFullYear() +
-                "-" +
-                pad(now.getMonth() + 1) +
-                "-" +
-                pad(now.getDate()) +
-                "T" +
-                pad(now.getHours()) +
-                ":" +
-                pad(now.getMinutes());
-            if (hidden) {
-                hidden.value = adValue;
-            }
-            const initial = adDatetimeLocalToBs(adValue);
-            const bsInput = wrap.querySelector(".nepali-bs-date");
-            const timeInput = wrap.querySelector(".nepali-bs-time");
-            if (bsInput) {
-                bsInput.value = initial.bs;
-            }
-            if (timeInput) {
-                timeInput.value = initial.time;
-            }
-            syncWrap(wrap);
+            const adValue = formatAdDatetimeLocal({
+                year: now.getFullYear(),
+                month: now.getMonth() + 1,
+                day: now.getDate(),
+                hours: now.getHours(),
+                minutes: now.getMinutes(),
+            });
+            writeHidden(wrap, adValue);
+            loadIntoVisible(wrap, adValue);
+            syncFromVisible(wrap);
         },
     };
 

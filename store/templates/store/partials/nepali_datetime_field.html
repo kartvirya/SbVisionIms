@@ -1,18 +1,31 @@
-<label class="form-label" for="{{ field.id_for_label }}_bs">{{ field.label }} (B.S.)</label>
-<div class="nepali-datetime-wrap" data-hidden="{{ field.id_for_label }}">
-    <div class="input-group">
+<label class="form-label" for="{{ field.id_for_label }}_bs">{{ field.label }}</label>
+<div class="nepali-datetime-wrap" data-hidden="{{ field.id_for_label }}" data-default-cal="bs">
+    <div class="btn-group btn-group-sm mb-2 nepali-cal-toggle" role="group" aria-label="Calendar type">
+        <button type="button" class="btn btn-outline-secondary active" data-cal="bs">B.S.</button>
+        <button type="button" class="btn btn-outline-secondary" data-cal="ad">A.D.</button>
+    </div>
+    <div class="nepali-mode-bs">
+        <div class="input-group">
+            <input
+                type="text"
+                id="{{ field.id_for_label }}_bs"
+                class="form-control nepali-bs-date"
+                placeholder="YYYY-MM-DD (BS)"
+                autocomplete="off"
+            >
+            <input
+                type="time"
+                id="{{ field.id_for_label }}_time"
+                class="form-control nepali-bs-time"
+                style="max-width:9rem"
+            >
+        </div>
+    </div>
+    <div class="nepali-mode-ad d-none">
         <input
-            type="text"
-            id="{{ field.id_for_label }}_bs"
-            class="form-control nepali-bs-date"
-            placeholder="YYYY-MM-DD (BS)"
-            autocomplete="off"
-        >
-        <input
-            type="time"
-            id="{{ field.id_for_label }}_time"
-            class="form-control nepali-bs-time"
-            style="max-width:9rem"
+            type="datetime-local"
+            id="{{ field.id_for_label }}_ad"
+            class="form-control nepali-ad-datetime"
         >
     </div>
     <small class="text-muted nepali-ad-hint d-block mt-1"></small>

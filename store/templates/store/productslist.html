@@ -143,7 +143,7 @@
                         {% url 'item-detail' item.slug as product_view_url %}
                         {% url 'preview-item' item.id as product_preview_url %}
                         {% url 'product-update' item.slug as product_edit_url %}
-                        {% if can_manage_products %}{% url 'product-delete' item.slug as product_delete_url %}{% endif %}
+                        {% url 'product-delete' item.slug as product_delete_url %}
                         {% include "store/partials/actions_dropdown.html" with view_url=product_view_url preview_url=product_preview_url preview_title=item.name adjust_stock_id=item.id adjust_stock_name=item.name edit_url=product_edit_url delete_url=product_delete_url %}
                     </td>
                 </tr>

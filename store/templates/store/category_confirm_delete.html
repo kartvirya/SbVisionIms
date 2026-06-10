@@ -6,9 +6,16 @@
     <div class="alert alert-warning" role="alert">
         <i class="fas fa-exclamation-triangle"></i> Are you sure you want to delete "{{ category.name }}"?
     </div>
+    {% if delete_blockers %}
+    <div class="alert alert-danger" role="alert">
+        This category cannot be deleted because it still has
+        <strong>{{ delete_blockers|join:", " }}</strong>.
+        Move or delete those products first.
+    </div>
+    {% endif %}
     <form method="post" class="mt-4">
         {% csrf_token %}
-        <button type="submit" class="btn btn-danger">
+        <button type="submit" class="btn btn-danger" {% if delete_blockers %}disabled{% endif %}>
             <i class="fas fa-check"></i> Confirm
         </button>
         <a href="{% url 'category-list' %}" class="btn btn-secondary ms-2">

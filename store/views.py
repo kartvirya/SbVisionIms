@@ -460,19 +460,30 @@ class ProductUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
         return profile is not None and getattr(profile, "role", None) == "AD"
 
 
+def _category_delete_blockers(category):
+    count = Item.objects.filter(category=category).count()
+    if count:
+        return [f"{count} product(s) in this category"]
+    return []
+
+
 def _item_delete_blockers(item):
-    from transactions.models import PurchaseLine, SaleDetail, StockMovement
+    from transactions.models import PurchaseLine, SaleDetail
 
     blockers = []
     if PurchaseLine.objects.filter(item=item).exists():
-        blockers.append("purchase lines")
+        blockers.append("purchase records")
     if SaleDetail.objects.filter(item=item).exists():
-        blockers.append("sales")
-    if StockMovement.objects.filter(item=item).exists():
-        blockers.append("stock movements")
-    if item.adjustment_logs.exists():
-        blockers.append("stock adjustments")
+        blockers.append("sales records")
     return blockers
+
+
+def _purge_item_stock_ledger(item):
+    """Remove ledger rows that block product deletion when no purchases/sales exist."""
+    from transactions.models import InventoryTransactionItem, StockMovement
+
+    StockMovement.objects.filter(item=item).delete()
+    InventoryTransactionItem.objects.filter(item=item).delete()
 
 
 def user_can_manage_products(user):
@@ -484,22 +495,12 @@ def user_can_manage_products(user):
     return profile is not None and getattr(profile, "role", None) == "AD"
 
 
-class ProductDeleteView(LoginRequiredMixin, UserPassesTestMixin, DeleteView):
-    """
-    View class to delete a product.
-
-    Attributes:
-    - model: The model associated with the view.
-    - template_name: The HTML template used for rendering the view.
-    - success_url: The URL to redirect to upon successful deletion.
-    """
+class ProductDeleteView(LoginRequiredMixin, DeleteView):
+    """Delete a product when it is not used on purchase or sales records."""
 
     model = Item
     template_name = "store/productdelete.html"
     success_url = reverse_lazy("productslist")
-
-    def test_func(self):
-        return user_can_manage_products(self.request.user)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -522,12 +523,12 @@ class ProductDeleteView(LoginRequiredMixin, UserPassesTestMixin, DeleteView):
             return auth_redirect(self.get_success_url())
         try:
             with transaction.atomic():
+                _purge_item_stock_ledger(self.object)
                 return super().delete(request, *args, **kwargs)
         except (ProtectedError, IntegrityError):
             messages.error(
                 request,
-                "Cannot delete this product — it is linked to purchases, "
-                "sales, or stock movements. Remove those records first.",
+                "Cannot delete this product — it is still linked to other records.",
             )
             return auth_redirect(self.get_success_url())
 
@@ -710,6 +711,25 @@ class CategoryDeleteView(LoginRequiredMixin, DeleteView):
     context_object_name = 'category'
     success_url = reverse_lazy('category-list')
     login_url = 'login'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["delete_blockers"] = _category_delete_blockers(self.object)
+        return context
+
+    def delete(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        blockers = _category_delete_blockers(self.object)
+        if blockers:
+            messages.error(
+                request,
+                "Cannot delete this category — it still has "
+                + ", ".join(blockers)
+                + ". Move or delete those products first.",
+            )
+            return auth_redirect(self.success_url)
+        messages.success(request, f'Category "{self.object.name}" deleted.')
+        return super().delete(request, *args, **kwargs)
 
 
 def is_ajax(request):
