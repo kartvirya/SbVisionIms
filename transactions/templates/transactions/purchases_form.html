@@ -1,6 +1,9 @@
 {% extends "store/base.html" %}
 {% load static %}
 {% block title %}{% if object %}Edit purchase book entry{% else %}New purchase book entry{% endif %}{% endblock %}
+{% block stylesheets %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@anuz-pandey/nepali-date-picker/dist/nepali-date-picker.min.css">
+{% endblock stylesheets %}
 {% block content %}
 <div class="container py-4">
     <div class="d-flex justify-content-between align-items-center mb-3">
@@ -42,8 +45,7 @@
                         {{ form.bill_number.errors }}
                     </div>
                     <div class="col-md-4">
-                        <label class="form-label" for="{{ form.order_date.id_for_label }}">{{ form.order_date.label }}</label>
-                        {{ form.order_date }}
+                        {% include "store/partials/nepali_datetime_field.html" with field=form.order_date %}
                         {{ form.order_date.errors }}
                     </div>
                     <div class="col-md-4">
@@ -53,8 +55,7 @@
                         {{ form.receipt_status.errors }}
                     </div>
                     <div class="col-md-4">
-                        <label class="form-label" for="{{ form.receipt_date.id_for_label }}">{{ form.receipt_date.label }}</label>
-                        {{ form.receipt_date }}
+                        {% include "store/partials/nepali_datetime_field.html" with field=form.receipt_date %}
                         <div class="form-text">Setting a receipt date marks goods as <strong>Received</strong>.</div>
                         {{ form.receipt_date.errors }}
                     </div>
@@ -201,8 +202,20 @@
 </div>
 
 {{ items_catalog|json_script:"items-catalog" }}
+<script src="https://cdn.jsdelivr.net/npm/nepali-date-converter@3.4.0/dist/nepali-date-converter.umd.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@anuz-pandey/nepali-date-picker/dist/nepali-date-picker.bundle.min.js"></script>
+<script src="{% static 'js/nepali_datetime.js' %}"></script>
 <script>
 (function () {
+    if (window.ImsNepaliDatetime) {
+        ImsNepaliDatetime.initAll();
+        const purchaseForm = document.getElementById("purchase-form");
+        if (purchaseForm) {
+            purchaseForm.addEventListener("submit", function () {
+                ImsNepaliDatetime.syncAll();
+            });
+        }
+    }
     const catalog = JSON.parse(document.getElementById("items-catalog").textContent || "[]");
     const byId = Object.fromEntries(catalog.map((i) => [String(i.id), i]));
     const vendorSelect = document.getElementById("id_vendor");
@@ -311,20 +324,28 @@
 
     function markReceivedToday() {
         const status = document.getElementById("id_receipt_status");
-        const receiptDate = document.getElementById("id_receipt_date");
         if (status) status.value = "S";
-        if (receiptDate) receiptDate.value = localDatetimeValue(new Date());
+        if (window.ImsNepaliDatetime) {
+            ImsNepaliDatetime.setToday("id_receipt_date");
+        } else {
+            const receiptDate = document.getElementById("id_receipt_date");
+            if (receiptDate) receiptDate.value = localDatetimeValue(new Date());
+        }
     }
 
-    const receiptDateEl = document.getElementById("id_receipt_date");
-    if (receiptDateEl) {
-        receiptDateEl.addEventListener("change", function () {
-            if (this.value) {
+    document.querySelectorAll('.nepali-datetime-wrap[data-hidden="id_receipt_date"]').forEach(function (wrap) {
+        const bsInput = wrap.querySelector(".nepali-bs-date");
+        const timeInput = wrap.querySelector(".nepali-bs-time");
+        function markReceivedIfSet() {
+            const hidden = document.getElementById("id_receipt_date");
+            if (hidden && hidden.value) {
                 const status = document.getElementById("id_receipt_status");
                 if (status) status.value = "S";
             }
-        });
-    }
+        }
+        if (bsInput) bsInput.addEventListener("change", markReceivedIfSet);
+        if (timeInput) timeInput.addEventListener("change", markReceivedIfSet);
+    });
     const btnReceived = document.getElementById("btn-received-today");
     if (btnReceived) btnReceived.addEventListener("click", markReceivedToday);
 

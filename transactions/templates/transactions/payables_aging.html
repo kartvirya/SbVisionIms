@@ -1,5 +1,9 @@
 {% extends "store/base.html" %}
+{% load static %}
 {% block title %}Payables Book{% endblock %}
+{% block stylesheets %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@anuz-pandey/nepali-date-picker/dist/nepali-date-picker.min.css">
+{% endblock stylesheets %}
 {% block content %}
 <div class="container my-4">
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
@@ -43,9 +47,8 @@
                         {{ quick_entry_form.bill_number }}
                         {{ quick_entry_form.bill_number.errors }}
                     </div>
-                    <div class="col-md-2">
-                        <label class="form-label" for="{{ quick_entry_form.order_date.id_for_label }}">{{ quick_entry_form.order_date.label }}</label>
-                        {{ quick_entry_form.order_date }}
+                    <div class="col-md-3">
+                        {% include "store/partials/nepali_datetime_field.html" with field=quick_entry_form.order_date %}
                         {{ quick_entry_form.order_date.errors }}
                     </div>
                     <div class="col-md-2">
@@ -167,4 +170,19 @@
         Use <strong>+</strong> / <strong>−</strong> for vendor-level adjustments.
     </p>
 </div>
+<script src="https://cdn.jsdelivr.net/npm/nepali-date-converter@3.4.0/dist/nepali-date-converter.umd.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@anuz-pandey/nepali-date-picker/dist/nepali-date-picker.bundle.min.js"></script>
+<script src="{% static 'js/nepali_datetime.js' %}"></script>
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    if (!window.ImsNepaliDatetime) return;
+    ImsNepaliDatetime.initAll();
+    const form = document.querySelector("form");
+    if (form) {
+        form.addEventListener("submit", function () {
+            ImsNepaliDatetime.syncAll();
+        });
+    }
+});
+</script>
 {% endblock %}

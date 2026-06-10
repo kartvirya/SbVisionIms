@@ -33,6 +33,31 @@ def handle_vendor_brand_action(request, vendor):
             messages.error(request, "Enter a valid brand name.")
         return True
 
+    if action == "update_brand":
+        brand = Brand.objects.filter(
+            pk=request.POST.get("brand_id"),
+            vendor=vendor,
+        ).first()
+        if not brand:
+            messages.error(request, "Brand not found.")
+            return True
+        form = VendorBrandForm(request.POST, instance=brand)
+        if form.is_valid():
+            try:
+                updated = form.save()
+                messages.success(
+                    request,
+                    f'Brand "{updated.name}" updated.',
+                )
+            except IntegrityError:
+                messages.error(
+                    request,
+                    f'Brand "{form.cleaned_data.get("name")}" already exists for {vendor.name}.',
+                )
+        else:
+            messages.error(request, "Enter a valid brand name.")
+        return True
+
     if action == "delete_brand":
         brand = Brand.objects.filter(
             pk=request.POST.get("brand_id"),

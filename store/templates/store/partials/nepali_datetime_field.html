@@ -1,0 +1,20 @@
+<label class="form-label" for="{{ field.id_for_label }}_bs">{{ field.label }} (B.S.)</label>
+<div class="nepali-datetime-wrap" data-hidden="{{ field.id_for_label }}">
+    <div class="input-group">
+        <input
+            type="text"
+            id="{{ field.id_for_label }}_bs"
+            class="form-control nepali-bs-date"
+            placeholder="YYYY-MM-DD (BS)"
+            autocomplete="off"
+        >
+        <input
+            type="time"
+            id="{{ field.id_for_label }}_time"
+            class="form-control nepali-bs-time"
+            style="max-width:9rem"
+        >
+    </div>
+    <small class="text-muted nepali-ad-hint d-block mt-1"></small>
+</div>
+<div class="d-none">{{ field }}</div>

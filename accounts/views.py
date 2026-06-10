@@ -791,7 +791,7 @@ class VendorDetailView(LoginRequiredMixin, View):
             else:
                 messages.error(request, "Payment not found.")
             return redirect("vendor-detail", pk=vendor.pk)
-        elif action in ("add_brand", "delete_brand"):
+        elif action in ("add_brand", "update_brand", "delete_brand"):
             handle_vendor_brand_action(request, vendor)
             return redirect("vendor-detail", pk=vendor.pk)
         else:

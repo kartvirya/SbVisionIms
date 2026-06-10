@@ -1,0 +1,18 @@
+<form id="brand-edit-{{ brand.pk }}" method="post" class="d-none">
+    {% csrf_token %}
+    {% if include_vendor_id %}
+    <input type="hidden" name="vendor_id" value="{{ vendor.pk }}">
+    {% if list_page %}<input type="hidden" name="page" value="{{ list_page }}">{% endif %}
+    {% endif %}
+    <input type="hidden" name="action" value="update_brand">
+    <input type="hidden" name="brand_id" value="{{ brand.pk }}">
+</form>
+<form id="brand-delete-{{ brand.pk }}" method="post" class="d-none" onsubmit="return confirm('Remove brand “{{ brand.name }}”?');">
+    {% csrf_token %}
+    {% if include_vendor_id %}
+    <input type="hidden" name="vendor_id" value="{{ vendor.pk }}">
+    {% if list_page %}<input type="hidden" name="page" value="{{ list_page }}">{% endif %}
+    {% endif %}
+    <input type="hidden" name="action" value="delete_brand">
+    <input type="hidden" name="brand_id" value="{{ brand.pk }}">
+</form>

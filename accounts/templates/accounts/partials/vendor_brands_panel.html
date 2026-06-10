@@ -1,3 +1,4 @@
+{% load static %}
 <div class="vendor-brands-panel{% if compact %} vendor-brands-panel--compact{% endif %}{% if split_layout %} vendor-brands-panel--split{% endif %}{% if inline_row %} vendor-brands-panel--inline{% endif %}">
     {% if not inline_row %}
     <div class="vendor-brands-panel__header">
@@ -89,28 +90,34 @@
                             <th style="width:2.5rem;">#</th>
                             <th>Brand</th>
                             <th>Notes</th>
-                            <th class="text-center" style="width:5rem;">Remove</th>
+                            <th class="text-center" style="width:7rem;">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for brand in vendor.brands.all %}
-                        <tr>
+                        <tr data-brand-row="{{ brand.pk }}">
                             <td class="text-muted">{{ forloop.counter }}</td>
-                            <td class="fw-semibold">{{ brand.name }}</td>
-                            <td class="text-muted small">{{ brand.notes|default:"—" }}</td>
-                            <td class="text-center">
-                                <form method="post" class="d-inline" onsubmit="return confirm('Remove brand “{{ brand.name }}”?');">
-                                    {% csrf_token %}
-                                    {% if include_vendor_id %}
-                                    <input type="hidden" name="vendor_id" value="{{ vendor.pk }}">
-                                    {% if list_page %}<input type="hidden" name="page" value="{{ list_page }}">{% endif %}
-                                    {% endif %}
-                                    <input type="hidden" name="action" value="delete_brand">
-                                    <input type="hidden" name="brand_id" value="{{ brand.pk }}">
-                                    <button type="submit" class="btn btn-outline-danger btn-sm py-0 px-2" title="Remove">
+                            <td>
+                                <span class="vb-view fw-semibold">{{ brand.name }}</span>
+                                <input form="brand-edit-{{ brand.pk }}" name="name" class="form-control form-control-sm vb-edit d-none" value="{{ brand.name }}" maxlength="100" required>
+                            </td>
+                            <td>
+                                <span class="vb-view text-muted small">{{ brand.notes|default:"—" }}</span>
+                                <input form="brand-edit-{{ brand.pk }}" name="notes" class="form-control form-control-sm vb-edit d-none" value="{{ brand.notes }}" maxlength="255" placeholder="Optional">
+                            </td>
+                            <td class="text-center text-nowrap">
+                                <div class="vb-view btn-group btn-group-sm">
+                                    <button type="button" class="btn btn-outline-primary btn-sm py-0 px-2 vb-btn-edit" title="Edit brand">
+                                        <i class="fa-solid fa-pen"></i>
+                                    </button>
+                                    <button type="submit" form="brand-delete-{{ brand.pk }}" class="btn btn-outline-danger btn-sm py-0 px-2" title="Remove">
                                         <i class="fa-solid fa-trash-can"></i>
                                     </button>
-                                </form>
+                                </div>
+                                <div class="vb-edit d-none btn-group btn-group-sm">
+                                    <button type="submit" form="brand-edit-{{ brand.pk }}" class="btn btn-success btn-sm py-0 px-2">Save</button>
+                                    <button type="button" class="btn btn-secondary btn-sm py-0 px-2 vb-btn-cancel">Cancel</button>
+                                </div>
                             </td>
                         </tr>
                         {% endfor %}
@@ -120,25 +127,39 @@
             {% else %}
             <div class="vendor-brands-panel__list">
                 {% for brand in vendor.brands.all %}
-                <div class="vendor-brand-item">
-                    <div class="min-w-0">
-                        <div class="vendor-brand-item__name">{{ brand.name }}</div>
-                        {% if brand.notes %}
-                        <div class="vendor-brand-item__notes">{{ brand.notes }}</div>
-                        {% endif %}
+                <div class="vendor-brand-item" data-brand-row="{{ brand.pk }}">
+                    <div class="min-w-0 flex-grow-1">
+                        <div class="vb-view">
+                            <div class="vendor-brand-item__name">{{ brand.name }}</div>
+                            {% if brand.notes %}
+                            <div class="vendor-brand-item__notes">{{ brand.notes }}</div>
+                            {% else %}
+                            <div class="vendor-brand-item__notes text-muted">—</div>
+                            {% endif %}
+                        </div>
+                        <div class="vb-edit d-none row g-1 mt-1">
+                            <div class="col-sm-6">
+                                <input form="brand-edit-{{ brand.pk }}" name="name" class="form-control form-control-sm" value="{{ brand.name }}" maxlength="100" required>
+                            </div>
+                            <div class="col-sm-6">
+                                <input form="brand-edit-{{ brand.pk }}" name="notes" class="form-control form-control-sm" value="{{ brand.notes }}" maxlength="255" placeholder="Notes">
+                            </div>
+                        </div>
                     </div>
-                    <form method="post" onsubmit="return confirm('Remove brand “{{ brand.name }}”?');">
-                        {% csrf_token %}
-                        {% if include_vendor_id %}
-                        <input type="hidden" name="vendor_id" value="{{ vendor.pk }}">
-                        {% if list_page %}<input type="hidden" name="page" value="{{ list_page }}">{% endif %}
-                        {% endif %}
-                        <input type="hidden" name="action" value="delete_brand">
-                        <input type="hidden" name="brand_id" value="{{ brand.pk }}">
-                        <button type="submit" class="vendor-brand-item__remove" title="Remove {{ brand.name }}">
-                            <i class="fa-solid fa-trash-can"></i>
-                        </button>
-                    </form>
+                    <div class="d-flex gap-1 align-items-start flex-shrink-0">
+                        <div class="vb-view btn-group btn-group-sm">
+                            <button type="button" class="btn btn-outline-primary btn-sm vb-btn-edit" title="Edit brand">
+                                <i class="fa-solid fa-pen"></i>
+                            </button>
+                            <button type="submit" form="brand-delete-{{ brand.pk }}" class="btn btn-outline-danger btn-sm" title="Remove">
+                                <i class="fa-solid fa-trash-can"></i>
+                            </button>
+                        </div>
+                        <div class="vb-edit d-none btn-group btn-group-sm">
+                            <button type="submit" form="brand-edit-{{ brand.pk }}" class="btn btn-success btn-sm">Save</button>
+                            <button type="button" class="btn btn-secondary btn-sm vb-btn-cancel">Cancel</button>
+                        </div>
+                    </div>
                 </div>
                 {% endfor %}
             </div>
@@ -150,5 +171,10 @@
             </div>
             {% endif %}
         </div>
+    </div>
+    <div class="d-none" aria-hidden="true">
+        {% for brand in vendor.brands.all %}
+        {% include "accounts/partials/vendor_brand_row_forms.html" with brand=brand vendor=vendor include_vendor_id=include_vendor_id list_page=list_page %}
+        {% endfor %}
     </div>
 </div>
