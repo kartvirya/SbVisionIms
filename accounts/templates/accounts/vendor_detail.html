@@ -4,6 +4,7 @@
 
 {% block stylesheets %}
 <link rel="stylesheet" href="{% static 'css/vendor_brands.css' %}">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@anuz-pandey/nepali-date-picker/dist/nepali-date-picker.min.css">
 {% endblock stylesheets %}
 
 {% block content %}
@@ -64,6 +65,7 @@
                     <form method="post">
                         {% csrf_token %}
                         <input type="hidden" name="action" value="record_payment">
+                        <div class="mb-2">{% include "store/partials/nepali_datetime_field.html" with field=payment_form.transaction_date %}</div>
                         <div class="mb-2">{{ payment_form.purchase.label_tag }}{{ payment_form.purchase }}</div>
                         <div class="mb-2">{{ payment_form.amount.label_tag }}{{ payment_form.amount }}</div>
                         <div class="mb-2">{{ payment_form.method.label_tag }}{{ payment_form.method }}</div>
@@ -94,7 +96,7 @@
                 <tbody>
                     {% for row in ledger_rows %}
                     <tr>
-                        <td>{% if row.date %}{{ row.date|date:"Y-m-d H:i" }}{% else %}—{% endif %}</td>
+                        <td style="min-width:14rem;">{% include "accounts/partials/ledger_date_cell.html" with row=row %}</td>
                         <td>{{ row.type }}</td>
                         <td>
                             {% if row.url %}<a href="{{ row.url }}">{{ row.reference }}</a>{% else %}{{ row.reference }}{% endif %}
@@ -115,5 +117,6 @@
 {% endblock %}
 
 {% block javascripts %}
+{% include "accounts/partials/account_datetime_scripts.html" %}
 <script src="{% static 'js/vendor_brands.js' %}"></script>
 {% endblock javascripts %}

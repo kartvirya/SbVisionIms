@@ -734,7 +734,7 @@ def get_payables_aging_report():
     return groups
 
 
-def allocate_customer_credit_to_sales(customer, credit_amount):
+def allocate_customer_credit_to_sales(customer, credit_amount, payment_date=None):
     """Apply customer credit to oldest outstanding sale bills."""
     from transactions.models import Sale
 
@@ -763,12 +763,14 @@ def allocate_customer_credit_to_sales(customer, credit_amount):
         if outstanding <= 0:
             continue
         pay = min(remaining, outstanding)
-        CustomerPayment.objects.create(
+        payment = CustomerPayment.objects.create(
             sale=sale,
             amount=pay,
             method="cash",
             notes="Accounts book credit",
         )
+        if payment_date is not None:
+            CustomerPayment.objects.filter(pk=payment.pk).update(received_at=payment_date)
         _clear_prefetch(sale, "customer_payments")
         sale.save()
         applied += pay
@@ -782,7 +784,7 @@ def _clear_prefetch(instance, relation):
         del cache[relation]
 
 
-def allocate_vendor_credit_to_purchases(vendor, credit_amount):
+def allocate_vendor_credit_to_purchases(vendor, credit_amount, payment_date=None):
     """Apply payables credit to oldest outstanding purchase bills."""
     remaining = abs(_to_decimal(credit_amount))
     if remaining <= 0:
@@ -809,12 +811,14 @@ def allocate_vendor_credit_to_purchases(vendor, credit_amount):
         if outstanding <= 0:
             continue
         pay = min(remaining, outstanding)
-        VendorPayment.objects.create(
+        payment = VendorPayment.objects.create(
             purchase=purchase,
             amount=pay,
             method="cash",
             notes="Payables book credit",
         )
+        if payment_date is not None:
+            VendorPayment.objects.filter(pk=payment.pk).update(paid_at=payment_date)
         _clear_prefetch(purchase, "vendor_payments")
         purchase.save()
         applied += pay
@@ -999,24 +1003,31 @@ def create_receivable_quick_entry(
     amount_received=0,
     description="",
     payment_method="cash",
+    sale_date=None,
+    payment_date=None,
 ):
     """Create a sale bill for the customer account (no stock movement)."""
     amount_dec = _to_decimal(amount)
-    sale = Sale.objects.create(
+    sale = Sale(
         customer=customer,
         sub_total=amount_dec,
         grand_total=amount_dec,
         amount_paid=Decimal("0"),
     )
+    if sale_date is not None:
+        sale.date_added = sale_date
+    sale.save()
     notes = (description or "").strip() or f"Account entry {reference}".strip()
     received = _to_decimal(amount_received)
     if received > 0:
-        CustomerPayment.objects.create(
+        payment = CustomerPayment.objects.create(
             sale=sale,
             amount=received,
             method=payment_method if payment_method in ("cash", "bank") else "cash",
             notes=notes or f"Sale #{sale.id}",
         )
+        if payment_date is not None:
+            CustomerPayment.objects.filter(pk=payment.pk).update(received_at=payment_date)
     sale.save()
     return sale
 
@@ -1030,6 +1041,7 @@ def create_payable_quick_entry(
     amount_paid=0,
     description="",
     payment_method="cash",
+    payment_date=None,
 ):
     """
     Create a purchase bill for the payables book (no stock posted until marked Received).
@@ -1050,10 +1062,12 @@ def create_payable_quick_entry(
     )
     purchase.save()
     if amount_paid_dec > 0:
-        VendorPayment.objects.create(
+        payment = VendorPayment.objects.create(
             purchase=purchase,
             amount=amount_paid_dec,
             method=payment_method if payment_method in ("cash", "bank") else "cash",
         )
+        if payment_date is not None:
+            VendorPayment.objects.filter(pk=payment.pk).update(paid_at=payment_date)
         purchase.refresh_from_db()
     return purchase

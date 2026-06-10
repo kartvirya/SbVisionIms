@@ -8,11 +8,24 @@ from django.utils import timezone
 
 from transactions.models import PAYMENT_METHOD_CHOICES, CustomerPayment, Purchase, Sale, VendorPayment
 
+from .datetime_utils import DATETIME_LOCAL_FORMAT
 from .models import Profile, Customer, Vendor, Brand, Logistics
 
 
 def _d(value):
     return Decimal(str(value or 0))
+
+
+def _transaction_date_field(*, label="Date", required=False):
+    return forms.DateTimeField(
+        required=required,
+        label=label,
+        widget=forms.DateTimeInput(
+            attrs={"type": "datetime-local", "class": "d-none"},
+            format=DATETIME_LOCAL_FORMAT,
+        ),
+        input_formats=[DATETIME_LOCAL_FORMAT],
+    )
 
 
 class CreateUserForm(UserCreationForm):
@@ -309,6 +322,7 @@ class SignedOpeningBalanceForm(forms.Form):
 
 
 class CustomerAccountTransactionForm(forms.Form):
+    transaction_date = _transaction_date_field()
     transaction_type = forms.ChoiceField(
         choices=[
             ("sale_in", "Sale in (add receivable)"),
@@ -341,8 +355,16 @@ class CustomerAccountTransactionForm(forms.Form):
         widget=forms.TextInput(attrs={"class": "form-control form-control-sm"}),
     )
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if not self.initial.get("transaction_date"):
+            self.initial["transaction_date"] = timezone.localtime(timezone.now()).strftime(
+                DATETIME_LOCAL_FORMAT
+            )
+
 
 class VendorAccountTransactionForm(forms.Form):
+    transaction_date = _transaction_date_field()
     transaction_type = forms.ChoiceField(
         choices=[
             ("bill_in", "Bill in (add payable)"),
@@ -381,6 +403,13 @@ class VendorAccountTransactionForm(forms.Form):
         widget=forms.TextInput(attrs={"class": "form-control form-control-sm"}),
     )
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if not self.initial.get("transaction_date"):
+            self.initial["transaction_date"] = timezone.localtime(timezone.now()).strftime(
+                DATETIME_LOCAL_FORMAT
+            )
+
 
 class SignedAdjustmentForm(forms.Form):
     """+ sets adjustment total, − applies credit to outstanding bills."""
@@ -404,6 +433,7 @@ class SignedAdjustmentForm(forms.Form):
 
 
 class PaymentEditForm(forms.Form):
+    transaction_date = _transaction_date_field()
     amount = forms.DecimalField(
         max_digits=12,
         decimal_places=2,
@@ -424,6 +454,7 @@ class PaymentEditForm(forms.Form):
 
 
 class CustomerPaymentForm(forms.Form):
+    transaction_date = _transaction_date_field()
     sale = forms.ModelChoiceField(
         queryset=Sale.objects.none(),
         label="Sale bill",
@@ -450,6 +481,10 @@ class CustomerPaymentForm(forms.Form):
 
     def __init__(self, *args, customer=None, **kwargs):
         super().__init__(*args, **kwargs)
+        if not self.initial.get("transaction_date"):
+            self.initial["transaction_date"] = timezone.localtime(timezone.now()).strftime(
+                DATETIME_LOCAL_FORMAT
+            )
         if customer is not None:
             self.fields["sale"].queryset = (
                 Sale.objects.filter(customer=customer)
@@ -474,6 +509,7 @@ class CustomerPaymentForm(forms.Form):
 
 
 class VendorPaymentForm(forms.Form):
+    transaction_date = _transaction_date_field()
     purchase = forms.ModelChoiceField(
         queryset=Purchase.objects.none(),
         label="Purchase bill",
@@ -500,6 +536,10 @@ class VendorPaymentForm(forms.Form):
 
     def __init__(self, *args, vendor=None, **kwargs):
         super().__init__(*args, **kwargs)
+        if not self.initial.get("transaction_date"):
+            self.initial["transaction_date"] = timezone.localtime(timezone.now()).strftime(
+                DATETIME_LOCAL_FORMAT
+            )
         if vendor is not None:
             self.fields["purchase"].queryset = (
                 Purchase.objects.filter(vendor=vendor)

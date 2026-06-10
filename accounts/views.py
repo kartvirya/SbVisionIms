@@ -51,6 +51,7 @@ from .forms import (
 )
 from .tables import ProfileTable
 from store.list_display import NormalizePageMixin, annotate_list_row_numbers
+from .account_dates import apply_payment_date, update_account_transaction_date
 from .vendor_brands import handle_vendor_brand_action
 
 
@@ -388,6 +389,7 @@ class CustomerDetailView(LoginRequiredMixin, View):
                 notes = form.cleaned_data.get("notes") or ""
                 reference = form.cleaned_data.get("reference") or ""
                 try:
+                    txn_date = form.cleaned_data.get("transaction_date")
                     if txn_type == "sale_in":
                         create_receivable_quick_entry(
                             customer,
@@ -395,10 +397,13 @@ class CustomerDetailView(LoginRequiredMixin, View):
                             amount=amount,
                             description=notes or "Account book sale in",
                             payment_method=method,
+                            sale_date=txn_date,
                         )
                         messages.success(request, "Sale in recorded.")
                     else:
-                        applied = allocate_customer_credit_to_sales(customer, amount)
+                        applied = allocate_customer_credit_to_sales(
+                            customer, amount, payment_date=txn_date
+                        )
                         if applied == 0:
                             messages.warning(
                                 request,
@@ -421,11 +426,16 @@ class CustomerDetailView(LoginRequiredMixin, View):
             form = CustomerPaymentForm(request.POST, customer=customer)
             if form.is_valid():
                 sale = form.cleaned_data["sale"]
-                CustomerPayment.objects.create(
+                payment = CustomerPayment.objects.create(
                     sale=sale,
                     amount=form.cleaned_data["amount"],
                     method=form.cleaned_data["method"],
                     notes=form.cleaned_data.get("notes") or "Recorded from customer account",
+                )
+                apply_payment_date(
+                    payment,
+                    "customer",
+                    request.POST.get("transaction_date"),
                 )
                 sale.save()
                 messages.success(request, "Payment recorded.")
@@ -459,10 +469,28 @@ class CustomerDetailView(LoginRequiredMixin, View):
                 payment.method = form.cleaned_data["method"]
                 payment.notes = form.cleaned_data.get("notes") or ""
                 payment.save()
+                apply_payment_date(
+                    payment,
+                    "customer",
+                    request.POST.get("transaction_date"),
+                )
                 payment.sale.save()
                 messages.success(request, "Payment updated.")
                 return redirect("customer-detail", pk=customer.pk)
             messages.error(request, "Could not update payment.")
+            return redirect("customer-detail", pk=customer.pk)
+        elif action == "update_transaction_date":
+            ok, msg = update_account_transaction_date(
+                "customer",
+                customer,
+                request.POST.get("date_kind"),
+                request.POST.get("object_id"),
+                request.POST.get("transaction_date"),
+            )
+            if ok:
+                messages.success(request, msg)
+            else:
+                messages.error(request, msg)
             return redirect("customer-detail", pk=customer.pk)
         elif action == "delete_payment":
             payment = CustomerPayment.objects.filter(
@@ -703,19 +731,24 @@ class VendorDetailView(LoginRequiredMixin, View):
                 notes = form.cleaned_data.get("notes") or ""
                 reference = form.cleaned_data.get("reference") or ""
                 try:
+                    txn_date = form.cleaned_data.get("transaction_date")
                     if txn_type == "bill_in":
                         paid_now = form.cleaned_data.get("amount_paid") or Decimal("0")
                         create_payable_quick_entry(
                             vendor,
                             bill_number=reference,
+                            order_date=txn_date,
                             net_amount=amount,
                             amount_paid=paid_now,
                             description=notes or "Account book bill in",
                             payment_method=method,
+                            payment_date=txn_date if paid_now > 0 else None,
                         )
                         messages.success(request, "Bill in recorded.")
                     else:
-                        applied = allocate_vendor_credit_to_purchases(vendor, amount)
+                        applied = allocate_vendor_credit_to_purchases(
+                            vendor, amount, payment_date=txn_date
+                        )
                         if applied < amount:
                             messages.warning(
                                 request,
@@ -753,11 +786,16 @@ class VendorDetailView(LoginRequiredMixin, View):
             form = VendorPaymentForm(request.POST, vendor=vendor)
             if form.is_valid():
                 purchase = form.cleaned_data["purchase"]
-                VendorPayment.objects.create(
+                payment = VendorPayment.objects.create(
                     purchase=purchase,
                     amount=form.cleaned_data["amount"],
                     method=form.cleaned_data["method"],
                     notes=form.cleaned_data.get("notes") or "Recorded from supplier account",
+                )
+                apply_payment_date(
+                    payment,
+                    "vendor",
+                    request.POST.get("transaction_date"),
                 )
                 purchase.save()
                 messages.success(request, "Payment recorded.")
@@ -773,10 +811,28 @@ class VendorDetailView(LoginRequiredMixin, View):
                 payment.method = form.cleaned_data["method"]
                 payment.notes = form.cleaned_data.get("notes") or ""
                 payment.save()
+                apply_payment_date(
+                    payment,
+                    "vendor",
+                    request.POST.get("transaction_date"),
+                )
                 payment.purchase.save()
                 messages.success(request, "Payment updated.")
                 return redirect("vendor-detail", pk=vendor.pk)
             messages.error(request, "Could not update payment.")
+            return redirect("vendor-detail", pk=vendor.pk)
+        elif action == "update_transaction_date":
+            ok, msg = update_account_transaction_date(
+                "vendor",
+                vendor,
+                request.POST.get("date_kind"),
+                request.POST.get("object_id"),
+                request.POST.get("transaction_date"),
+            )
+            if ok:
+                messages.success(request, msg)
+            else:
+                messages.error(request, msg)
             return redirect("vendor-detail", pk=vendor.pk)
         elif action == "delete_payment":
             payment = VendorPayment.objects.filter(

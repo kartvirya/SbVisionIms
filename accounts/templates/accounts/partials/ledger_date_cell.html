@@ -1,0 +1,28 @@
+{% if row.date_kind %}
+<form method="post" class="ledger-date-form">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="update_transaction_date">
+    <input type="hidden" name="date_kind" value="{{ row.date_kind }}">
+    <input type="hidden" name="object_id" value="{{ row.date_pk }}">
+    <div class="nepali-datetime-wrap nepali-datetime-wrap--compact" data-hidden="ledger-date-{{ row.date_kind }}-{{ row.date_pk }}" data-default-cal="bs">
+        <div class="btn-group btn-group-sm mb-1 nepali-cal-toggle" role="group">
+            <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2 active" data-cal="bs">B.S.</button>
+            <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2" data-cal="ad">A.D.</button>
+        </div>
+        <div class="nepali-mode-bs">
+            <div class="input-group input-group-sm">
+                <input type="text" id="ledger-date-{{ row.date_kind }}-{{ row.date_pk }}_bs" class="form-control nepali-bs-date" placeholder="YYYY-MM-DD" autocomplete="off">
+                <input type="time" id="ledger-date-{{ row.date_kind }}-{{ row.date_pk }}_time" class="form-control nepali-bs-time" style="max-width:7rem">
+            </div>
+        </div>
+        <div class="nepali-mode-ad d-none">
+            <input type="datetime-local" id="ledger-date-{{ row.date_kind }}-{{ row.date_pk }}_ad" class="form-control form-control-sm nepali-ad-datetime">
+        </div>
+        <small class="text-muted nepali-ad-hint d-block"></small>
+    </div>
+    <input type="hidden" name="transaction_date" id="ledger-date-{{ row.date_kind }}-{{ row.date_pk }}" value="{% if row.date %}{{ row.date|date:'Y-m-d' }}T{{ row.date|date:'H:i' }}{% endif %}">
+    <button type="submit" class="btn btn-outline-primary btn-sm mt-1 py-0 px-2">Save date</button>
+</form>
+{% else %}
+{% if row.date %}{{ row.date|date:"Y-m-d H:i" }}{% else %}—{% endif %}
+{% endif %}

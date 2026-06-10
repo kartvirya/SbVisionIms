@@ -66,6 +66,8 @@ def get_customer_ledger_rows(customer: Customer):
                 "credit": Decimal("0"),
                 "method": "",
                 "url": reverse("sale-detail", kwargs={"pk": sale.pk}),
+                "date_kind": "sale",
+                "date_pk": sale.pk,
             }
         )
 
@@ -100,6 +102,8 @@ def get_customer_ledger_rows(customer: Customer):
                 "credit": _d(payment.amount),
                 "method": payment.get_method_display(),
                 "url": reverse("sale-detail", kwargs={"pk": payment.sale_id}),
+                "date_kind": "customer_payment",
+                "date_pk": payment.pk,
             }
         )
 
@@ -152,6 +156,8 @@ def get_vendor_ledger_rows(vendor: Vendor):
                 "credit": _d(purchase.net_amount),
                 "method": "",
                 "url": reverse("purchase-detail", kwargs={"slug": purchase.slug}),
+                "date_kind": "purchase",
+                "date_pk": purchase.pk,
             }
         )
 
@@ -186,6 +192,8 @@ def get_vendor_ledger_rows(vendor: Vendor):
                 "credit": Decimal("0"),
                 "method": payment.get_method_display(),
                 "url": reverse("purchase-detail", kwargs={"slug": payment.purchase.slug}),
+                "date_kind": "vendor_payment",
+                "date_pk": payment.pk,
             }
         )
 

@@ -1,7 +1,7 @@
 <div class="card shadow-sm mb-4">
     <div class="card-header bg-light d-flex justify-content-between align-items-center">
         <strong>Recorded payments</strong>
-        <small class="text-muted">Edit amount, method, or remove a payment</small>
+        <small class="text-muted">Edit date, amount, method, or remove a payment</small>
     </div>
     <div class="table-responsive">
         <table class="table table-sm align-middle mb-0">
@@ -17,8 +17,15 @@
             </thead>
             <tbody>
                 {% for payment in payment_records %}
+                <form method="post" id="payment-form-{{ payment.id }}" class="d-none">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="update_payment">
+                    <input type="hidden" name="payment_id" value="{{ payment.id }}">
+                </form>
                 <tr>
-                    <td class="small">{% if party_type == 'customer' %}{{ payment.received_at|date:"Y-m-d H:i" }}{% else %}{{ payment.paid_at|date:"Y-m-d H:i" }}{% endif %}</td>
+                    <td style="min-width:14rem;">
+                        {% include "accounts/partials/payment_date_cell.html" %}
+                    </td>
                     <td>
                         {% if party_type == 'customer' %}
                         <a href="{% url 'sale-detail' payment.sale_id %}">#{{ payment.sale_id }}</a>
@@ -27,24 +34,19 @@
                         {% endif %}
                     </td>
                     <td class="text-end" style="max-width:110px;">
-                        <form method="post" class="d-flex gap-1 justify-content-end align-items-start">
-                            {% csrf_token %}
-                            <input type="hidden" name="action" value="update_payment">
-                            <input type="hidden" name="payment_id" value="{{ payment.id }}">
-                            <input type="number" name="amount" class="form-control form-control-sm" step="0.01" min="0.01" value="{{ payment.amount }}">
+                        <input type="number" name="amount" form="payment-form-{{ payment.id }}" class="form-control form-control-sm" step="0.01" min="0.01" value="{{ payment.amount }}">
                     </td>
                     <td style="max-width:120px;">
-                            <select name="method" class="form-select form-select-sm">
-                                <option value="cash" {% if payment.method == 'cash' %}selected{% endif %}>Cash</option>
-                                <option value="bank" {% if payment.method == 'bank' %}selected{% endif %}>Bank transfer</option>
-                            </select>
+                        <select name="method" form="payment-form-{{ payment.id }}" class="form-select form-select-sm">
+                            <option value="cash" {% if payment.method == 'cash' %}selected{% endif %}>Cash</option>
+                            <option value="bank" {% if payment.method == 'bank' %}selected{% endif %}>Bank transfer</option>
+                        </select>
                     </td>
                     <td style="max-width:160px;">
-                            <input type="text" name="notes" class="form-control form-control-sm" value="{{ payment.notes }}">
+                        <input type="text" name="notes" form="payment-form-{{ payment.id }}" class="form-control form-control-sm" value="{{ payment.notes }}">
                     </td>
                     <td class="text-nowrap">
-                            <button type="submit" class="btn btn-primary btn-sm">Save</button>
-                        </form>
+                        <button type="submit" form="payment-form-{{ payment.id }}" class="btn btn-primary btn-sm">Save</button>
                         <form method="post" class="d-inline" onsubmit="return confirm('Delete this payment?');">
                             {% csrf_token %}
                             <input type="hidden" name="action" value="delete_payment">

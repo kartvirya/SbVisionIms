@@ -2,6 +2,9 @@
     {% csrf_token %}
     <input type="hidden" name="action" value="account_transaction">
     <div class="mb-2">
+        {% include "store/partials/nepali_datetime_field.html" with field=form.transaction_date %}
+    </div>
+    <div class="mb-2">
         <label class="form-label small mb-1">{{ form.transaction_type.label }}</label>
         {{ form.transaction_type }}
     </div>
