@@ -182,8 +182,11 @@ class VendorForm(forms.ModelForm):
             'name': forms.TextInput(
                 attrs={'class': 'form-control', 'placeholder': 'Vendor Name'}
             ),
-            'phone_number': forms.NumberInput(
-                attrs={'class': 'form-control', 'placeholder': 'Phone Number'}
+            'phone_number': forms.TextInput(
+                attrs={
+                    'class': 'form-control',
+                    'placeholder': '+977 98XXXXXXXX or 01-XXXXXXX',
+                }
             ),
             'pan_number': forms.TextInput(
                 attrs={'class': 'form-control', 'placeholder': 'PAN / tax ID (optional)'}

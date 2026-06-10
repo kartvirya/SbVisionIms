@@ -143,7 +143,7 @@ def supplier_template_workbook():
     ws.append(
         [
             "ABC Traders",
-            "9811111111",
+            "01-4212345",
             "123456789",
             "601234567",
             "Kathmandu",
@@ -283,6 +283,23 @@ def _cell_str(value):
     if value is None:
         return ""
     return str(value).strip()
+
+
+def _phone_str(value):
+    """Preserve phone formatting (leading zeros, dashes) from Excel/CSV cells."""
+    if value is None:
+        return None
+    if isinstance(value, float) and value.is_integer():
+        raw = str(int(value))
+    elif isinstance(value, int):
+        raw = str(value)
+    else:
+        raw = _cell_str(value)
+    if not raw:
+        return None
+    if raw.endswith(".0") and raw[:-2].isdigit():
+        raw = raw[:-2]
+    return raw
 
 
 def _split_list_cell(value):
@@ -470,16 +487,8 @@ def import_supplier_rows(rows):
         if not name:
             errors.append(f"Row {i}: name is required.")
             continue
-        phone_raw = _cell_str(row.get("phone_number"))
-        phone_val = None
-        if phone_raw:
-            try:
-                phone_val = int(phone_raw.replace(" ", ""))
-            except ValueError:
-                errors.append(f"Row {i}: invalid phone_number.")
-                continue
         defaults = {
-            "phone_number": phone_val,
+            "phone_number": _phone_str(row.get("phone_number")),
             "address": _cell_str(row.get("address")) or None,
         }
         pan_number = _cell_str(row.get("pan_number"))

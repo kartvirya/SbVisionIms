@@ -598,16 +598,7 @@ def create_vendor_quick(request):
             {"status": "error", "message": "Supplier name is required."},
             status=400,
         )
-    phone_raw = (request.POST.get("phone_number") or "").strip()
-    phone_val = None
-    if phone_raw:
-        try:
-            phone_val = int(phone_raw.replace(" ", ""))
-        except ValueError:
-            return JsonResponse(
-                {"status": "error", "message": "Invalid phone number."},
-                status=400,
-            )
+    phone_val = (request.POST.get("phone_number") or "").strip() or None
     vendor = Vendor.objects.create(
         name=name,
         phone_number=phone_val,

@@ -100,8 +100,12 @@ class Vendor(models.Model):
         populate_from='name',
         verbose_name='Slug'
     )
-    phone_number = models.BigIntegerField(
-        blank=True, null=True, verbose_name='Phone Number'
+    phone_number = models.CharField(
+        max_length=30,
+        blank=True,
+        null=True,
+        verbose_name='Phone Number',
+        help_text='Enter phone number (e.g., +977 98XXXXXXXX or 01-XXXXXXX)',
     )
     pan_number = models.CharField(
         max_length=20,
