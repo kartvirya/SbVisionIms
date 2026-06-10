@@ -8,7 +8,7 @@ from django.utils import timezone
 
 from transactions.models import PAYMENT_METHOD_CHOICES, CustomerPayment, Purchase, Sale, VendorPayment
 
-from .models import Profile, Customer, Vendor, Logistics
+from .models import Profile, Customer, Vendor, Brand, Logistics
 
 
 def _d(value):
@@ -177,7 +177,7 @@ class VendorForm(forms.ModelForm):
 
     class Meta:
         model = Vendor
-        fields = ['name', 'phone_number', 'pan_number', 'address']
+        fields = ['name', 'phone_number', 'pan_number', 'vat_number', 'address']
         widgets = {
             'name': forms.TextInput(
                 attrs={'class': 'form-control', 'placeholder': 'Vendor Name'}
@@ -187,6 +187,9 @@ class VendorForm(forms.ModelForm):
             ),
             'pan_number': forms.TextInput(
                 attrs={'class': 'form-control', 'placeholder': 'PAN / tax ID (optional)'}
+            ),
+            'vat_number': forms.TextInput(
+                attrs={'class': 'form-control', 'placeholder': 'VAT registration no. (optional)'}
             ),
             'address': forms.TextInput(
                 attrs={'class': 'form-control', 'placeholder': 'Address'}
@@ -213,6 +216,26 @@ class VendorForm(forms.ModelForm):
         if commit:
             instance.save()
         return instance
+
+
+class VendorBrandForm(forms.ModelForm):
+    """Add a brand under a supplier."""
+
+    class Meta:
+        model = Brand
+        fields = ['name', 'notes']
+        labels = {
+            'name': 'Brand name',
+            'notes': 'Notes (optional)',
+        }
+        widgets = {
+            'name': forms.TextInput(
+                attrs={'class': 'form-control', 'placeholder': 'e.g. Samsung, Nike'}
+            ),
+            'notes': forms.TextInput(
+                attrs={'class': 'form-control', 'placeholder': 'Optional note'}
+            ),
+        }
 
 
 class LogisticsForm(forms.ModelForm):

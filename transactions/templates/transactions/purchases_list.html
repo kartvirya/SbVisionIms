@@ -86,6 +86,9 @@
                     <th scope="col">Bill</th>
                     <th scope="col">Supplier</th>
                     <th scope="col" class="text-start">Products</th>
+                    <th scope="col">Brand</th>
+                    <th scope="col">Category</th>
+                    <th scope="col">HS code</th>
                     <th scope="col" class="text-end">Net (Rs)</th>
                     <th scope="col">Payment</th>
                     <th scope="col">Receipt</th>
@@ -104,16 +107,59 @@
                         </a>
                         <div class="small text-muted">{{ purchase.order_date|date:"Y-m-d" }}</div>
                     </td>
-                    <td>{{ purchase.vendor.name }}</td>
+                    <td>
+                        {% if purchase.vendor_id %}
+                        <a href="{% url 'vendor-detail' purchase.vendor.pk %}" class="fw-semibold text-success text-decoration-none">
+                            {{ purchase.vendor.name }}
+                        </a>
+                        {% else %}
+                        <span class="text-muted">—</span>
+                        {% endif %}
+                    </td>
                     <td class="text-start small">
                         {% with lines=purchase.lines.all %}
                         {% if lines %}
-                            {{ lines.0.item.name }}{% if lines|length > 1 %} <span class="text-muted">+{{ lines|length|add:"-1" }} more</span>{% endif %}
+                            {% for line in lines %}
+                            <div>{{ line.item.name }} × {{ line.quantity }}</div>
+                            {% endfor %}
                         {% elif purchase.item %}
-                            {{ purchase.item.name }}
+                            <div>{{ purchase.item.name }} × {{ purchase.quantity }}</div>
                         {% else %}
                             —
                         {% endif %}
+                        {% endwith %}
+                    </td>
+                    <td class="small">
+                        {% with lines=purchase.lines.all %}
+                        {% if lines %}
+                            {% for line in lines %}
+                            <div>{{ line.item.brand.name|default:"—" }}</div>
+                            {% endfor %}
+                        {% elif purchase.item %}
+                            {{ purchase.item.brand.name|default:"—" }}
+                        {% else %}—{% endif %}
+                        {% endwith %}
+                    </td>
+                    <td class="small">
+                        {% with lines=purchase.lines.all %}
+                        {% if lines %}
+                            {% for line in lines %}
+                            <div>{{ line.item.category.name|default:"—" }}</div>
+                            {% endfor %}
+                        {% elif purchase.item %}
+                            {{ purchase.item.category.name|default:"—" }}
+                        {% else %}—{% endif %}
+                        {% endwith %}
+                    </td>
+                    <td class="small">
+                        {% with lines=purchase.lines.all %}
+                        {% if lines %}
+                            {% for line in lines %}
+                            <div>{{ line.item.hs_code|default:"—" }}</div>
+                            {% endfor %}
+                        {% elif purchase.item %}
+                            {{ purchase.item.hs_code|default:"—" }}
+                        {% else %}—{% endif %}
                         {% endwith %}
                     </td>
                     <td class="text-end fw-semibold">{{ purchase.net_amount }}</td>
@@ -145,7 +191,7 @@
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="8" class="text-center text-muted py-4">No purchases found.</td>
+                    <td colspan="11" class="text-center text-muted py-4">No purchases found.</td>
                 </tr>
                 {% endfor %}
             </tbody>

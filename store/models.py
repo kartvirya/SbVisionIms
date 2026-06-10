@@ -15,7 +15,7 @@ from django.db import models
 from django.urls import reverse
 from django.forms import model_to_dict
 from django_extensions.db.fields import AutoSlugField
-from accounts.models import Vendor, Logistics
+from accounts.models import Vendor, Brand, Logistics
 from imagekit.models import ProcessedImageField
 from imagekit.processors import ResizeToFill
 from django.utils import timezone
@@ -70,7 +70,27 @@ class Item(models.Model):
         help_text='Alert when stock falls below this quantity'
     )
     expiring_date = models.DateTimeField(null=True, blank=True)
-    vendor = models.ForeignKey(Vendor, on_delete=models.SET_NULL, null=True)
+    vendor = models.ForeignKey(
+        Vendor,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name='Supplier',
+    )
+    brand = models.ForeignKey(
+        Brand,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='items',
+        verbose_name='Brand',
+    )
+    hs_code = models.CharField(
+        max_length=20,
+        blank=True,
+        verbose_name='HS code',
+        help_text='Harmonized System / customs tariff code (optional).',
+    )
     image = ProcessedImageField(
         upload_to='products/',
         processors=[ResizeToFill(800, 800)],

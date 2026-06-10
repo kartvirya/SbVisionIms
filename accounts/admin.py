@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Profile, Vendor, Company, Logistics
+from .models import Profile, Vendor, Brand, Company, Logistics
 
 
 @admin.register(Profile)
@@ -8,12 +8,26 @@ class ProfileAdmin(admin.ModelAdmin):
     list_display = ('user', 'telephone', 'email', 'role', 'status')
 
 
+class BrandInline(admin.TabularInline):
+    model = Brand
+    extra = 1
+    fields = ('name', 'notes', 'is_active')
+
+
 @admin.register(Vendor)
 class VendorAdmin(admin.ModelAdmin):
     """Admin interface for the Vendor model."""
-    fields = ('name', 'phone_number', 'address')
-    list_display = ('name', 'phone_number', 'address')
-    search_fields = ('name', 'phone_number', 'address')
+    fields = ('name', 'phone_number', 'pan_number', 'vat_number', 'address')
+    list_display = ('name', 'phone_number', 'pan_number', 'vat_number', 'address')
+    search_fields = ('name', 'phone_number', 'pan_number', 'vat_number', 'address')
+    inlines = [BrandInline]
+
+
+@admin.register(Brand)
+class BrandAdmin(admin.ModelAdmin):
+    list_display = ('name', 'vendor', 'is_active', 'created_at')
+    list_filter = ('is_active', 'vendor')
+    search_fields = ('name', 'vendor__name')
 
 
 @admin.register(Logistics)

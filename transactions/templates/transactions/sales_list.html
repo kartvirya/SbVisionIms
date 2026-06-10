@@ -88,6 +88,9 @@
                 <th>Date</th>
                 <th>Customer</th>
                 <th>Products</th>
+                <th>Brand</th>
+                <th>Category</th>
+                <th>HS code</th>
                 <th>Grand Total</th>
                 <th>Payment</th>
                 <th>Paid</th>
@@ -104,11 +107,34 @@
                     data-preview-title="Sale #{{ sale.id }}">
                     <td class="text-muted">{{ sale.list_row_number }}</td>
                     <td>{{ sale.date_added|date:"Y-m-d H:i" }}</td>
-                    <td>{{ sale.customer.get_full_name|default:sale.customer.first_name }}</td>
+                    <td>
+                        {% if sale.customer_id %}
+                        <a href="{% url 'customer-detail' sale.customer.pk %}" class="fw-semibold text-success text-decoration-none">
+                            {{ sale.customer.get_full_name|default:sale.customer.first_name }}
+                        </a>
+                        {% else %}
+                        <span class="text-muted">—</span>
+                        {% endif %}
+                    </td>
                     <td class="text-start small">
                         {% for detail in sale.saledetail_set.all %}
                         <div>{{ detail.item.name }} × {{ detail.quantity }}</div>
                         {% empty %}<span class="text-muted">—</span>{% endfor %}
+                    </td>
+                    <td class="small">
+                        {% for detail in sale.saledetail_set.all %}
+                        <div>{{ detail.item.brand.name|default:"—" }}</div>
+                        {% empty %}—{% endfor %}
+                    </td>
+                    <td class="small">
+                        {% for detail in sale.saledetail_set.all %}
+                        <div>{{ detail.item.category.name|default:"—" }}</div>
+                        {% empty %}—{% endfor %}
+                    </td>
+                    <td class="small">
+                        {% for detail in sale.saledetail_set.all %}
+                        <div>{{ detail.item.hs_code|default:"—" }}</div>
+                        {% empty %}—{% endfor %}
                     </td>
                     <td><strong>Rs {{ sale.grand_total }}</strong></td>
                     <td>{% include "store/partials/payment_status_badge.html" with status=sale.payment_status %}</td>
@@ -140,7 +166,7 @@
                 {% endfor %}
             {% else %}
                 <tr>
-                    <td colspan="10" class="text-center py-4">
+                    <td colspan="13" class="text-center py-4">
                         <div class="alert alert-info" role="alert">
                             <i class="fa-solid fa-info-circle me-2"></i>
                             No sales found. <a href="{% url 'sale-create' %}" class="alert-link">Create your first sale</a> to get started.

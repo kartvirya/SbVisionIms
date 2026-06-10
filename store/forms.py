@@ -1,37 +1,47 @@
 from django import forms
 from django.forms import inlineformset_factory
 from .models import Item, Category, Delivery, ProductVariation, StockAdjustmentLog
-from accounts.models import Logistics
+from accounts.models import Brand, Logistics, Vendor
 
 
 class ItemForm(forms.ModelForm):
     """
     A form for creating or updating an Item in the inventory.
+    Flow: supplier → brand → category → product name.
     """
+
     class Meta:
         model = Item
         fields = [
+            'vendor',
+            'brand',
+            'category',
             'name',
+            'hs_code',
             'sku',
             'description',
-            'category',
             'quantity',
             'cost_price',
             'price',
             'low_stock_threshold',
             'expiring_date',
-            'vendor',
-            'image'
+            'image',
         ]
         widgets = {
-            'name': forms.TextInput(attrs={'class': 'form-control'}),
+            'vendor': forms.Select(attrs={'class': 'form-control', 'id': 'id_vendor'}),
+            'brand': forms.Select(attrs={'class': 'form-control', 'id': 'id_brand'}),
+            'category': forms.Select(attrs={'class': 'form-control'}),
+            'name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Product name'}),
+            'sku': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Optional SKU'}),
+            'hs_code': forms.TextInput(
+                attrs={'class': 'form-control', 'placeholder': 'e.g. 8471.30'}
+            ),
             'description': forms.Textarea(
                 attrs={
                     'class': 'form-control',
                     'rows': 2
                 }
             ),
-            'category': forms.Select(attrs={'class': 'form-control'}),
             'quantity': forms.NumberInput(attrs={
                 'class': 'form-control',
                 'min': '0',
@@ -61,19 +71,49 @@ class ItemForm(forms.ModelForm):
                     'type': 'datetime-local'
                 }
             ),
-            'vendor': forms.Select(attrs={'class': 'form-control'}),
             'image': forms.FileInput(attrs={
                 'class': 'form-control',
                 'accept': 'image/*'
             }),
         }
         labels = {
+            'vendor': 'Supplier',
+            'brand': 'Brand',
             'image': 'Product Image',
             'cost_price': 'Cost Price (Rs)',
             'price': 'Selling Price (Rs)',
             'low_stock_threshold': 'Low Stock Alert Threshold',
             'quantity': 'Total stock (base + all variant quantities)',
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['vendor'].queryset = Vendor.objects.order_by('name')
+        self.fields['vendor'].required = True
+        self.fields['brand'].required = True
+        self.fields['category'].required = True
+        self.fields['brand'].queryset = Brand.objects.none()
+
+        vendor_id = None
+        if self.instance.pk and self.instance.vendor_id:
+            vendor_id = self.instance.vendor_id
+        if self.data.get(self.add_prefix('vendor')):
+            vendor_id = self.data.get(self.add_prefix('vendor'))
+        if vendor_id:
+            self.fields['brand'].queryset = Brand.objects.filter(
+                vendor_id=vendor_id,
+                is_active=True,
+            ).order_by('name')
+
+    def clean(self):
+        cleaned = super().clean()
+        vendor = cleaned.get('vendor')
+        brand = cleaned.get('brand')
+        if vendor and brand and brand.vendor_id != vendor.id:
+            self.add_error('brand', 'This brand does not belong to the selected supplier.')
+        if vendor and not brand:
+            self.add_error('brand', 'Select a brand for this supplier.')
+        return cleaned
 
 
 class ProductVariationForm(forms.ModelForm):

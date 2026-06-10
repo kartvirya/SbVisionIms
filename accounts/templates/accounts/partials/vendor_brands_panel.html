@@ -1,0 +1,154 @@
+<div class="vendor-brands-panel{% if compact %} vendor-brands-panel--compact{% endif %}{% if split_layout %} vendor-brands-panel--split{% endif %}{% if inline_row %} vendor-brands-panel--inline{% endif %}">
+    {% if not inline_row %}
+    <div class="vendor-brands-panel__header">
+        <div class="vendor-brands-panel__header-title">
+            <i class="fa-solid fa-tags"></i>
+            <span>Brands</span>
+            <span class="vendor-brands-panel__count">{{ vendor.brands.all|length }}</span>
+        </div>
+        {% if not compact %}
+        <span class="text-muted small">Products can be linked to these brands</span>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <div class="vendor-brands-panel__body">
+        <div class="vendor-brands-panel__form">
+            {% if not inline_row %}
+            <div class="vendor-brands-panel__form-label mb-2">
+                <i class="fa-solid fa-circle-plus me-1"></i> Add new brand
+            </div>
+            {% endif %}
+            <form method="post">
+                {% csrf_token %}
+                {% if include_vendor_id %}
+                <input type="hidden" name="vendor_id" value="{{ vendor.pk }}">
+                {% if list_page %}<input type="hidden" name="page" value="{{ list_page }}">{% endif %}
+                {% endif %}
+                <input type="hidden" name="action" value="add_brand">
+                {% if inline_row %}
+                <div class="row g-2 align-items-end">
+                    <div class="col-md-4 col-lg-3">
+                        <label class="vendor-brands-panel__form-label" for="brand-name-{{ vendor.pk }}">Brand name</label>
+                        <div class="vendor-brands-panel__input-wrap">
+                            <i class="fa-solid fa-tag"></i>
+                            <input type="text" id="brand-name-{{ vendor.pk }}" name="name" class="form-control" placeholder="Brand name" required maxlength="100" autocomplete="off">
+                        </div>
+                    </div>
+                    <div class="col-md-4 col-lg-3">
+                        <label class="vendor-brands-panel__form-label" for="brand-notes-{{ vendor.pk }}">Notes</label>
+                        <div class="vendor-brands-panel__input-wrap">
+                            <i class="fa-solid fa-note-sticky"></i>
+                            <input type="text" id="brand-notes-{{ vendor.pk }}" name="notes" class="form-control" placeholder="Optional" maxlength="255" autocomplete="off">
+                        </div>
+                    </div>
+                    <div class="col-md-4 col-lg-2">
+                        <button type="submit" class="btn btn-success vendor-brands-panel__submit w-100">
+                            <i class="fa-solid fa-plus me-1"></i> Add
+                        </button>
+                    </div>
+                </div>
+                {% else %}
+                <div class="row g-2 align-items-end">
+                    <div class="col-12{% if split_layout %} col-lg-12{% else %} col-sm-6{% endif %}">
+                        <label class="vendor-brands-panel__form-label" for="brand-name-{{ vendor.pk }}">Brand name</label>
+                        <div class="vendor-brands-panel__input-wrap">
+                            <i class="fa-solid fa-tag"></i>
+                            <input type="text" id="brand-name-{{ vendor.pk }}" name="name" class="form-control" placeholder="e.g. Samsung, Nike" required maxlength="100" autocomplete="off">
+                        </div>
+                    </div>
+                    <div class="col-12{% if split_layout %} col-lg-12{% else %} col-sm-6{% endif %}">
+                        <label class="vendor-brands-panel__form-label" for="brand-notes-{{ vendor.pk }}">Notes</label>
+                        <div class="vendor-brands-panel__input-wrap">
+                            <i class="fa-solid fa-note-sticky"></i>
+                            <input type="text" id="brand-notes-{{ vendor.pk }}" name="notes" class="form-control" placeholder="Optional" maxlength="255" autocomplete="off">
+                        </div>
+                    </div>
+                    <div class="col-12">
+                        <button type="submit" class="btn btn-success vendor-brands-panel__submit w-100">
+                            <i class="fa-solid fa-plus me-1"></i> Add brand
+                        </button>
+                    </div>
+                </div>
+                {% endif %}
+            </form>
+        </div>
+
+        <div class="{% if inline_row %}mt-3{% endif %}">
+            {% if not inline_row %}
+            <div class="vendor-brands-panel__list-title">
+                <i class="fa-solid fa-list me-1"></i> Current brands
+            </div>
+            {% endif %}
+            {% if vendor.brands.all %}
+            {% if inline_row %}
+            <div class="table-responsive">
+                <table class="table table-sm table-bordered vendor-brands-table mb-0 bg-white">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width:2.5rem;">#</th>
+                            <th>Brand</th>
+                            <th>Notes</th>
+                            <th class="text-center" style="width:5rem;">Remove</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for brand in vendor.brands.all %}
+                        <tr>
+                            <td class="text-muted">{{ forloop.counter }}</td>
+                            <td class="fw-semibold">{{ brand.name }}</td>
+                            <td class="text-muted small">{{ brand.notes|default:"—" }}</td>
+                            <td class="text-center">
+                                <form method="post" class="d-inline" onsubmit="return confirm('Remove brand “{{ brand.name }}”?');">
+                                    {% csrf_token %}
+                                    {% if include_vendor_id %}
+                                    <input type="hidden" name="vendor_id" value="{{ vendor.pk }}">
+                                    {% if list_page %}<input type="hidden" name="page" value="{{ list_page }}">{% endif %}
+                                    {% endif %}
+                                    <input type="hidden" name="action" value="delete_brand">
+                                    <input type="hidden" name="brand_id" value="{{ brand.pk }}">
+                                    <button type="submit" class="btn btn-outline-danger btn-sm py-0 px-2" title="Remove">
+                                        <i class="fa-solid fa-trash-can"></i>
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="vendor-brands-panel__list">
+                {% for brand in vendor.brands.all %}
+                <div class="vendor-brand-item">
+                    <div class="min-w-0">
+                        <div class="vendor-brand-item__name">{{ brand.name }}</div>
+                        {% if brand.notes %}
+                        <div class="vendor-brand-item__notes">{{ brand.notes }}</div>
+                        {% endif %}
+                    </div>
+                    <form method="post" onsubmit="return confirm('Remove brand “{{ brand.name }}”?');">
+                        {% csrf_token %}
+                        {% if include_vendor_id %}
+                        <input type="hidden" name="vendor_id" value="{{ vendor.pk }}">
+                        {% if list_page %}<input type="hidden" name="page" value="{{ list_page }}">{% endif %}
+                        {% endif %}
+                        <input type="hidden" name="action" value="delete_brand">
+                        <input type="hidden" name="brand_id" value="{{ brand.pk }}">
+                        <button type="submit" class="vendor-brand-item__remove" title="Remove {{ brand.name }}">
+                            <i class="fa-solid fa-trash-can"></i>
+                        </button>
+                    </form>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+            {% else %}
+            <div class="vendor-brands-empty">
+                <i class="fa-solid fa-tags"></i>
+                <p>No brands yet — add one using the form above.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>

@@ -5,13 +5,16 @@
 <style>
     .sidebar {
         width: 250px;
+        height: 100vh;
         background: linear-gradient(180deg, #2d3748 0%, #1a202c 100%);
         color: #fff;
         position: fixed;
         top: 0;
         bottom: 0;
+        left: 0;
         display: flex;
         flex-direction: column;
+        overflow: hidden;
         box-shadow: 2px 0 10px rgba(0,0,0,0.1);
         transition: width 0.3s ease;
         z-index: 1000;
@@ -84,10 +87,11 @@
     }
 
     .nav-container {
-        flex: 1;
+        flex: 1 1 auto;
+        min-height: 0;
         overflow-y: auto;
         overflow-x: hidden;
-        padding: 10px 8px;
+        padding: 10px 8px 12px;
     }
 
     .nav-link {
@@ -162,9 +166,10 @@
     }
 
     .sidebar-footer {
+        flex-shrink: 0;
         background-color: #212529;
         text-align: center;
-        padding: 15px 10px;
+        padding: 12px 10px;
         border-top: 1px solid rgba(255,255,255,0.1);
     }
 
@@ -183,7 +188,7 @@
         cursor: pointer;
     }
 </style>
-<aside class="sidebar position-fixed top-0 left-0 overflow-auto h-100 bg-dark text-light" id="show-side-navigation1">
+<aside class="sidebar bg-dark text-light" id="show-side-navigation1">
     <!-- Close Button -->
     <button class="btn btn-dark d-md-none d-lg-none position-absolute top-0 end-0 mt-2 me-2 rounded-circle" data-close="show-side-navigation1" aria-label="Close">
         <i class="fa fa-times text-white"></i>
@@ -320,7 +325,7 @@
     </div>
 
     <!-- Sidebar Footer -->
-    <div class="sidebar-footer position-absolute bottom-0 w-100 text-center py-3 bg-dark border-top border-secondary">
+    <div class="sidebar-footer w-100 text-center bg-dark border-top border-secondary">
         <form method="post" action="{% url 'user-logout' %}">
             {% csrf_token %}
             <button type="submit" class="btn btn-danger btn-sm w-75" data-bs-toggle="tooltip" data-bs-placement="right" title="Logout">

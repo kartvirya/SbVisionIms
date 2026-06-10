@@ -110,6 +110,13 @@ class Vendor(models.Model):
         verbose_name='PAN number',
         help_text='PAN / tax ID (optional)',
     )
+    vat_number = models.CharField(
+        max_length=20,
+        blank=True,
+        null=True,
+        verbose_name='VAT number',
+        help_text='VAT registration number (optional)',
+    )
     address = models.CharField(
         max_length=50, blank=True, null=True, verbose_name='Address'
     )
@@ -137,6 +144,40 @@ class Vendor(models.Model):
         """Meta options for the Vendor model."""
         verbose_name = 'Vendor'
         verbose_name_plural = 'Vendors'
+
+
+class Brand(models.Model):
+    """A product brand carried by a supplier (one supplier can have many brands)."""
+
+    vendor = models.ForeignKey(
+        Vendor,
+        on_delete=models.CASCADE,
+        related_name='brands',
+        verbose_name='Supplier',
+    )
+    name = models.CharField(max_length=100, verbose_name='Brand name')
+    notes = models.CharField(
+        max_length=255,
+        blank=True,
+        verbose_name='Notes',
+        help_text='Optional note about this brand.',
+    )
+    is_active = models.BooleanField(default=True, verbose_name='Active')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Brand'
+        verbose_name_plural = 'Brands'
+        ordering = ['name']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['vendor', 'name'],
+                name='unique_brand_per_vendor',
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.name} ({self.vendor.name})"
 
 
 class Customer(models.Model):

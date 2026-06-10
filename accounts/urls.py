@@ -21,6 +21,7 @@ from .views import (
     get_customers,
     create_customer_quick,
     create_vendor_quick,
+    vendor_brands_json,
     VendorListView,
     VendorDetailView,
     VendorCreateView,
@@ -66,6 +67,7 @@ urlpatterns = [
 
     # Vendor URLs
     path('vendors/quick-create/', create_vendor_quick, name='vendor-quick-create'),
+    path('vendors/<int:pk>/brands/', vendor_brands_json, name='vendor-brands-json'),
     path('vendors/', VendorListView.as_view(), name='vendor-list'),
     path('vendors/<int:pk>/', VendorDetailView.as_view(), name='vendor-detail'),
     path('vendors/new/', VendorCreateView.as_view(), name='vendor-create'),

@@ -1,67 +1,138 @@
 {% extends 'store/base.html' %}
 {% load static %}
 
+{% block stylesheets %}
+<link rel="stylesheet" href="{% static 'css/vendor_brands.css' %}">
+<style>
+    .vendor-table th, .vendor-table td { vertical-align: middle; }
+    .vendor-name-cell { text-align: left; min-width: 13rem; }
+    .vendor-table thead th { background: #f8f9fa; font-size: 0.85rem; }
+    .vendor-row--expanded > td { background: rgba(135, 206, 235, 0.08); }
+    .vendor-brands-expand-btn { cursor: pointer; user-select: none; }
+    .vendor-brands-expand-btn .fa-chevron-right { transition: transform 0.2s ease; }
+    .vendor-brands-expand-btn[aria-expanded="true"] .fa-chevron-right { transform: rotate(90deg); }
+</style>
+{% endblock stylesheets %}
+
 {% block content %}
-<!-- Header Section -->
 <div class="container my-4">
     <div class="card shadow-sm rounded p-3">
         <div class="row align-items-center">
             <div class="col-md-6">
                 <h4 class="display-6 mb-0 text-success">Suppliers</h4>
+                <small class="text-muted">Click a supplier row to expand and manage brands</small>
             </div>
-            <div class="col-md-6 d-flex justify-content-end gap-2">
+            <div class="col-md-6 d-flex justify-content-end gap-2 flex-wrap">
                 <a class="btn btn-outline-primary btn-sm rounded-pill shadow-sm" href="{% url 'import-data' kind='suppliers' %}">
                     <i class="fa-solid fa-file-import"></i> Import Excel
                 </a>
                 <a class="btn btn-success btn-sm rounded-pill shadow-sm" href="{% url 'vendor-create' %}">
-                    <i class="fa-solid fa-plus"></i> Add Vendor
+                    <i class="fa-solid fa-plus"></i> Add Supplier
                 </a>
             </div>
         </div>
     </div>
 </div>
 
-<div class="container px-3">
-    <style>
-        .table th, .table td {
-            text-align: center;
-        }
-    </style>
-    <table class="table table-bordered table-striped">
-        <thead class="thead-light">
-            <tr>
-                <th>Name</th>
-                <th>Phone Number</th>
-                <th>PAN</th>
-                <th>Address</th>
-                <th>Opening bal. (Rs)</th>
-                <th>Actions</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for vendor in vendors %}
-            <tr>
-                <td>{{ vendor.name }}</td>
-                <td>{{ vendor.phone_number }}</td>
-                <td>{{ vendor.pan_number|default:"—" }}</td>
-                <td>{{ vendor.address }}</td>
-                <td>
-                    {% if vendor.opening_balance != 0 %}{{ vendor.opening_balance }}{% else %}<span class="text-muted">—</span>{% endif %}
-                </td>
-                <td>
-                    {% url 'vendor-detail' vendor.pk as vendor_view_url %}
-                    {% url 'vendor-update' vendor.pk as vendor_edit_url %}
-                    {% url 'vendor-delete' vendor.pk as vendor_delete_url %}
-                    {% include "store/partials/actions_dropdown.html" with view_url=vendor_view_url edit_url=vendor_edit_url delete_url=vendor_delete_url %}
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+<div class="container px-3 pb-4">
+    <div class="card shadow-sm border-0">
+        <div class="table-responsive">
+            <table class="table table-hover vendor-table mb-0">
+                <thead>
+                    <tr>
+                        <th style="width:2.5rem;"></th>
+                        <th>Supplier</th>
+                        <th class="text-center">Phone</th>
+                        <th class="text-center">PAN</th>
+                        <th class="text-center">VAT no.</th>
+                        <th class="text-center">Address</th>
+                        <th class="text-end">Opening bal.</th>
+                        <th class="text-center" style="width:7rem;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for vendor in vendors %}
+                    <tr class="vendor-row{% if expand_vendor_id == vendor.pk|stringformat:'s' %} vendor-row--expanded{% endif %}" data-vendor-row="{{ vendor.pk }}">
+                        <td class="text-center pe-0">
+                            <button
+                                type="button"
+                                class="btn btn-sm btn-link text-secondary vendor-brands-expand-btn p-0"
+                                data-bs-toggle="collapse"
+                                data-bs-target="#vendor-brands-{{ vendor.pk }}"
+                                data-vendor-expand="{{ vendor.pk }}"
+                                aria-expanded="{% if expand_vendor_id == vendor.pk|stringformat:'s' %}true{% else %}false{% endif %}"
+                                aria-controls="vendor-brands-{{ vendor.pk }}"
+                                title="Show brands"
+                            >
+                                <i class="fa-solid fa-chevron-right"></i>
+                            </button>
+                        </td>
+                        <td class="vendor-name-cell">
+                            <a href="{% url 'vendor-detail' vendor.pk %}" class="fw-semibold text-success text-decoration-none">
+                                {{ vendor.name }}
+                            </a>
+                            <div class="small text-muted mt-1">
+                                <i class="fa-solid fa-tags"></i>
+                                {{ vendor.brands.all|length }} brand{{ vendor.brands.all|length|pluralize }}
+                                {% if vendor.brands.all %}
+                                —
+                                {% for brand in vendor.brands.all|slice:":4" %}
+                                <span class="vendor-brand-chip">{{ brand.name }}</span>
+                                {% endfor %}
+                                {% if vendor.brands.all|length > 4 %}
+                                <span class="vendor-brand-chip">+{{ vendor.brands.all|length|add:"-4" }}</span>
+                                {% endif %}
+                                {% endif %}
+                            </div>
+                        </td>
+                        <td class="text-center text-muted small">{{ vendor.phone_number|default:"—" }}</td>
+                        <td class="text-center small">{{ vendor.pan_number|default:"—" }}</td>
+                        <td class="text-center small">{{ vendor.vat_number|default:"—" }}</td>
+                        <td class="text-center small">{{ vendor.address|default:"—" }}</td>
+                        <td class="text-end">
+                            {% if vendor.opening_balance != 0 %}
+                            <span class="fw-semibold">Rs {{ vendor.opening_balance }}</span>
+                            {% else %}
+                            <span class="text-muted">—</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-center">
+                            {% url 'vendor-detail' vendor.pk as vendor_view_url %}
+                            {% url 'vendor-update' vendor.pk as vendor_edit_url %}
+                            {% url 'vendor-delete' vendor.pk as vendor_delete_url %}
+                            {% include "store/partials/actions_dropdown.html" with view_url=vendor_view_url edit_url=vendor_edit_url delete_url=vendor_delete_url %}
+                        </td>
+                    </tr>
+                    <tr class="vendor-brands-row">
+                        <td colspan="8" class="p-0 border-0">
+                            <div
+                                class="collapse vendor-brands-inline{% if expand_vendor_id == vendor.pk|stringformat:'s' %} show{% endif %}"
+                                id="vendor-brands-{{ vendor.pk }}"
+                                data-vendor-panel="{{ vendor.pk }}"
+                            >
+                                <div class="vendor-brands-inline-panel">
+                                    {% include "accounts/partials/vendor_brands_panel.html" with vendor=vendor include_vendor_id=True inline_row=True list_page=page_obj.number %}
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="8" class="text-center text-muted py-5">
+                            <i class="fa-solid fa-truck-field fa-2x mb-2 d-block opacity-50"></i>
+                            No suppliers yet.
+                            <a href="{% url 'vendor-create' %}" class="d-block mt-1">Add your first supplier</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
 
     {% if is_paginated %}
-    <nav aria-label="Supplier pages">
-        <ul class="pagination justify-content-center pagination-sm">
+    <nav aria-label="Supplier pages" class="mt-3">
+        <ul class="pagination justify-content-center pagination-sm mb-0">
             {% if page_obj.has_previous %}
             <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}">&laquo;</a></li>
             {% endif %}
@@ -72,6 +143,44 @@
         </ul>
     </nav>
     {% endif %}
-
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('.vendor-brands-inline').forEach(function (panel) {
+        panel.addEventListener('show.bs.collapse', function () {
+            var pk = panel.getAttribute('data-vendor-panel');
+            var row = document.querySelector('[data-vendor-row="' + pk + '"]');
+            if (row) row.classList.add('vendor-row--expanded');
+        });
+        panel.addEventListener('hide.bs.collapse', function () {
+            var pk = panel.getAttribute('data-vendor-panel');
+            var row = document.querySelector('[data-vendor-row="' + pk + '"]');
+            if (row) row.classList.remove('vendor-row--expanded');
+        });
+    });
+
+    var expandId = '{{ expand_vendor_id|default:"" }}';
+    if (expandId) {
+        var panel = document.getElementById('vendor-brands-' + expandId);
+        if (panel) {
+            panel.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        }
+    }
+
+    document.querySelectorAll('.vendor-row').forEach(function (row) {
+        row.style.cursor = 'pointer';
+        row.addEventListener('click', function (e) {
+            if (e.target.closest('a, button, .dropdown, .dropdown-menu, .no-preview')) {
+                return;
+            }
+            var pk = row.getAttribute('data-vendor-row');
+            var toggle = row.querySelector('[data-bs-target="#vendor-brands-' + pk + '"]');
+            if (toggle) {
+                toggle.click();
+            }
+        });
+    });
+});
+</script>
 {% endblock %}

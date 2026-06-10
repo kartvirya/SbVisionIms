@@ -39,7 +39,7 @@ from .contact_ledger import (
 from .forms import (
     CreateUserForm, UserUpdateForm,
     ProfileUpdateForm, CustomerForm,
-    VendorForm, LogisticsForm,
+    VendorForm, VendorBrandForm, LogisticsForm,
     SignedOpeningBalanceForm,
     CustomerPaymentForm,
     VendorPaymentForm,
@@ -51,6 +51,7 @@ from .forms import (
 )
 from .tables import ProfileTable
 from store.list_display import NormalizePageMixin, annotate_list_row_numbers
+from .vendor_brands import handle_vendor_brand_action
 
 
 def register(request):
@@ -316,6 +317,8 @@ def _vendor_detail_context(vendor):
         "payment_records": VendorPayment.objects.filter(
             purchase__vendor=vendor
         ).select_related("purchase").order_by("-paid_at", "-id"),
+        "brands": vendor.brands.order_by("name"),
+        "brand_form": VendorBrandForm(),
     }
 
 
@@ -573,6 +576,18 @@ def create_customer_quick(request):
     )
 
 
+@login_required
+def vendor_brands_json(request, pk):
+    """JSON list of brands for a supplier (product form cascade)."""
+    from .models import Brand
+
+    brands = Brand.objects.filter(vendor_id=pk, is_active=True).order_by("name")
+    return JsonResponse(
+        [{"id": b.id, "name": b.name} for b in brands],
+        safe=False,
+    )
+
+
 @require_POST
 @login_required
 def create_vendor_quick(request):
@@ -615,9 +630,33 @@ class VendorListView(NormalizePageMixin, LoginRequiredMixin, ListView):
     context_object_name = 'vendors'
     paginate_by = 10
 
+    def get_queryset(self):
+        return Vendor.objects.prefetch_related("brands").order_by("name")
+
+    def post(self, request, *args, **kwargs):
+        from django.contrib import messages
+        from django.shortcuts import get_object_or_404
+
+        vendor_id = request.POST.get("vendor_id")
+        if not vendor_id:
+            messages.error(request, "Supplier not specified.")
+            return redirect("vendor-list")
+        vendor = get_object_or_404(Vendor, pk=vendor_id)
+        if handle_vendor_brand_action(request, vendor):
+            url = reverse("vendor-list")
+            page = request.POST.get("page")
+            if page:
+                url = f"{url}?page={page}&expand={vendor.pk}"
+            else:
+                url = f"{url}?expand={vendor.pk}"
+            return redirect(url)
+        messages.error(request, "Unknown action.")
+        return redirect("vendor-list")
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         annotate_list_row_numbers(context.get("vendors") or [], context.get("page_obj"))
+        context["expand_vendor_id"] = self.request.GET.get("expand")
         return context
 
 
@@ -761,6 +800,9 @@ class VendorDetailView(LoginRequiredMixin, View):
             else:
                 messages.error(request, "Payment not found.")
             return redirect("vendor-detail", pk=vendor.pk)
+        elif action in ("add_brand", "delete_brand"):
+            handle_vendor_brand_action(request, vendor)
+            return redirect("vendor-detail", pk=vendor.pk)
         else:
             messages.error(request, "Unknown action.")
             return redirect("vendor-detail", pk=vendor.pk)
@@ -770,6 +812,8 @@ class VendorDetailView(LoginRequiredMixin, View):
             ctx["opening_form"] = form
         elif action == "payables_adjustment":
             ctx["payables_form"] = form
+        elif action == "add_brand":
+            ctx["brand_form"] = form
         elif action == "receivables_adjustment":
             ctx["receivables_form"] = form
         elif action == "account_transaction":

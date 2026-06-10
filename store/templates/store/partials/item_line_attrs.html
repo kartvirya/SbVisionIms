@@ -1,0 +1,8 @@
+{% comment %}Brand, category, HS code for a product line in purchase/sales books.{% endcomment %}
+{% if item %}
+<div class="text-muted" style="font-size: 0.8rem;">
+    {{ item.brand.name|default:"—" }}
+    · {{ item.category.name|default:"—" }}
+    · HS: {{ item.hs_code|default:"—" }}
+</div>
+{% endif %}

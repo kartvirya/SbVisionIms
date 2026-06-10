@@ -126,28 +126,44 @@ def export_purchases_to_excel(request):
 
     # Define the column headers
     columns = [
-        'ID', 'Bill Number', 'Item', 'Description', 'Vendor', 'Order Date',
-        'Receipt Date', 'Quantity', 'Receipt Status',
-        'Price per item (Rs)', 'Sub Total', 'Discount',
-        'VAT %', 'VAT Amount', 'Net Amount', 'Amount Paid', 'Amount Remaining'
+        'ID', 'Bill Number', 'Item', 'Brand', 'Category', 'HS code',
+        'Description', 'Vendor', 'Order Date', 'Receipt Date', 'Quantity',
+        'Receipt Status', 'Price per item (Rs)', 'Sub Total', 'Discount',
+        'VAT %', 'VAT Amount', 'Net Amount', 'Amount Paid', 'Amount Remaining',
     ]
     worksheet.append(columns)
 
     # Fetch purchases data
     purchases = Purchase.objects.all()
 
-    for purchase in purchases.prefetch_related("lines__item"):
+    for purchase in purchases.prefetch_related(
+        "lines__item__brand", "lines__item__category", "item__brand", "item__category"
+    ):
         names = []
+        brands = []
+        categories = []
+        hs_codes = []
         qty_sum = 0
         lines = purchase.lines.all()
         if lines:
             for line in lines:
-                names.append(line.item.name)
+                item = line.item
+                names.append(item.name)
+                brands.append(item.brand.name if item.brand_id else "")
+                categories.append(item.category.name if item.category_id else "")
+                hs_codes.append(item.hs_code or "")
                 qty_sum += line.quantity
         elif purchase.item_id:
-            names.append(purchase.item.name)
+            item = purchase.item
+            names.append(item.name)
+            brands.append(item.brand.name if item.brand_id else "")
+            categories.append(item.category.name if item.category_id else "")
+            hs_codes.append(item.hs_code or "")
             qty_sum = purchase.quantity
         summary = "; ".join(names)
+        brand_summary = "; ".join(brands)
+        category_summary = "; ".join(categories)
+        hs_summary = "; ".join(hs_codes)
         # Convert timezone-aware datetime to naive datetime, handling null receipt date.
         receipt_date = purchase.receipt_date
         order_date = purchase.order_date
@@ -159,6 +175,9 @@ def export_purchases_to_excel(request):
             purchase.id,
             purchase.display_bill_number,
             summary,
+            brand_summary,
+            category_summary,
+            hs_summary,
             purchase.description,
             purchase.vendor.name,
             order_date,
@@ -204,7 +223,8 @@ class SaleListView(NormalizePageMixin, LoginRequiredMixin, ListView):
             .get_queryset()
             .select_related("customer")
             .prefetch_related(
-                "saledetail_set__item",
+                "saledetail_set__item__brand",
+                "saledetail_set__item__category",
                 "saledetail_set__variation",
                 "returns__lines",
             )
@@ -602,9 +622,11 @@ class PurchaseListView(NormalizePageMixin, LoginRequiredMixin, ListView):
             .get_queryset()
             .select_related("vendor")
             .prefetch_related(
-                "lines__item",
+                "lines__item__brand",
+                "lines__item__category",
                 "lines__item__variations",
-                "item",
+                "item__brand",
+                "item__category",
                 "item__variations",
             )
             .distinct()

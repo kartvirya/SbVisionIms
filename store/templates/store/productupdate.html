@@ -37,22 +37,7 @@
                     </h1>
                     <form method="POST" enctype="multipart/form-data">
                         {% csrf_token %}
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label for="{{ form.name.id_for_label }}" class="form-label">
-                                    Product Name
-                                </label>
-                                {{ form.name }}
-                                <div class="text-danger">{{ form.name.errors }}</div>
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label for="{{ form.category.id_for_label }}" class="form-label">
-                                    Category
-                                </label>
-                                {{ form.category }}
-                                <div class="text-danger">{{ form.category.errors }}</div>
-                            </div>
-                        </div>
+                        {% include "store/partials/product_fields_primary.html" %}
                         <div class="row">
                             <div class="col mb-3">
                                 <label for="{{ form.description.id_for_label }}" class="form-label">
@@ -104,11 +89,9 @@
                                 <div class="text-danger">{{ form.expiring_date.errors }}</div>
                             </div>
                             <div class="col-md-4 mb-3">
-                                <label for="{{ form.vendor.id_for_label }}" class="form-label">
-                                    Vendor
-                                </label>
-                                {{ form.vendor }}
-                                <div class="text-danger">{{ form.vendor.errors }}</div>
+                                <label for="{{ form.sku.id_for_label }}" class="form-label">SKU</label>
+                                {{ form.sku }}
+                                <div class="text-danger">{{ form.sku.errors }}</div>
                             </div>
                         </div>
                         <div class="row">
@@ -207,8 +190,18 @@
         </div>
     </div>
 </div>
+{% endblock content %}
 
 {% block extra_js %}
+<script>
+  (function () {
+    var v = document.getElementById("id_vendor");
+    if (v) {
+      v.setAttribute("data-brands-url", "{% url 'vendor-brands-json' pk=0 %}");
+    }
+  })();
+</script>
+<script src="{% static 'js/product_form.js' %}"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const formset = document.getElementById('variation-formset');
@@ -310,4 +303,3 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 {% endblock extra_js %}
-{% endblock content %}

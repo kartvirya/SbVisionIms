@@ -6,7 +6,7 @@ from decimal import Decimal, InvalidOperation
 
 from openpyxl import Workbook, load_workbook
 
-from accounts.models import Customer, Logistics, Vendor
+from accounts.models import Brand, Customer, Logistics, Vendor
 from bills.models import Bill
 from invoice.models import Invoice
 from store.models import Category, Delivery, Item
@@ -15,14 +15,16 @@ from transactions.services import reconcile_ledger_stock_to_target, sync_item_qu
 
 
 INVENTORY_HEADERS = [
+    "vendor",
+    "brand",
+    "category",
     "name",
+    "hs_code",
     "sku",
     "description",
-    "category",
     "quantity",
     "cost_price",
     "price",
-    "vendor",
     "low_stock_threshold",
 ]
 
@@ -359,17 +361,27 @@ def import_inventory_rows(rows):
         cat_name = _cell_str(row.get("category")) or "General"
         category, _ = Category.objects.get_or_create(name=cat_name)
         vendor = None
+        brand = None
         vendor_name = _cell_str(row.get("vendor"))
         if vendor_name:
             vendor, _ = Vendor.objects.get_or_create(name=vendor_name)
+            brand_name = _cell_str(row.get("brand"))
+            if brand_name:
+                brand, _ = Brand.objects.get_or_create(
+                    vendor=vendor,
+                    name=brand_name,
+                )
         target_qty = int(_parse_decimal(row.get("quantity"), 0))
         sku = _cell_str(row.get("sku"))
+        hs_code = _cell_str(row.get("hs_code"))
         defaults = {
             "description": _cell_str(row.get("description")) or name,
             "category": category,
             "cost_price": float(_parse_decimal(row.get("cost_price"), 0)),
             "price": float(_parse_decimal(row.get("price"), 0)),
             "vendor": vendor,
+            "brand": brand,
+            "hs_code": hs_code,
             "low_stock_threshold": int(_parse_decimal(row.get("low_stock_threshold"), 10)),
             "quantity": 0,
         }

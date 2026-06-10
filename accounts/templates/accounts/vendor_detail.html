@@ -1,5 +1,11 @@
 {% extends 'store/base.html' %}
+{% load static %}
 {% block title %}{{ vendor.name }} — Account{% endblock %}
+
+{% block stylesheets %}
+<link rel="stylesheet" href="{% static 'css/vendor_brands.css' %}">
+{% endblock stylesheets %}
+
 {% block content %}
 <div class="container my-4">
     <div class="mb-3 d-flex flex-wrap gap-2">
@@ -13,9 +19,16 @@
             <p class="text-muted small mb-2">
                 {{ vendor.phone_number|default:"" }}
                 {% if vendor.pan_number %}&nbsp;|&nbsp; PAN: {{ vendor.pan_number }}{% endif %}
+                {% if vendor.vat_number %}&nbsp;|&nbsp; VAT: {{ vendor.vat_number }}{% endif %}
                 {{ vendor.address|default:"" }}
             </p>
             <div class="fs-5">Balance due: <strong class="{% if balance_due > 0 %}text-danger{% else %}text-success{% endif %}">Rs {{ balance_due }}</strong></div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm mb-4 border-0">
+        <div class="card-body p-4">
+            {% include "accounts/partials/vendor_brands_panel.html" with vendor=vendor include_vendor_id=False split_layout=True %}
         </div>
     </div>
 
