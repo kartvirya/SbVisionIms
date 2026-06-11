@@ -5,27 +5,20 @@
         <button type="button" class="btn btn-outline-secondary" data-cal="ad">A.D.</button>
     </div>
     <div class="nepali-mode-bs">
-        <div class="input-group">
-            <input
-                type="text"
-                id="{{ field.id_for_label }}_bs"
-                class="form-control nepali-bs-date"
-                placeholder="YYYY-MM-DD (BS)"
-                autocomplete="off"
-            >
-            <input
-                type="time"
-                id="{{ field.id_for_label }}_time"
-                class="form-control nepali-bs-time"
-                style="max-width:9rem"
-            >
-        </div>
+        <input
+            type="text"
+            id="{{ field.id_for_label }}_bs"
+            class="form-control nepali-bs-date"
+            placeholder="YYYY-MM-DD (BS)"
+            autocomplete="off"
+            inputmode="numeric"
+        >
     </div>
     <div class="nepali-mode-ad d-none">
         <input
-            type="datetime-local"
+            type="date"
             id="{{ field.id_for_label }}_ad"
-            class="form-control nepali-ad-datetime"
+            class="form-control nepali-ad-date"
         >
     </div>
     <small class="text-muted nepali-ad-hint d-block mt-1"></small>

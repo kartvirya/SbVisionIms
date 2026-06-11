@@ -31,12 +31,12 @@ def _transaction_date_field(*, label="Date", required=False, widget_id=None):
     )
 
 
-def _init_transaction_date(form, widget_id):
-    if not form.initial.get("transaction_date"):
-        form.initial["transaction_date"] = timezone.localtime(timezone.now()).strftime(
+def _init_transaction_date(form, widget_id, *, field_name="transaction_date"):
+    if not form.initial.get(field_name):
+        form.initial[field_name] = timezone.localtime(timezone.now()).strftime(
             DATETIME_LOCAL_FORMAT
         )
-    form.fields["transaction_date"].widget.attrs["id"] = widget_id
+    form.fields[field_name].widget.attrs["id"] = widget_id
 
 
 class CreateUserForm(UserCreationForm):
@@ -332,7 +332,9 @@ class SignedOpeningBalanceForm(forms.Form):
 
     def __init__(self, *args, opening_balance_date=None, **kwargs):
         super().__init__(*args, **kwargs)
-        _init_transaction_date(self, "opening_balance_date")
+        _init_transaction_date(
+            self, "opening_balance_date", field_name="opening_balance_date"
+        )
         if opening_balance_date:
             self.initial["opening_balance_date"] = timezone.localtime(
                 opening_balance_date

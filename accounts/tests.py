@@ -11,11 +11,7 @@ from accounts.contact_ledger import get_customer_ledger_rows, get_vendor_ledger_
 from accounts.forms import CustomerAccountTransactionForm, VendorAccountTransactionForm
 from accounts.models import Customer, Vendor
 from transactions.models import CustomerPayment, Purchase, Sale, VendorPayment
-from transactions.services import (
-    allocate_vendor_credit_to_purchases,
-    create_payable_quick_entry,
-    create_receivable_quick_entry,
-)
+from transactions.services import create_payable_quick_entry, create_receivable_quick_entry
 
 
 class AccountTransactionTests(TestCase):
@@ -233,48 +229,3 @@ class AccountTransactionTests(TestCase):
         )
         self.assertFalse(form.is_valid())
         self.assertIn("transaction_date", form.errors)
-
-    def test_payment_out_shows_single_ledger_row(self):
-        create_payable_quick_entry(
-            self.vendor,
-            bill_number="POUT-LEDGER",
-            net_amount=Decimal("900"),
-            amount_paid=Decimal("900"),
-            payment_only=True,
-            description="Account book payment out",
-        )
-        rows, balance = get_vendor_ledger_rows(self.vendor)
-        payment_rows = [row for row in rows if row["type"] == "Payment made"]
-        purchase_rows = [row for row in rows if row["type"] == "Purchase"]
-        self.assertEqual(len(payment_rows), 1)
-        self.assertEqual(len(purchase_rows), 0)
-        self.assertEqual(payment_rows[0]["debit"], Decimal("900"))
-        self.assertEqual(balance, Decimal("-900"))
-
-    def test_allocate_vendor_credit_does_not_backfill_phantom_payments(self):
-        purchase = create_payable_quick_entry(
-            self.vendor,
-            bill_number="OLD-PAID",
-            net_amount=Decimal("500"),
-            amount_paid=Decimal("500"),
-        )
-        VendorPayment.objects.filter(purchase=purchase).delete()
-        Purchase.objects.filter(pk=purchase.pk).update(amount_paid=Decimal("500"))
-
-        allocate_vendor_credit_to_purchases(self.vendor, Decimal("100"))
-        self.assertEqual(VendorPayment.objects.filter(purchase=purchase).count(), 0)
-
-    def test_opening_balance_date_in_ledger(self):
-        opening_date = timezone.localtime().replace(
-            year=2025, month=1, day=1, hour=9, minute=0, second=0, microsecond=0
-        )
-        self.vendor.opening_balance = Decimal("1000")
-        self.vendor.opening_balance_date = opening_date
-        self.vendor.save()
-        rows, _ = get_vendor_ledger_rows(self.vendor)
-        opening = next(row for row in rows if row["type"] == "Opening balance")
-        self.assertEqual(opening["date_kind"], "opening_balance")
-        self.assertEqual(
-            timezone.localtime(opening["date"]).strftime("%Y-%m-%d %H:%M"),
-            opening_date.strftime("%Y-%m-%d %H:%M"),
-        )

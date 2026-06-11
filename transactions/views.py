@@ -737,7 +737,7 @@ def _purchase_form_context(request, purchase=None, form=None, line_formset=None)
             line_formset = PurchaseLineFormSet(request.POST, instance=purchase, vendor_id=vendor_id)
         else:
             line_formset = PurchaseLineFormSet(instance=purchase, vendor_id=vendor_id)
-    items = Item.objects.select_related("vendor").order_by("name")
+    items = Item.inventory_queryset().select_related("vendor").order_by("name")
     return {
         "line_formset": line_formset,
         "items_catalog": [

@@ -2,7 +2,6 @@
 {% load static %}
 {% block title %}Payables Book{% endblock %}
 {% block stylesheets %}
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@anuz-pandey/nepali-date-picker/dist/nepali-date-picker.min.css">
 <link rel="stylesheet" href="{% static 'css/payables_book.css' %}">
 {% endblock stylesheets %}
 {% block content %}
@@ -224,29 +223,19 @@
         </section>
 
         <p class="pb-footnote">
-            <strong>Billed date</strong> — editable per row (B.S. or A.D.). Type directly or use the calendar.
+            <strong>Billed date</strong> — editable per row (B.S. or A.D.). Type the date directly.
             <strong>Last transaction</strong> — latest payment, receipt, or order date on that bill.
             <strong>Adjustment</strong> — + sets payable adjustment; − applies credit to oldest bills first.
         </p>
     </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/nepali-date-converter@3.4.0/dist/nepali-date-converter.umd.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@anuz-pandey/nepali-date-picker/dist/nepali-date-picker.bundle.min.js"></script>
-<script src="{% static 'js/nepali_datetime.js' %}"></script>
+{% include "accounts/partials/account_datetime_scripts.html" %}
 <script>
 document.addEventListener("DOMContentLoaded", function () {
-    if (!window.ImsNepaliDatetime) return;
-    ImsNepaliDatetime.initAll();
-
-    document.querySelectorAll("form.js-sync-datetime-form").forEach(function (form) {
-        form.addEventListener("submit", function () {
-            ImsNepaliDatetime.syncAll();
-        });
-    });
     document.querySelectorAll('button[form="payables-dates-form"]').forEach(function (btn) {
         btn.addEventListener("click", function () {
-            ImsNepaliDatetime.syncAll();
+            if (window.ImsNepaliDatetime) ImsNepaliDatetime.syncAll();
         });
     });
 });

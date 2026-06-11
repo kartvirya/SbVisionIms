@@ -19,6 +19,7 @@ from .views import (
     DeliveryUpdateView,
     DeliveryDeleteView,
     get_items_ajax_view,
+    create_item_quick,
     CategoryListView,
     CategoryDetailView,
     CategoryCreateView,
@@ -108,6 +109,11 @@ urlpatterns = [
         'get-items/',
         get_items_ajax_view,
         name='get_items'
+    ),
+    path(
+        'products/quick-create/',
+        create_item_quick,
+        name='product-quick-create',
     ),
 
     # Preview drawer partials

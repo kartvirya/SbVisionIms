@@ -46,7 +46,7 @@ from django_tables2.export.views import ExportMixin
 # Local app imports
 from accounts.models import Vendor, Customer
 from transactions.models import Sale, SaleDetail, Purchase
-from .models import Category, Item, Delivery, ProductVariation
+from .models import Category, Item, Delivery, ProductVariation, StockAdjustmentLog
 from .forms import (
     ItemForm,
     CategoryForm,
@@ -468,15 +468,20 @@ def _category_delete_blockers(category):
 
 
 def _item_delete_blockers(item):
-    from transactions.models import PurchaseLine, SaleDetail
+    from invoice.models import Invoice
+    from transactions.models import Purchase, PurchaseLine, SaleDetail
 
     if getattr(item, "is_account_placeholder", False):
         return ["internal account-book placeholder"]
     blockers = []
     if PurchaseLine.objects.filter(item=item).exists():
         blockers.append("purchase records")
+    if Purchase.objects.filter(item=item).exists():
+        blockers.append("purchase records")
     if SaleDetail.objects.filter(item=item).exists():
         blockers.append("sales records")
+    if Invoice.objects.filter(item=item).exists():
+        blockers.append("invoice records")
     return blockers
 
 
@@ -484,6 +489,7 @@ def _purge_item_before_delete(item):
     """Remove related rows that can block product deletion."""
     from transactions.models import InventoryTransactionItem, StockMovement
 
+    StockAdjustmentLog.objects.filter(item=item).delete()
     StockMovement.objects.filter(item=item).delete()
     InventoryTransactionItem.objects.filter(item=item).delete()
     ProductVariation.objects.filter(item=item).delete()
@@ -502,6 +508,8 @@ class ProductDeleteView(LoginRequiredMixin, DeleteView):
     """Delete a product when it is not used on purchase or sales records."""
 
     model = Item
+    slug_field = "slug"
+    slug_url_kwarg = "slug"
     template_name = "store/productdelete.html"
     success_url = reverse_lazy("productslist")
 
@@ -741,6 +749,51 @@ class CategoryDeleteView(LoginRequiredMixin, DeleteView):
 
 def is_ajax(request):
     return request.META.get('HTTP_X_REQUESTED_WITH') == 'XMLHttpRequest'
+
+
+@require_POST
+@login_required
+def create_item_quick(request):
+    """Create a product from the purchase form without leaving the page."""
+    name = (request.POST.get("name") or "").strip()
+    if not name:
+        return JsonResponse(
+            {"status": "error", "message": "Product name is required."},
+            status=400,
+        )
+    vendor_id = request.POST.get("vendor_id")
+    if not vendor_id:
+        return JsonResponse(
+            {"status": "error", "message": "Select a supplier first."},
+            status=400,
+        )
+    vendor = get_object_or_404(Vendor, pk=vendor_id)
+    category, _ = Category.objects.get_or_create(name="General")
+    cost_raw = request.POST.get("cost_price") or "0"
+    try:
+        cost_price = float(cost_raw)
+    except (TypeError, ValueError):
+        cost_price = 0.0
+    item = Item.objects.create(
+        name=name,
+        description=name,
+        category=category,
+        vendor=vendor,
+        cost_price=cost_price,
+        price=cost_price * 1.3 if cost_price else 0,
+        quantity=0,
+    )
+    return JsonResponse(
+        {
+            "status": "success",
+            "id": item.id,
+            "name": item.name,
+            "label": f"{item.name} — stock: {item.quantity}, cost: {item.cost_price:.2f}",
+            "vendor_id": item.vendor_id,
+            "stock": item.quantity,
+            "cost": float(item.cost_price or 0),
+        }
+    )
 
 
 @csrf_exempt

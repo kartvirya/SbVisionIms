@@ -2,7 +2,73 @@
 {% load static %}
 {% block title %}{% if object %}Edit purchase book entry{% else %}New purchase book entry{% endif %}{% endblock %}
 {% block stylesheets %}
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@anuz-pandey/nepali-date-picker/dist/nepali-date-picker.min.css">
+<style>
+    .purchase-bill-summary-wrap {
+        display: flex;
+        justify-content: flex-end;
+        margin-top: 0.5rem;
+    }
+    .purchase-bill-summary {
+        width: 100%;
+        max-width: 420px;
+        border-collapse: collapse;
+    }
+    .purchase-bill-summary th,
+    .purchase-bill-summary td {
+        border: 1px solid #000;
+        padding: 10px 15px;
+        font-size: 15px;
+        vertical-align: middle;
+    }
+    .purchase-bill-summary th {
+        background-color: #f9f9f9;
+        text-align: left;
+        font-weight: bold;
+        width: 55%;
+    }
+    .purchase-bill-summary td {
+        text-align: right;
+        width: 45%;
+    }
+    .purchase-bill-summary .grand-total-row th,
+    .purchase-bill-summary .grand-total-row td {
+        font-weight: bold;
+        font-size: 16px;
+        background-color: #f2f2f2;
+    }
+    .purchase-bill-summary .bill-field {
+        border: none;
+        background: transparent;
+        text-align: right;
+        width: 100%;
+        padding: 0;
+        font-size: 15px;
+    }
+    .purchase-bill-summary .bill-field:focus {
+        outline: none;
+        box-shadow: inset 0 -1px 0 #0d6efd;
+    }
+    .purchase-bill-summary .vat-pct-field {
+        width: 3.25rem;
+        border: none;
+        background: transparent;
+        text-align: right;
+        padding: 0;
+        font-weight: bold;
+        font-size: 15px;
+    }
+    .purchase-bill-summary .vat-pct-field:focus {
+        outline: none;
+        box-shadow: inset 0 -1px 0 #0d6efd;
+    }
+    .purchase-bill-summary .bill-amount-display {
+        display: block;
+        text-align: right;
+    }
+    .purchase-bill-summary .bill-vat-manual.d-none + .bill-vat-display {
+        display: block;
+    }
+</style>
 {% endblock stylesheets %}
 {% block content %}
 <div class="container py-4">
@@ -74,11 +140,34 @@
         </div>
 
         <div class="card shadow-sm mb-3">
-            <div class="card-header bg-light d-flex justify-content-between align-items-center">
-                <strong>2. Products purchased</strong>
-                <span class="text-muted small" id="vendor-filter-hint">Select a vendor to filter products</span>
+            <div class="card-header bg-light d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <div>
+                    <strong>2. Products purchased</strong>
+                    <div class="text-muted small" id="vendor-filter-hint">Select a vendor to filter products</div>
+                </div>
+                <div class="d-flex flex-wrap gap-2">
+                    <button type="button" class="btn btn-outline-success btn-sm" id="btn-add-line">
+                        <i class="fa-solid fa-plus"></i> Add product line
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" id="toggle_new_product">+ New product</button>
+                </div>
             </div>
             <div class="card-body">
+                <div id="new_product_panel" class="border rounded p-2 mb-3 bg-light d-none">
+                    <div class="row g-2 align-items-end">
+                        <div class="col-md-5">
+                            <label class="form-label small mb-1" for="new_product_name">Product name *</label>
+                            <input type="text" class="form-control form-control-sm" id="new_product_name" placeholder="New product name">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small mb-1" for="new_product_cost">Unit cost (Rs)</label>
+                            <input type="number" class="form-control form-control-sm" id="new_product_cost" step="0.01" min="0" placeholder="0.00">
+                        </div>
+                        <div class="col-md-4">
+                            <button type="button" class="btn btn-success btn-sm" id="btn_save_product">Save product</button>
+                        </div>
+                    </div>
+                </div>
                 {{ line_formset.management_form }}
                 <div class="table-responsive">
                     <table class="table table-sm align-middle mb-0">
@@ -124,40 +213,74 @@
         <div class="card shadow-sm mb-3">
             <div class="card-header bg-light"><strong>3. Bill totals &amp; tax</strong></div>
             <div class="card-body">
-                <div class="row g-3">
-                    <div class="col-md-4">
-                        <label class="form-label" for="{{ form.discount_amount.id_for_label }}">{{ form.discount_amount.label }}</label>
-                        {{ form.discount_amount }}
-                        {{ form.discount_amount.errors }}
-                    </div>
-                    <div class="col-md-4">
-                        <label class="form-label" for="{{ form.vat_percentage.id_for_label }}">{{ form.vat_percentage.label }}</label>
-                        {{ form.vat_percentage }}
-                        {{ form.vat_percentage.errors }}
-                    </div>
-                    <div class="col-md-4">
-                        <label class="form-label" for="{{ form.vat_amount.id_for_label }}">{{ form.vat_amount.label }}</label>
-                        {{ form.vat_amount }}
-                        <div class="form-text">Leave VAT % set to auto-calculate, or enter amount manually.</div>
-                        {{ form.vat_amount.errors }}
-                    </div>
+                {% if form.discount_amount.errors or form.vat_percentage.errors or form.vat_amount.errors %}
+                <div class="alert alert-danger py-2 small mb-3">
+                    {{ form.discount_amount.errors }}
+                    {{ form.vat_percentage.errors }}
+                    {{ form.vat_amount.errors }}
                 </div>
-                <div class="row mt-3">
-                    <div class="col-md-4">
-                        <label class="form-label text-muted">Estimated subtotal (lines)</label>
-                        <input type="text" class="form-control" id="preview-subtotal" readonly value="0.00">
-                    </div>
-                    <div class="col-md-4">
-                        <label class="form-label text-muted">Estimated net bill</label>
-                        <input type="text" class="form-control fw-semibold" id="preview-net" readonly value="0.00">
-                    </div>
-                    {% if object %}
-                    <div class="col-md-4">
-                        <label class="form-label text-muted">Saved net / remaining</label>
-                        <input type="text" class="form-control" readonly value="{{ object.net_amount }} / {{ object.amount_remaining }}">
-                    </div>
-                    {% endif %}
+                {% endif %}
+                <div class="purchase-bill-summary-wrap">
+                    <table class="purchase-bill-summary">
+                        <tbody>
+                            <tr>
+                                <th>Total Amount</th>
+                                <td><span class="bill-amount-display" id="preview-total-amount">0.00</span></td>
+                            </tr>
+                            <tr>
+                                <th>Discount</th>
+                                <td>
+                                    <input
+                                        type="number"
+                                        name="{{ form.discount_amount.html_name }}"
+                                        id="{{ form.discount_amount.id_for_label }}"
+                                        class="bill-field"
+                                        step="0.01"
+                                        min="0"
+                                        value="{{ form.discount_amount.value|default:'0' }}"
+                                    >
+                                </td>
+                            </tr>
+                            <tr>
+                                <th>Taxable Amount</th>
+                                <td><span class="bill-amount-display" id="preview-taxable-amount">0.00</span></td>
+                            </tr>
+                            <tr>
+                                <th>
+                                    <input
+                                        type="number"
+                                        name="{{ form.vat_percentage.html_name }}"
+                                        id="{{ form.vat_percentage.id_for_label }}"
+                                        class="vat-pct-field"
+                                        step="0.01"
+                                        min="0"
+                                        value="{{ form.vat_percentage.value|default:'13' }}"
+                                    >% VAT
+                                </th>
+                                <td>
+                                    <span class="bill-amount-display bill-vat-display" id="preview-vat-amount">0.00</span>
+                                    <input
+                                        type="number"
+                                        name="{{ form.vat_amount.html_name }}"
+                                        id="{{ form.vat_amount.id_for_label }}"
+                                        class="bill-field bill-vat-manual d-none"
+                                        step="0.01"
+                                        min="0"
+                                        value="{{ form.vat_amount.value|default:'0' }}"
+                                    >
+                                </td>
+                            </tr>
+                            <tr class="grand-total-row">
+                                <th>Grand Total</th>
+                                <td><span class="bill-amount-display" id="preview-grand-total">0.00</span></td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
+                <p class="text-muted small mt-2 mb-0 text-end">
+                    Clear VAT % to enter a custom VAT amount. Numbers use Indian grouping (e.g. 2,33,299.69).
+                    {% if object %} Saved remaining: Rs {{ object.amount_remaining }}.{% endif %}
+                </p>
             </div>
         </div>
 
@@ -202,19 +325,14 @@
 </div>
 
 {{ items_catalog|json_script:"items-catalog" }}
-<script src="https://cdn.jsdelivr.net/npm/nepali-date-converter@3.4.0/dist/nepali-date-converter.umd.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@anuz-pandey/nepali-date-picker/dist/nepali-date-picker.bundle.min.js"></script>
-<script src="{% static 'js/nepali_datetime.js' %}"></script>
+{% include "accounts/partials/account_datetime_scripts.html" %}
 <script>
 (function () {
-    if (window.ImsNepaliDatetime) {
-        ImsNepaliDatetime.initAll();
-        const purchaseForm = document.getElementById("purchase-form");
-        if (purchaseForm) {
-            purchaseForm.addEventListener("submit", function () {
-                ImsNepaliDatetime.syncAll();
-            });
-        }
+    const purchaseForm = document.getElementById("purchase-form");
+    if (purchaseForm) {
+        purchaseForm.addEventListener("submit", function () {
+            if (window.ImsNepaliDatetime) ImsNepaliDatetime.syncForm(purchaseForm);
+        });
     }
     const catalog = JSON.parse(document.getElementById("items-catalog").textContent || "[]");
     const byId = Object.fromEntries(catalog.map((i) => [String(i.id), i]));
@@ -288,6 +406,44 @@
         if (totalCell) totalCell.textContent = lineTotal(row).toFixed(2);
     }
 
+    let vatAmountManual = false;
+
+    function formatIndianNumber(value) {
+        const num = Number(value || 0);
+        if (!Number.isFinite(num)) return "0.00";
+        const sign = num < 0 ? "-" : "";
+        const fixed = Math.abs(num).toFixed(2);
+        const parts = fixed.split(".");
+        let integer = parts[0];
+        const fraction = parts[1];
+        if (integer.length <= 3) {
+            return sign + integer + "." + fraction;
+        }
+        const last3 = integer.slice(-3);
+        let rest = integer.slice(0, -3);
+        const groups = [];
+        while (rest.length > 2) {
+            groups.unshift(rest.slice(-2));
+            rest = rest.slice(0, -2);
+        }
+        if (rest.length) groups.unshift(rest);
+        return sign + groups.join(",") + "," + last3 + "." + fraction;
+    }
+
+    function setBillDisplay(id, value) {
+        const el = document.getElementById(id);
+        if (el) el.textContent = formatIndianNumber(value);
+    }
+
+    function syncVatFieldMode(vatPct) {
+        const vatDisplay = document.getElementById("preview-vat-amount");
+        const vatManual = document.getElementById("id_vat_amount");
+        if (!vatDisplay || !vatManual) return;
+        const manual = vatAmountManual || !(vatPct > 0);
+        vatManual.classList.toggle("d-none", !manual);
+        vatDisplay.classList.toggle("d-none", manual);
+    }
+
     function updatePreview() {
         renumberLineRows();
         let sub = 0;
@@ -300,13 +456,19 @@
         const vatPct = parseFloat(document.getElementById("id_vat_percentage")?.value || "0");
         const vatAmtField = document.getElementById("id_vat_amount");
         let taxable = Math.max(0, sub - discount);
-        let vat = vatPct > 0 ? taxable * (vatPct / 100) : parseFloat(vatAmtField?.value || "0");
-        if (vatPct > 0 && vatAmtField) vatAmtField.value = vat.toFixed(2);
+        let vat;
+        if (vatPct > 0 && !vatAmountManual) {
+            vat = taxable * (vatPct / 100);
+            if (vatAmtField) vatAmtField.value = vat.toFixed(2);
+        } else {
+            vat = parseFloat(vatAmtField?.value || "0");
+        }
         const net = taxable + vat;
-        const subEl = document.getElementById("preview-subtotal");
-        const netEl = document.getElementById("preview-net");
-        if (subEl) subEl.value = sub.toFixed(2);
-        if (netEl) netEl.value = net.toFixed(2);
+        setBillDisplay("preview-total-amount", sub);
+        setBillDisplay("preview-taxable-amount", taxable);
+        setBillDisplay("preview-vat-amount", vat);
+        setBillDisplay("preview-grand-total", net);
+        syncVatFieldMode(vatPct);
 
         const payFull = document.getElementById("pay-full-net");
         const amountPaid = document.getElementById("id_amount_paid");
@@ -316,36 +478,36 @@
         return net;
     }
 
-    function localDatetimeValue(d) {
-        const pad = (n) => String(n).padStart(2, "0");
-        return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()) +
-            "T" + pad(d.getHours()) + ":" + pad(d.getMinutes());
-    }
-
     function markReceivedToday() {
         const status = document.getElementById("id_receipt_status");
         if (status) status.value = "S";
         if (window.ImsNepaliDatetime) {
             ImsNepaliDatetime.setToday("id_receipt_date");
-        } else {
-            const receiptDate = document.getElementById("id_receipt_date");
-            if (receiptDate) receiptDate.value = localDatetimeValue(new Date());
+        }
+    }
+
+    function markReceivedIfReceiptDateSet() {
+        const hidden = document.getElementById("id_receipt_date");
+        if (hidden && hidden.value) {
+            const status = document.getElementById("id_receipt_status");
+            if (status) status.value = "S";
         }
     }
 
     document.querySelectorAll('.nepali-datetime-wrap[data-hidden="id_receipt_date"]').forEach(function (wrap) {
-        const bsInput = wrap.querySelector(".nepali-bs-date");
-        const timeInput = wrap.querySelector(".nepali-bs-time");
-        function markReceivedIfSet() {
-            const hidden = document.getElementById("id_receipt_date");
-            if (hidden && hidden.value) {
-                const status = document.getElementById("id_receipt_status");
-                if (status) status.value = "S";
-            }
-        }
-        if (bsInput) bsInput.addEventListener("change", markReceivedIfSet);
-        if (timeInput) timeInput.addEventListener("change", markReceivedIfSet);
+        wrap.querySelectorAll(".nepali-bs-date, .nepali-ad-date").forEach(function (el) {
+            el.addEventListener("change", markReceivedIfReceiptDateSet);
+        });
     });
+    const receiptStatus = document.getElementById("id_receipt_status");
+    if (receiptStatus) {
+        receiptStatus.addEventListener("change", function () {
+            if (receiptStatus.value === "S" && window.ImsNepaliDatetime) {
+                const hidden = document.getElementById("id_receipt_date");
+                if (hidden && !hidden.value) ImsNepaliDatetime.setToday("id_receipt_date");
+            }
+        });
+    }
     const btnReceived = document.getElementById("btn-received-today");
     if (btnReceived) btnReceived.addEventListener("click", markReceivedToday);
 
@@ -370,13 +532,95 @@
         updateRow(row);
     }
 
+    function addCatalogItem(item) {
+        catalog.push(item);
+        byId[String(item.id)] = item;
+    }
+
+    function appendProductOption(item, select) {
+        const opt = new Option(
+            item.name + " — stock: " + item.stock + ", cost: " + Number(item.cost).toFixed(2),
+            item.id,
+            false,
+            false
+        );
+        select.add(opt);
+    }
+
+    function addProductToAllSelects(item) {
+        document.querySelectorAll(".item-select").forEach((sel) => appendProductOption(item, sel));
+    }
+
+    function formsetPrefix() {
+        const totalInput = document.querySelector('input[name$="-TOTAL_FORMS"]');
+        if (!totalInput || !totalInput.name) return "lines";
+        return totalInput.name.replace("-TOTAL_FORMS", "");
+    }
+
+    function addLineRow() {
+        const prefix = formsetPrefix();
+        const totalInput = document.querySelector('input[name="' + prefix + '-TOTAL_FORMS"]');
+        const body = document.getElementById("line-items-body");
+        const rows = body.querySelectorAll(".purchase-line-row");
+        const templateRow = rows[rows.length - 1];
+        if (!totalInput || !templateRow) return;
+        const nextIndex = parseInt(totalInput.value, 10);
+        const prevPrefix = prefix + "-" + (nextIndex - 1) + "-";
+        const nextPrefix = prefix + "-" + nextIndex + "-";
+        const html = templateRow.outerHTML.split(prevPrefix).join(nextPrefix);
+        const wrap = document.createElement("tbody");
+        wrap.innerHTML = html;
+        const newRow = wrap.firstElementChild;
+        newRow.querySelectorAll("input, select").forEach((el) => {
+            if (el.type === "checkbox") {
+                el.checked = false;
+            } else if (el.tagName === "SELECT") {
+                el.value = "";
+            } else if (el.type === "hidden" && el.name.endsWith("-id")) {
+                el.value = "";
+            } else if (el.type !== "hidden") {
+                el.value = "";
+            }
+        });
+        const totalCell = newRow.querySelector(".line-total");
+        if (totalCell) totalCell.textContent = "0.00";
+        body.appendChild(newRow);
+        totalInput.value = String(nextIndex + 1);
+        bindRow(newRow);
+        filterProductOptions();
+        updatePreview();
+    }
+
     document.querySelectorAll(".purchase-line-row").forEach(bindRow);
     renumberLineRows();
-    ["id_discount_amount", "id_vat_percentage", "id_vat_amount"].forEach((id) => {
+    ["id_discount_amount", "id_vat_percentage"].forEach((id) => {
         const el = document.getElementById(id);
         if (el) el.addEventListener("input", updatePreview);
     });
+    const vatAmountInput = document.getElementById("id_vat_amount");
+    if (vatAmountInput) {
+        vatAmountInput.addEventListener("input", function () {
+            vatAmountManual = true;
+            const vatPct = document.getElementById("id_vat_percentage");
+            if (vatPct) vatPct.value = "0";
+            updatePreview();
+        });
+    }
+    const vatPctInput = document.getElementById("id_vat_percentage");
+    if (vatPctInput) {
+        vatPctInput.addEventListener("input", function () {
+            if (parseFloat(vatPctInput.value || "0") > 0) {
+                vatAmountManual = false;
+            }
+            updatePreview();
+        });
+    }
+    const btnAddLine = document.getElementById("btn-add-line");
+    if (btnAddLine) btnAddLine.addEventListener("click", addLineRow);
     if (vendorSelect) vendorSelect.addEventListener("change", filterProductOptions);
+    if (vatPctInput && parseFloat(vatPctInput.value || "0") === 0) {
+        vatAmountManual = true;
+    }
     filterProductOptions();
     updatePreview();
 
@@ -405,6 +649,54 @@
                         vendorSelect.dispatchEvent(new Event("change"));
                         vendorPanel.classList.add("d-none");
                     }
+                });
+        });
+    }
+
+    const toggleProduct = document.getElementById("toggle_new_product");
+    const productPanel = document.getElementById("new_product_panel");
+    if (toggleProduct && productPanel) {
+        toggleProduct.addEventListener("click", function () {
+            productPanel.classList.toggle("d-none");
+        });
+    }
+    const btnSaveProduct = document.getElementById("btn_save_product");
+    if (btnSaveProduct) {
+        btnSaveProduct.addEventListener("click", function () {
+            const vid = selectedVendorId();
+            const name = (document.getElementById("new_product_name")?.value || "").trim();
+            if (!vid) {
+                alert("Select a supplier before adding a product.");
+                return;
+            }
+            if (!name) return;
+            const fd = new FormData();
+            fd.append("name", name);
+            fd.append("vendor_id", vid);
+            fd.append("cost_price", document.getElementById("new_product_cost")?.value || "0");
+            fd.append("csrfmiddlewaretoken", document.querySelector("[name=csrfmiddlewaretoken]").value);
+            fetch("{% url 'product-quick-create' %}", { method: "POST", body: fd, credentials: "same-origin" })
+                .then((r) => r.json())
+                .then((data) => {
+                    if (data.status !== "success") return;
+                    const item = {
+                        id: data.id,
+                        vendor_id: data.vendor_id,
+                        name: data.name,
+                        stock: data.stock,
+                        cost: data.cost,
+                    };
+                    addCatalogItem(item);
+                    addProductToAllSelects(item);
+                    filterProductOptions();
+                    const emptySelect = Array.from(document.querySelectorAll(".item-select")).find((sel) => !sel.value);
+                    if (emptySelect) {
+                        emptySelect.value = String(data.id);
+                        const row = emptySelect.closest(".purchase-line-row");
+                        if (row) updateRow(row);
+                    }
+                    productPanel.classList.add("d-none");
+                    updatePreview();
                 });
         });
     }

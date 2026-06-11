@@ -4,14 +4,11 @@
         <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2" data-cal="ad">A.D.</button>
     </div>
     <div class="nepali-mode-bs">
-        <div class="input-group input-group-sm">
-            <input type="text" id="payment-date-{{ payment.id }}_bs" class="form-control nepali-bs-date" placeholder="YYYY-MM-DD" autocomplete="off">
-            <input type="time" id="payment-date-{{ payment.id }}_time" class="form-control nepali-bs-time" style="max-width:7rem">
-        </div>
+        <input type="text" id="payment-date-{{ payment.id }}_bs" class="form-control nepali-bs-date" placeholder="YYYY-MM-DD" autocomplete="off" inputmode="numeric">
     </div>
     <div class="nepali-mode-ad d-none">
-        <input type="datetime-local" id="payment-date-{{ payment.id }}_ad" class="form-control form-control-sm nepali-ad-datetime">
+        <input type="date" id="payment-date-{{ payment.id }}_ad" class="form-control form-control-sm nepali-ad-date">
     </div>
     <small class="text-muted nepali-ad-hint d-block"></small>
 </div>
-<input type="hidden" name="transaction_date" form="payment-form-{{ payment.id }}" id="payment-date-{{ payment.id }}" value="{% if party_type == 'customer' %}{% if payment.received_at %}{{ payment.received_at|date:'Y-m-d' }}T{{ payment.received_at|date:'H:i' }}{% endif %}{% else %}{% if payment.paid_at %}{{ payment.paid_at|date:'Y-m-d' }}T{{ payment.paid_at|date:'H:i' }}{% endif %}{% endif %}">
+<input type="hidden" name="transaction_date" form="payment-form-{{ payment.id }}" id="payment-date-{{ payment.id }}" value="{% if party_type == 'customer' %}{% if payment.received_at %}{{ payment.received_at|date:'Y-m-d' }}T12:00{% endif %}{% else %}{% if payment.paid_at %}{{ payment.paid_at|date:'Y-m-d' }}T12:00{% endif %}{% endif %}">

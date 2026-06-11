@@ -4,13 +4,10 @@
         <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2" data-cal="ad">A.D.</button>
     </div>
     <div class="nepali-mode-bs">
-        <div class="input-group input-group-sm">
-            <input type="text" id="{{ field_id }}_bs" class="form-control nepali-bs-date" placeholder="YYYY-MM-DD" autocomplete="off">
-            <input type="time" id="{{ field_id }}_time" class="form-control nepali-bs-time" style="max-width:7rem">
-        </div>
+        <input type="text" id="{{ field_id }}_bs" class="form-control nepali-bs-date" placeholder="YYYY-MM-DD" autocomplete="off" inputmode="numeric">
     </div>
     <div class="nepali-mode-ad d-none">
-        <input type="datetime-local" id="{{ field_id }}_ad" class="form-control form-control-sm nepali-ad-datetime">
+        <input type="date" id="{{ field_id }}_ad" class="form-control form-control-sm nepali-ad-date">
     </div>
     <small class="text-muted nepali-ad-hint d-block"></small>
 </div>

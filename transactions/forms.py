@@ -85,9 +85,9 @@ class PurchaseForm(BootstrapMixin, forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["vendor"].queryset = self.fields["vendor"].queryset.order_by("name")
-        datetime_local = ["%Y-%m-%dT%H:%M"]
+        date_formats = ["%Y-%m-%dT%H:%M", "%Y-%m-%d"]
         for fn in ("order_date", "receipt_date"):
-            self.fields[fn].input_formats = datetime_local
+            self.fields[fn].input_formats = date_formats
         self.fields["order_date"].required = True
         if self.instance and self.instance.pk and self.instance.vendor_payments.exists():
             self.fields["amount_paid"].disabled = True
@@ -118,13 +118,18 @@ class PurchaseForm(BootstrapMixin, forms.ModelForm):
         receipt_status = cleaned_data.get("receipt_status")
 
         if receipt_date:
-            rd = receipt_date
-            if timezone.is_naive(rd):
-                rd = timezone.make_aware(rd, timezone.get_current_timezone())
-            if timezone.localtime(rd).date() <= timezone.localdate():
-                cleaned_data["receipt_status"] = "S"
-        if cleaned_data.get("receipt_status") == "S" and not cleaned_data.get("receipt_date"):
-            cleaned_data["receipt_date"] = timezone.now()
+            cleaned_data["receipt_status"] = "S"
+        elif receipt_status == "S":
+            now = timezone.localtime(timezone.now())
+            cleaned_data["receipt_date"] = now.replace(
+                hour=12, minute=0, second=0, microsecond=0
+            )
+        elif receipt_status != "S":
+            cleaned_data["receipt_date"] = None
+
+        vat_pct = cleaned_data.get("vat_percentage") or 0
+        if not vat_pct and cleaned_data.get("vat_amount"):
+            cleaned_data["vat_percentage"] = 0
 
         return cleaned_data
 

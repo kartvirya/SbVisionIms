@@ -1,9 +1,10 @@
 from decimal import Decimal
 
-from django.test import TestCase
+from django.contrib.auth import get_user_model
+from django.test import Client, TestCase, override_settings
 
 from accounts.models import Vendor
-from store.models import Category, Item
+from store.models import Category, Item, ProductVariation, StockAdjustmentLog
 from store.views import _category_delete_blockers, _item_delete_blockers
 from transactions.services import (
     ACCOUNT_BILL_ITEM_NAME,
@@ -60,3 +61,33 @@ class InventoryVisibilityTests(TestCase):
             _item_delete_blockers(placeholder),
             ["internal account-book placeholder"],
         )
+
+    @override_settings(ALLOWED_HOSTS=["*"])
+    def test_product_delete_view_removes_unused_product(self):
+        user = get_user_model().objects.create_superuser(
+            "delete-tester", "delete@example.com", "pass"
+        )
+        item = Item.objects.create(
+            name="Delete View Product",
+            description="x",
+            category=self.category,
+            vendor=self.vendor,
+            quantity=2,
+            price=10,
+            cost_price=5,
+        )
+        ProductVariation.objects.create(
+            item=item, variation_type="size", name="M", quantity=1
+        )
+        StockAdjustmentLog.objects.create(
+            item=item,
+            mode="add",
+            quantity_delta=2,
+            quantity_before=0,
+            quantity_after=2,
+        )
+        client = Client()
+        client.force_login(user)
+        response = client.post(f"/product/{item.slug}/delete/")
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(Item.objects.filter(pk=item.pk).exists())

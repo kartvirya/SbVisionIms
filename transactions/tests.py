@@ -16,6 +16,7 @@ from transactions.models import (
 from store.models import ProductVariation
 from store.stock_utils import get_ledger_stock, get_sellable_stock
 from transactions.forms import PurchaseForm, PurchaseLineFormSet
+from transactions.templatetags.indian_format import _format_indian_number
 from store.stock_adjust import apply_manual_stock_adjustment
 from transactions.models import PurchaseLine
 from transactions.services import (
@@ -669,3 +670,12 @@ class StockLedgerTests(TestCase):
         sale.refresh_from_db()
         self.assertEqual(sale.payment_status, "T")
         self.assertEqual(sale.amount_remaining, Decimal("60"))
+
+
+class IndianNumberFormatTests(TestCase):
+    def test_indian_number_grouping(self):
+        from transactions.templatetags.indian_format import _format_indian_number
+
+        self.assertEqual(_format_indian_number("233299.69"), "2,33,299.69")
+        self.assertEqual(_format_indian_number("263628.65"), "2,63,628.65")
+        self.assertEqual(_format_indian_number("0"), "0.00")

@@ -4,12 +4,8 @@
 
 {% block stylesheets %}
 <link rel="stylesheet" href="{% static 'css/vendor_brands.css' %}">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@anuz-pandey/nepali-date-picker/dist/nepali-date-picker.min.css">
 <style>
-  .ims-date-cell { overflow: visible !important; position: relative; z-index: 1; min-width: 15rem; }
-  .ims-date-cell:focus-within { z-index: 40; }
-  .ims-ledger-table-wrap { overflow: visible !important; }
-  .ndp-container, .nepali-date-picker { z-index: 9999 !important; }
+  .ims-date-cell { min-width: 12rem; }
   .nepali-cal-toggle button.active { background: #0ea5e9; color: #fff; border-color: #0ea5e9; }
 </style>
 {% endblock stylesheets %}
@@ -95,7 +91,7 @@
                 <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
                     <div>
                         <strong>Transaction history</strong>
-                        <p class="text-muted small mb-0">Edit dates in each row, then save all from here.</p>
+                        <p class="text-muted small mb-0">Edit dates inline or use Edit to open the bill. Save all dates when done.</p>
                     </div>
                     <div class="d-flex flex-wrap gap-2">
                         <a href="{% url 'vendor-statement' vendor.pk %}" class="btn btn-outline-secondary btn-sm" target="_blank" rel="noopener">Print statement</a>
@@ -114,6 +110,7 @@
                             <th class="text-end">Credit</th>
                             <th>Method</th>
                             <th class="text-end">Balance</th>
+                            <th></th>
                         </tr>
                     </thead>
                     <tbody>
@@ -128,9 +125,14 @@
                             <td class="text-end">{% if row.credit %}Rs {{ row.credit }}{% else %}—{% endif %}</td>
                             <td>{{ row.method|default:"—" }}</td>
                             <td class="text-end fw-semibold">Rs {{ row.balance }}</td>
+                            <td class="text-nowrap">
+                                {% if row.edit_url %}
+                                <a href="{{ row.edit_url }}" class="btn btn-outline-primary btn-sm py-0">Edit</a>
+                                {% else %}—{% endif %}
+                            </td>
                         </tr>
                         {% empty %}
-                        <tr><td colspan="7" class="text-center text-muted py-3">No transactions yet.</td></tr>
+                        <tr><td colspan="8" class="text-center text-muted py-3">No transactions yet.</td></tr>
                         {% endfor %}
                     </tbody>
                 </table>

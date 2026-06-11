@@ -1,0 +1,26 @@
+{% load indian_format %}
+{% purchase_taxable_amount object as taxable_amount %}
+<table class="purchase-bill-summary">
+    <tbody>
+        <tr>
+            <th>Total Amount</th>
+            <td>{{ object.sub_total|indian_number:2 }}</td>
+        </tr>
+        <tr>
+            <th>Discount</th>
+            <td>{{ object.discount_amount|indian_number:2 }}</td>
+        </tr>
+        <tr>
+            <th>Taxable Amount</th>
+            <td>{{ taxable_amount|indian_number:2 }}</td>
+        </tr>
+        <tr>
+            <th>{% if object.vat_percentage %}{{ object.vat_percentage|floatformat:0 }}% VAT{% else %}VAT{% endif %}</th>
+            <td>{{ object.vat_amount|indian_number:2 }}</td>
+        </tr>
+        <tr class="grand-total-row">
+            <th>Grand Total</th>
+            <td>{{ object.net_amount|indian_number:2 }}</td>
+        </tr>
+    </tbody>
+</table>
