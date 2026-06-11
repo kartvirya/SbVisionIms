@@ -163,11 +163,15 @@ class PurchaseLineForm(BootstrapMixin, forms.ModelForm):
     def __init__(self, *args, vendor_id=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.vendor_id = vendor_id
-        qs = Item.objects.select_related("vendor", "category").order_by("name")
+        qs = Item.inventory_queryset().select_related("vendor", "category").order_by("name")
         if vendor_id:
             qs = qs.filter(vendor_id=vendor_id)
+        if self.instance and self.instance.pk and self.instance.item_id:
+            qs = (qs | Item.objects.filter(pk=self.instance.item_id)).distinct()
         self.fields["item"].queryset = qs
         self.fields["item"].required = False
+        self.fields["quantity"].required = False
+        self.fields["unit_price"].required = False
         self.fields["item"].label_from_instance = lambda obj: (
             f"{obj.name} — stock: {obj.quantity}, cost: {obj.cost_price:.2f}"
         )
@@ -179,8 +183,14 @@ class PurchaseLineForm(BootstrapMixin, forms.ModelForm):
 
     def clean(self):
         cleaned = super().clean()
+        if cleaned.get("DELETE"):
+            return cleaned
         item = cleaned.get("item")
         new_name = (cleaned.get("new_item_name") or "").strip()
+        quantity = cleaned.get("quantity")
+        unit_price = cleaned.get("unit_price")
+        if not item and not new_name and not quantity and not unit_price:
+            return cleaned
         if not item and not new_name:
             raise forms.ValidationError("Select a product or enter a new product name.")
         if not item and new_name:
@@ -267,6 +277,7 @@ class PayablesQuickEntryForm(BootstrapMixin, forms.Form):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields["order_date"].widget.attrs["id"] = "payables_quick_order_date"
         if not self.initial.get("order_date"):
             self.initial["order_date"] = timezone.localtime(timezone.now()).strftime(
                 "%Y-%m-%dT%H:%M"

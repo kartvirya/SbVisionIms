@@ -3,173 +3,234 @@
 {% block title %}Payables Book{% endblock %}
 {% block stylesheets %}
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@anuz-pandey/nepali-date-picker/dist/nepali-date-picker.min.css">
+<link rel="stylesheet" href="{% static 'css/payables_book.css' %}">
 {% endblock stylesheets %}
 {% block content %}
-<div class="container my-4">
-    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-        <h4 class="text-success mb-0">Payables Book</h4>
-        <div class="d-flex flex-wrap gap-2">
-            <a class="btn btn-success btn-sm" href="{% url 'purchase-create' %}">
-                <i class="fa-solid fa-plus"></i> Full purchase entry
-            </a>
-            <a class="btn btn-outline-success btn-sm" href="{% url 'purchaseslist' %}">
-                <i class="fa-solid fa-arrow-left"></i> Purchase book
-            </a>
-        </div>
-    </div>
+<div class="payables-page">
+    <div class="pb-shell">
+        <header class="pb-hero">
+            <div>
+                <h1><i class="fa-solid fa-book-open text-teal-600 me-2"></i>Payables Book</h1>
+                <p>Track what you owe suppliers, edit bill dates, and record quick payables.</p>
+            </div>
+            <div class="pb-actions">
+                <a class="pb-btn pb-btn-primary" href="{% url 'purchase-create' %}">
+                    <i class="fa-solid fa-file-invoice"></i> Full purchase entry
+                </a>
+                <a class="pb-btn pb-btn-ghost" href="{% url 'purchaseslist' %}">
+                    <i class="fa-solid fa-arrow-left"></i> Purchase book
+                </a>
+            </div>
+        </header>
 
-    {% if messages %}
-    {% for message in messages %}
-    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
-        {{ message }}
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-    </div>
-    {% endfor %}
-    {% endif %}
+        {% if vendor_groups %}
+        <section class="pb-stats" aria-label="Summary totals">
+            <article class="pb-stat" style="--stat-accent:#f43f5e;--stat-color:#e11d48">
+                <div class="pb-stat-label">Outstanding</div>
+                <div class="pb-stat-value">Rs {{ totals.outstanding|floatformat:2 }}</div>
+                <div class="pb-stat-meta">Unpaid bill amounts</div>
+            </article>
+            <article class="pb-stat" style="--stat-accent:#f59e0b;--stat-color:#d97706">
+                <div class="pb-stat-label">Adjustments</div>
+                <div class="pb-stat-value">Rs {{ totals.adjustment|floatformat:2 }}</div>
+                <div class="pb-stat-meta">Manual vendor adjustments</div>
+            </article>
+            <article class="pb-stat" style="--stat-accent:#334155;--stat-color:#0f172a">
+                <div class="pb-stat-label">Balance due</div>
+                <div class="pb-stat-value">Rs {{ totals.balance_due|floatformat:2 }}</div>
+                <div class="pb-stat-meta">Outstanding + adjustments</div>
+            </article>
+            <article class="pb-stat" style="--stat-accent:#0ea5e9;--stat-color:#0284c7">
+                <div class="pb-stat-label">Stock value</div>
+                <div class="pb-stat-value">Rs {{ totals.stock_value|floatformat:2 }}</div>
+                <div class="pb-stat-meta">{{ totals.stock_units }} units on hand</div>
+            </article>
+            <article class="pb-stat" style="--stat-accent:#14b8a6;--stat-color:#0d9488">
+                <div class="pb-stat-label">Suppliers</div>
+                <div class="pb-stat-value">{{ vendor_groups|length }}</div>
+                <div class="pb-stat-meta">With open payables</div>
+            </article>
+        </section>
+        {% endif %}
 
-    <div class="card shadow-sm mb-3">
-        <div class="card-header bg-light d-flex justify-content-between align-items-center">
-            <strong>Add payable record</strong>
-            <span class="text-muted small">Quick bill from a supplier (no stock until you mark received)</span>
-        </div>
-        <div class="card-body">
-            <form method="post" action="{% url 'payables-aging' %}">
-                {% csrf_token %}
-                <input type="hidden" name="action" value="add_record">
-                <div class="row g-3 align-items-end">
-                    <div class="col-md-3">
-                        <label class="form-label" for="{{ quick_entry_form.vendor.id_for_label }}">{{ quick_entry_form.vendor.label }}</label>
-                        {{ quick_entry_form.vendor }}
-                        {{ quick_entry_form.vendor.errors }}
+        <section class="pb-card">
+            <div class="pb-card-head">
+                <h2><i class="fa-solid fa-circle-plus me-1 text-teal-600"></i> Add payable record</h2>
+                <p>Quick supplier bill — stock posts only when the purchase is marked <strong>Received</strong>.</p>
+            </div>
+            <div class="pb-card-body">
+                <form method="post" action="{% url 'payables-aging' %}" class="js-sync-datetime-form" id="payables-quick-form" onsubmit="if(window.ImsNepaliDatetime){ImsNepaliDatetime.syncForm(this);}">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="add_record">
+                    <div class="pb-form-grid">
+                        <div class="pb-field pb-field-lg-3 pb-field-sm-6">
+                            <label class="pb-label" for="{{ quick_entry_form.vendor.id_for_label }}">{{ quick_entry_form.vendor.label }}</label>
+                            {{ quick_entry_form.vendor }}
+                            {{ quick_entry_form.vendor.errors }}
+                        </div>
+                        <div class="pb-field pb-field-lg-2 pb-field-sm-6">
+                            <label class="pb-label" for="{{ quick_entry_form.bill_number.id_for_label }}">{{ quick_entry_form.bill_number.label }}</label>
+                            {{ quick_entry_form.bill_number }}
+                            {{ quick_entry_form.bill_number.errors }}
+                        </div>
+                        <div class="pb-field pb-field-lg-4 pb-field-sm-8">
+                            {% include "store/partials/nepali_datetime_field.html" with field=quick_entry_form.order_date %}
+                            {{ quick_entry_form.order_date.errors }}
+                        </div>
+                        <div class="pb-field pb-field-lg-2 pb-field-sm-4">
+                            <label class="pb-label" for="{{ quick_entry_form.net_amount.id_for_label }}">{{ quick_entry_form.net_amount.label }}</label>
+                            {{ quick_entry_form.net_amount }}
+                            {{ quick_entry_form.net_amount.errors }}
+                        </div>
+                        <div class="pb-field pb-field-lg-2 pb-field-sm-4">
+                            <label class="pb-label" for="{{ quick_entry_form.amount_paid.id_for_label }}">{{ quick_entry_form.amount_paid.label }}</label>
+                            {{ quick_entry_form.amount_paid }}
+                            {{ quick_entry_form.amount_paid.errors }}
+                        </div>
+                        <div class="pb-field pb-field-lg-5 pb-field-sm-8">
+                            <label class="pb-label" for="{{ quick_entry_form.description.id_for_label }}">{{ quick_entry_form.description.label }}</label>
+                            {{ quick_entry_form.description }}
+                            {{ quick_entry_form.description.errors }}
+                        </div>
+                        <div class="pb-field pb-field-lg-2 pb-field-sm-4">
+                            <button type="submit" class="pb-btn pb-btn-primary w-100 justify-content-center" style="width:100%;justify-content:center;">
+                                <i class="fa-solid fa-plus"></i> Add bill
+                            </button>
+                        </div>
                     </div>
-                    <div class="col-md-2">
-                        <label class="form-label" for="{{ quick_entry_form.bill_number.id_for_label }}">{{ quick_entry_form.bill_number.label }}</label>
-                        {{ quick_entry_form.bill_number }}
-                        {{ quick_entry_form.bill_number.errors }}
+                </form>
+            </div>
+        </section>
+
+        <form method="post" action="{% url 'payables-aging' %}" id="payables-dates-form" class="js-sync-datetime-form d-none" onsubmit="if(window.ImsNepaliDatetime){ImsNepaliDatetime.syncForm(this);}">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="save_all_bill_dates">
+        </form>
+
+        <section class="pb-card">
+            <div class="pb-toolbar">
+                <div>
+                    <h2 style="margin:0;font-size:1.05rem;font-weight:700;">
+                        <i class="fa-solid fa-list-check me-1 text-sky-600"></i> Outstanding bills
+                    </h2>
+                    <p style="margin:0.2rem 0 0;font-size:0.82rem;color:#64748b;">
+                        Set a different billed date in each row, then save all at once.
+                    </p>
+                </div>
+                {% if vendor_groups %}
+                <button type="submit" form="payables-dates-form" class="pb-btn pb-btn-sky">
+                    <i class="fa-solid fa-calendar-check"></i> Save all dates
+                </button>
+                {% endif %}
+            </div>
+
+                {% if vendor_groups %}
+                {% for group in vendor_groups %}
+                <article class="pb-vendor-card">
+                    <div class="pb-vendor-head">
+                        <div class="pb-vendor-name">
+                            <i class="fa-solid fa-truck-field me-1"></i>{{ group.vendor.name }}
+                        </div>
+                        <div class="pb-vendor-meta">
+                            <span class="pb-pill"><i class="fa-solid fa-boxes-stacked"></i> {{ group.total_stock }} units</span>
+                            <span class="pb-pill"><i class="fa-solid fa-warehouse"></i> Rs {{ group.total_stock_value|floatformat:2 }}</span>
+                            <span class="pb-pill"><i class="fa-solid fa-file-invoice-dollar"></i> {{ group.bills|length }} bill{{ group.bills|length|pluralize }}</span>
+                        </div>
                     </div>
-                    <div class="col-md-3">
-                        {% include "store/partials/nepali_datetime_field.html" with field=quick_entry_form.order_date %}
-                        {{ quick_entry_form.order_date.errors }}
+
+                    <div class="pb-table-wrap">
+                        <table class="pb-table">
+                            <thead>
+                                <tr>
+                                    <th>Bill #</th>
+                                    <th>Billed date</th>
+                                    <th>Last transaction</th>
+                                    <th class="text-end">Outstanding (Rs)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for bill in group.bills %}
+                                <tr>
+                                    <td>
+                                        <a class="pb-bill-link" href="{% url 'purchase-detail' slug=bill.purchase.slug %}">{{ bill.bill_number }}</a>
+                                    </td>
+                                    <td class="ims-date-cell">
+                                        {% include "accounts/partials/ledger_date_fields.html" with row=bill date_form_id="payables-dates-form" %}
+                                    </td>
+                                    <td style="white-space:nowrap;color:#64748b;">{{ bill.last_transaction_date|date:"Y-m-d H:i" }}</td>
+                                    <td class="text-end pb-amount">{{ bill.outstanding|floatformat:2 }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
                     </div>
-                    <div class="col-md-2">
-                        <label class="form-label" for="{{ quick_entry_form.net_amount.id_for_label }}">{{ quick_entry_form.net_amount.label }}</label>
-                        {{ quick_entry_form.net_amount }}
-                        {{ quick_entry_form.net_amount.errors }}
+
+                    <div class="pb-vendor-foot">
+                        <div>
+                            <div class="pb-subtotal-label">Subtotal outstanding</div>
+                            <div class="pb-subtotal-value">Rs {{ group.total_outstanding|floatformat:2 }}</div>
+                        </div>
+                        <form method="post" action="{% url 'payables-aging' %}" class="pb-adj-form">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="adjustment">
+                            <input type="hidden" name="vendor_id" value="{{ group.vendor.pk }}">
+                            <div class="pb-sign-toggle" role="group" aria-label="Adjustment sign">
+                                <label>
+                                    <input type="radio" name="adjustment_sign" value="+" {% if group.adjustment_sign == "+" %}checked{% endif %}>
+                                    <span>+</span>
+                                </label>
+                                <label>
+                                    <input type="radio" name="adjustment_sign" value="-" {% if group.adjustment_sign == "-" %}checked{% endif %}>
+                                    <span>−</span>
+                                </label>
+                            </div>
+                            <input type="number" name="adjustment_amount" class="form-control" style="width:6.5rem;text-align:right;" min="0" step="0.01" value="{{ group.adjustment_amount }}" aria-label="Adjustment amount">
+                            <button type="submit" class="pb-btn pb-btn-primary" style="padding:0.4rem 0.75rem;font-size:0.78rem;">
+                                <i class="fa-solid fa-sliders"></i> Save adj.
+                            </button>
+                        </form>
+                        <div style="text-align:right;">
+                            <div class="pb-subtotal-label">Balance due</div>
+                            <div class="pb-balance-value">Rs {{ group.balance_due|floatformat:2 }}</div>
+                        </div>
                     </div>
-                    <div class="col-md-2">
-                        <label class="form-label" for="{{ quick_entry_form.amount_paid.id_for_label }}">{{ quick_entry_form.amount_paid.label }}</label>
-                        {{ quick_entry_form.amount_paid }}
-                        {{ quick_entry_form.amount_paid.errors }}
-                    </div>
-                    <div class="col-md-1">
-                        <button type="submit" class="btn btn-success w-100">
-                            <i class="fa-solid fa-plus"></i> Add
-                        </button>
-                    </div>
-                    <div class="col-md-12">
-                        <label class="form-label" for="{{ quick_entry_form.description.id_for_label }}">{{ quick_entry_form.description.label }}</label>
-                        {{ quick_entry_form.description }}
-                        {{ quick_entry_form.description.errors }}
+                </article>
+                {% endfor %}
+
+                <div class="pb-grand-total">
+                    <strong><i class="fa-solid fa-calculator me-1"></i> Grand total</strong>
+                    <div class="pb-grand-metrics">
+                        <div>
+                            <small>Outstanding</small>
+                            <span>Rs {{ totals.outstanding|floatformat:2 }}</span>
+                        </div>
+                        <div>
+                            <small>Adjustments</small>
+                            <span>Rs {{ totals.adjustment|floatformat:2 }}</span>
+                        </div>
+                        <div>
+                            <small>Balance due</small>
+                            <span>Rs {{ totals.balance_due|floatformat:2 }}</span>
+                        </div>
                     </div>
                 </div>
-            </form>
-        </div>
-    </div>
+                {% else %}
+                <div class="pb-empty">
+                    <div><i class="fa-solid fa-circle-check d-block"></i></div>
+                    <h3 style="font-size:1.1rem;font-weight:700;margin:0 0 0.35rem;">No outstanding payables</h3>
+                    <p style="margin:0;">All supplier bills are paid, or none have been recorded yet.</p>
+                </div>
+                {% endif %}
+        </section>
 
-    <div class="card shadow-sm">
-        <div class="card-body p-0">
-            <div class="table-responsive">
-                <table class="table table-sm table-striped table-bordered mb-0">
-                    <thead class="table-light">
-                        <tr>
-                            <th>Vendor</th>
-                            <th class="text-end">Stock (units)</th>
-                            <th class="text-end">Stock value</th>
-                            <th>Bill number</th>
-                            <th>Billed date</th>
-                            <th>Last transaction</th>
-                            <th class="text-end">Outstanding</th>
-                            <th class="text-end">Adjustment</th>
-                            <th class="text-end">Balance due</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% if vendor_groups %}
-                        {% for group in vendor_groups %}
-                        {% for bill in group.bills %}
-                        <tr>
-                            {% if forloop.first %}
-                            <td rowspan="{{ group.bills|length }}">{{ group.vendor.name }}</td>
-                            <td rowspan="{{ group.bills|length }}" class="text-end">{{ group.total_stock }}</td>
-                            <td rowspan="{{ group.bills|length }}" class="text-end">{{ group.total_stock_value|floatformat:2 }}</td>
-                            {% endif %}
-                            <td>
-                                <a href="{% url 'purchase-detail' slug=bill.purchase.slug %}">{{ bill.bill_number }}</a>
-                            </td>
-                            <td>{{ bill.billed_date|date:"Y-m-d H:i" }}</td>
-                            <td>{{ bill.last_transaction_date|date:"Y-m-d H:i" }}</td>
-                            <td class="text-end">{{ bill.outstanding|floatformat:2 }}</td>
-                        </tr>
-                        {% endfor %}
-                        <tr class="table-secondary">
-                            <td colspan="5" class="text-end small">
-                                Subtotal — {{ group.vendor.name }}
-                            </td>
-                            <td class="text-end fw-semibold">{{ group.total_outstanding|floatformat:2 }}</td>
-                            <td class="text-end">
-                                <form method="post" action="{% url 'payables-aging' %}" class="d-flex justify-content-end gap-1 align-items-center flex-wrap">
-                                    {% csrf_token %}
-                                    <input type="hidden" name="action" value="adjustment">
-                                    <input type="hidden" name="vendor_id" value="{{ group.vendor.pk }}">
-                                    <div class="btn-group btn-group-sm" role="group" aria-label="Adjustment sign">
-                                        <input type="radio" class="btn-check" name="adjustment_sign" id="adj-plus-{{ group.vendor.pk }}" value="+" {% if group.adjustment_sign == "+" %}checked{% endif %}>
-                                        <label class="btn btn-outline-success" for="adj-plus-{{ group.vendor.pk }}">+</label>
-                                        <input type="radio" class="btn-check" name="adjustment_sign" id="adj-minus-{{ group.vendor.pk }}" value="-" {% if group.adjustment_sign == "-" %}checked{% endif %}>
-                                        <label class="btn btn-outline-success" for="adj-minus-{{ group.vendor.pk }}">−</label>
-                                    </div>
-                                    <input
-                                        type="number"
-                                        name="adjustment_amount"
-                                        class="form-control form-control-sm text-end"
-                                        style="max-width: 6rem;"
-                                        min="0"
-                                        step="0.01"
-                                        value="{{ group.adjustment_amount }}"
-                                    >
-                                    <button type="submit" class="btn btn-success btn-sm">Save</button>
-                                </form>
-                            </td>
-                            <td class="text-end fw-semibold">{{ group.balance_due|floatformat:2 }}</td>
-                        </tr>
-                        {% endfor %}
-                        {% else %}
-                        <tr>
-                            <td colspan="9" class="text-center text-muted py-4">No outstanding payables.</td>
-                        </tr>
-                        {% endif %}
-                    </tbody>
-                    {% if vendor_groups %}
-                    <tfoot class="table-light">
-                        <tr>
-                            <th colspan="6">Total</th>
-                            <th class="text-end">{{ totals.stock_units }}</th>
-                            <th class="text-end">{{ totals.stock_value|floatformat:2 }}</th>
-                            <th class="text-end">{{ totals.outstanding|floatformat:2 }}</th>
-                            <th class="text-end">{{ totals.adjustment|floatformat:2 }}</th>
-                            <th class="text-end">{{ totals.balance_due|floatformat:2 }}</th>
-                        </tr>
-                    </tfoot>
-                    {% endif %}
-                </table>
-            </div>
-        </div>
+        <p class="pb-footnote">
+            <strong>Billed date</strong> — editable per row (B.S. or A.D.). Type directly or use the calendar.
+            <strong>Last transaction</strong> — latest payment, receipt, or order date on that bill.
+            <strong>Adjustment</strong> — + sets payable adjustment; − applies credit to oldest bills first.
+        </p>
     </div>
-    <p class="text-muted small mt-2 mb-0">
-        <strong>Billed date</strong> is the purchase order date.
-        <strong>Last transaction</strong> is the latest payment on that bill, or receipt/order date if none.
-        Use <strong>+</strong> / <strong>−</strong> for vendor-level adjustments.
-    </p>
 </div>
+
 <script src="https://cdn.jsdelivr.net/npm/nepali-date-converter@3.4.0/dist/nepali-date-converter.umd.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@anuz-pandey/nepali-date-picker/dist/nepali-date-picker.bundle.min.js"></script>
 <script src="{% static 'js/nepali_datetime.js' %}"></script>
@@ -177,12 +238,17 @@
 document.addEventListener("DOMContentLoaded", function () {
     if (!window.ImsNepaliDatetime) return;
     ImsNepaliDatetime.initAll();
-    const form = document.querySelector("form");
-    if (form) {
+
+    document.querySelectorAll("form.js-sync-datetime-form").forEach(function (form) {
         form.addEventListener("submit", function () {
             ImsNepaliDatetime.syncAll();
         });
-    }
+    });
+    document.querySelectorAll('button[form="payables-dates-form"]').forEach(function (btn) {
+        btn.addEventListener("click", function () {
+            ImsNepaliDatetime.syncAll();
+        });
+    });
 });
 </script>
 {% endblock %}

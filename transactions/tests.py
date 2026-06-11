@@ -1,6 +1,7 @@
 from decimal import Decimal
 
 from django.test import TestCase
+from django.utils import timezone
 
 from accounts.models import Customer, Vendor
 from store.models import Category, Item
@@ -14,12 +15,13 @@ from transactions.models import (
 )
 from store.models import ProductVariation
 from store.stock_utils import get_ledger_stock, get_sellable_stock
-from transactions.forms import PurchaseForm
+from transactions.forms import PurchaseForm, PurchaseLineFormSet
 from store.stock_adjust import apply_manual_stock_adjustment
 from transactions.models import PurchaseLine
 from transactions.services import (
     create_payable_quick_entry,
     create_sale_transaction,
+    ensure_purchase_lines,
     get_payables_aging,
     get_payables_aging_report,
     get_stock_ledger_rows,
@@ -313,6 +315,64 @@ class StockAndPayablesFixTests(TestCase):
             ).count(),
             1,
         )
+
+    def test_account_book_purchase_gets_line_for_edit(self):
+        purchase = create_payable_quick_entry(
+            self.vendor,
+            bill_number="SI/0808",
+            net_amount=Decimal("1000"),
+        )
+        self.assertEqual(purchase.lines.count(), 1)
+        line = purchase.lines.first()
+        self.assertEqual(line.quantity, 1)
+        self.assertEqual(line.unit_price, Decimal("1000"))
+
+    def test_ensure_purchase_lines_backfills_legacy_header_only_bill(self):
+        purchase = Purchase.objects.create(
+            vendor=self.vendor,
+            bill_number="LEG-1",
+            quantity=1,
+            price=Decimal("750"),
+        )
+        purchase.save()
+        self.assertEqual(purchase.lines.count(), 0)
+        ensure_purchase_lines(purchase)
+        self.assertEqual(purchase.lines.count(), 1)
+        self.assertEqual(purchase.lines.first().unit_price, Decimal("750"))
+
+    def test_account_book_purchase_formset_valid_after_backfill(self):
+        purchase = create_payable_quick_entry(
+            self.vendor,
+            bill_number="SI/0808",
+            net_amount=Decimal("1000"),
+        )
+        purchase.lines.all().delete()
+        ensure_purchase_lines(purchase)
+        line_formset = PurchaseLineFormSet(
+            instance=purchase,
+            vendor_id=self.vendor.pk,
+        )
+        self.assertEqual(line_formset.initial_form_count(), 1)
+        self.assertFalse(line_formset.non_form_errors())
+
+        prefix = line_formset.prefix
+        line = purchase.lines.first()
+        data = {
+            f"{prefix}-TOTAL_FORMS": str(len(line_formset.forms)),
+            f"{prefix}-INITIAL_FORMS": str(line_formset.initial_form_count()),
+            f"{prefix}-MIN_NUM_FORMS": str(line_formset.min_num),
+            f"{prefix}-MAX_NUM_FORMS": str(line_formset.max_num),
+            f"{prefix}-0-id": str(line.pk),
+            f"{prefix}-0-item": str(line.item_id),
+            f"{prefix}-0-quantity": str(line.quantity),
+            f"{prefix}-0-unit_price": str(line.unit_price),
+        }
+        bound = PurchaseLineFormSet(
+            data,
+            instance=purchase,
+            vendor_id=self.vendor.pk,
+        )
+        self.assertTrue(bound.is_valid(), bound.errors)
 
 
 class StockAdjustmentTests(TestCase):

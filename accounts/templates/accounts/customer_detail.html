@@ -3,6 +3,13 @@
 {% block title %}{{ customer.get_full_name }} — Account{% endblock %}
 {% block stylesheets %}
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@anuz-pandey/nepali-date-picker/dist/nepali-date-picker.min.css">
+<style>
+  .ims-date-cell { overflow: visible !important; position: relative; z-index: 1; min-width: 15rem; }
+  .ims-date-cell:focus-within { z-index: 40; }
+  .ims-ledger-table-wrap { overflow: visible !important; }
+  .ndp-container, .nepali-date-picker { z-index: 9999 !important; }
+  .nepali-cal-toggle button.active { background: #0ea5e9; color: #fff; border-color: #0ea5e9; }
+</style>
 {% endblock stylesheets %}
 {% block content %}
 <div class="container my-4">
@@ -52,11 +59,13 @@
             <div class="card shadow-sm h-100">
                 <div class="card-header bg-light"><strong>Record payment</strong></div>
                 <div class="card-body">
-                    <form method="post">
+                    <form method="post" class="js-sync-datetime-form" onsubmit="if(window.ImsNepaliDatetime){ImsNepaliDatetime.syncForm(this);}">
                         {% csrf_token %}
                         <input type="hidden" name="action" value="record_payment">
                         <div class="mb-2">{% include "store/partials/nepali_datetime_field.html" with field=payment_form.transaction_date %}</div>
-                        <div class="mb-2">{{ payment_form.sale.label_tag }}{{ payment_form.sale }}</div>
+                        <div class="mb-2">{{ payment_form.sale.label_tag }}{{ payment_form.sale }}
+                            {% if not payment_form.sale.field.queryset %}<p class="text-muted small mb-0 mt-1">No unpaid sales — use Account transaction → Payment in instead.</p>{% endif %}
+                        </div>
                         <div class="mb-2">{{ payment_form.amount.label_tag }}{{ payment_form.amount }}</div>
                         <div class="mb-2">{{ payment_form.method.label_tag }}{{ payment_form.method }}</div>
                         <div class="mb-2">{{ payment_form.notes.label_tag }}{{ payment_form.notes }}</div>
@@ -69,41 +78,56 @@
 
     {% include "accounts/partials/payment_records.html" %}
 
-    <div class="card shadow-sm">
-        <div class="card-header bg-light"><strong>Transaction history</strong></div>
-        <div class="table-responsive">
-            <table class="table table-sm table-striped mb-0">
-                <thead class="table-light">
-                    <tr>
-                        <th>Date</th>
-                        <th>Type</th>
-                        <th>Reference</th>
-                        <th class="text-end">Debit</th>
-                        <th class="text-end">Credit</th>
-                        <th>Method</th>
-                        <th class="text-end">Balance</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for row in ledger_rows %}
-                    <tr>
-                        <td style="min-width:14rem;">{% include "accounts/partials/ledger_date_cell.html" with row=row %}</td>
-                        <td>{{ row.type }}</td>
-                        <td>
-                            {% if row.url %}<a href="{{ row.url }}">{{ row.reference }}</a>{% else %}{{ row.reference }}{% endif %}
-                        </td>
-                        <td class="text-end">{% if row.debit %}Rs {{ row.debit }}{% else %}—{% endif %}</td>
-                        <td class="text-end">{% if row.credit %}Rs {{ row.credit }}{% else %}—{% endif %}</td>
-                        <td>{{ row.method|default:"—" }}</td>
-                        <td class="text-end fw-semibold">Rs {{ row.balance }}</td>
-                    </tr>
-                    {% empty %}
-                    <tr><td colspan="7" class="text-center text-muted py-3">No transactions yet.</td></tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+    <form method="post" id="ledger-dates-form" class="js-sync-datetime-form" onsubmit="if(window.ImsNepaliDatetime){ImsNepaliDatetime.syncForm(this);}">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="save_all_transaction_dates">
+        <div class="card shadow-sm">
+            <div class="card-header bg-light">
+                <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+                    <div>
+                        <strong>Transaction history</strong>
+                        <p class="text-muted small mb-0">Edit dates in each row, then save all from here.</p>
+                    </div>
+                    <div class="d-flex flex-wrap gap-2">
+                        <a href="{% url 'customer-statement' customer.pk %}" class="btn btn-outline-secondary btn-sm" target="_blank" rel="noopener">Print statement</a>
+                        <button type="submit" class="btn btn-outline-primary btn-sm">Save all dates</button>
+                    </div>
+                </div>
+            </div>
+            <div class="table-responsive ims-ledger-table-wrap">
+                <table class="table table-sm table-striped mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Date</th>
+                            <th>Type</th>
+                            <th>Reference</th>
+                            <th class="text-end">Debit</th>
+                            <th class="text-end">Credit</th>
+                            <th>Method</th>
+                            <th class="text-end">Balance</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in ledger_rows %}
+                        <tr>
+                            <td class="ims-date-cell">{% include "accounts/partials/ledger_date_cell.html" with row=row %}</td>
+                            <td>{{ row.type }}</td>
+                            <td>
+                                {% if row.url %}<a href="{{ row.url }}">{{ row.reference }}</a>{% else %}{{ row.reference }}{% endif %}
+                            </td>
+                            <td class="text-end">{% if row.debit %}Rs {{ row.debit }}{% else %}—{% endif %}</td>
+                            <td class="text-end">{% if row.credit %}Rs {{ row.credit }}{% else %}—{% endif %}</td>
+                            <td>{{ row.method|default:"—" }}</td>
+                            <td class="text-end fw-semibold">Rs {{ row.balance }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="7" class="text-center text-muted py-3">No transactions yet.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
         </div>
-    </div>
+    </form>
 </div>
 {% endblock %}
 

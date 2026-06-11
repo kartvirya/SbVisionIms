@@ -137,6 +137,11 @@ class Vendor(models.Model):
         default=0,
         help_text="Amount owed to this supplier before system records.",
     )
+    opening_balance_date = models.DateTimeField(
+        blank=True,
+        null=True,
+        help_text="As-of date for the supplier opening balance.",
+    )
 
     def __str__(self):
         """
@@ -203,6 +208,11 @@ class Customer(models.Model):
         decimal_places=2,
         default=0,
         help_text="Amount the customer owed before system records (debit balance).",
+    )
+    opening_balance_date = models.DateTimeField(
+        blank=True,
+        null=True,
+        help_text="As-of date for the customer opening balance.",
     )
     receivables_adjustment = models.DecimalField(
         max_digits=12,

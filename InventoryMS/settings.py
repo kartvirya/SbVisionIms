@@ -138,5 +138,9 @@ MEDIA_URL = '/images/'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+# Account pages with many editable dates can post thousands of fields.
+DATA_UPLOAD_MAX_NUMBER_FIELDS = 20000
+DATA_UPLOAD_MAX_MEMORY_SIZE = 10485760
+
 CRISPY_ALLOWED_TEMPLATE_PACKS = "bootstrap5"
 CRISPY_TEMPLATE_PACK = "bootstrap5"

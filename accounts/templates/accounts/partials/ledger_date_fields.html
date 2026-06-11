@@ -1,0 +1,19 @@
+<input type="hidden" name="ledger_date_kind" value="{{ row.date_kind }}"{% if date_form_id %} form="{{ date_form_id }}"{% endif %}>
+<input type="hidden" name="ledger_date_id" value="{{ row.date_pk }}"{% if date_form_id %} form="{{ date_form_id }}"{% endif %}>
+<input type="hidden" name="ledger_date_value" id="ledger-date-{{ row.date_kind }}-{{ row.date_pk }}" value="{% if row.date %}{{ row.date|date:'Y-m-d' }}T{{ row.date|date:'H:i' }}{% endif %}"{% if date_form_id %} form="{{ date_form_id }}"{% endif %}>
+<div class="nepali-datetime-wrap nepali-datetime-wrap--compact ims-date-cell" data-hidden="ledger-date-{{ row.date_kind }}-{{ row.date_pk }}" data-default-cal="bs">
+    <div class="flex flex-wrap gap-1 mb-1 nepali-cal-toggle" role="group">
+        <button type="button" class="px-2 py-0.5 text-xs rounded border border-slate-300 bg-white active" data-cal="bs">B.S.</button>
+        <button type="button" class="px-2 py-0.5 text-xs rounded border border-slate-300 bg-white" data-cal="ad">A.D.</button>
+    </div>
+    <div class="nepali-mode-bs">
+        <div class="flex gap-1 flex-wrap">
+            <input type="text" id="ledger-date-{{ row.date_kind }}-{{ row.date_pk }}_bs" class="nepali-bs-date w-28 min-w-[7rem] rounded border border-slate-300 px-2 py-1 text-sm" placeholder="YYYY-MM-DD" autocomplete="off" inputmode="numeric">
+            <input type="time" id="ledger-date-{{ row.date_kind }}-{{ row.date_pk }}_time" class="nepali-bs-time w-24 rounded border border-slate-300 px-2 py-1 text-sm">
+        </div>
+    </div>
+    <div class="nepali-mode-ad hidden">
+        <input type="datetime-local" id="ledger-date-{{ row.date_kind }}-{{ row.date_pk }}_ad" class="nepali-ad-datetime w-full rounded border border-slate-300 px-2 py-1 text-sm">
+    </div>
+    <small class="text-slate-500 nepali-ad-hint block text-xs mt-1"></small>
+</div>

@@ -8,7 +8,7 @@ document.addEventListener("DOMContentLoaded", function () {
     ImsNepaliDatetime.initAll();
     document.querySelectorAll("form").forEach(function (form) {
         form.addEventListener("submit", function () {
-            ImsNepaliDatetime.syncAll();
+            ImsNepaliDatetime.syncForm(form);
         });
     });
 });

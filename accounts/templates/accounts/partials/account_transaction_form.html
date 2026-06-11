@@ -1,8 +1,18 @@
-<form method="post">
+<form method="post" class="js-sync-datetime-form" onsubmit="if(window.ImsNepaliDatetime){ImsNepaliDatetime.syncForm(this);}">
     {% csrf_token %}
     <input type="hidden" name="action" value="account_transaction">
+    {% if form.errors %}
+    <div class="alert alert-danger py-1 px-2 small mb-2">
+        {% for field, errors in form.errors.items %}
+            {% for error in errors %}{{ error }}{% if not forloop.last %} {% endif %}{% endfor %}
+        {% endfor %}
+    </div>
+    {% endif %}
     <div class="mb-2">
         {% include "store/partials/nepali_datetime_field.html" with field=form.transaction_date %}
+        {% if form.transaction_date.errors %}
+        <div class="text-danger small">{{ form.transaction_date.errors }}</div>
+        {% endif %}
     </div>
     <div class="mb-2">
         <label class="form-label small mb-1">{{ form.transaction_type.label }}</label>

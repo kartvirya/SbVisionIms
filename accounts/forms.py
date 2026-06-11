@@ -8,7 +8,7 @@ from django.utils import timezone
 
 from transactions.models import PAYMENT_METHOD_CHOICES, CustomerPayment, Purchase, Sale, VendorPayment
 
-from .datetime_utils import DATETIME_LOCAL_FORMAT
+from .datetime_utils import DATETIME_LOCAL_FORMAT, parse_posted_datetime
 from .models import Profile, Customer, Vendor, Brand, Logistics
 
 
@@ -16,16 +16,27 @@ def _d(value):
     return Decimal(str(value or 0))
 
 
-def _transaction_date_field(*, label="Date", required=False):
+def _transaction_date_field(*, label="Date", required=False, widget_id=None):
+    attrs = {"type": "datetime-local", "class": "d-none"}
+    if widget_id:
+        attrs["id"] = widget_id
     return forms.DateTimeField(
         required=required,
         label=label,
         widget=forms.DateTimeInput(
-            attrs={"type": "datetime-local", "class": "d-none"},
+            attrs=attrs,
             format=DATETIME_LOCAL_FORMAT,
         ),
         input_formats=[DATETIME_LOCAL_FORMAT],
     )
+
+
+def _init_transaction_date(form, widget_id):
+    if not form.initial.get("transaction_date"):
+        form.initial["transaction_date"] = timezone.localtime(timezone.now()).strftime(
+            DATETIME_LOCAL_FORMAT
+        )
+    form.fields["transaction_date"].widget.attrs["id"] = widget_id
 
 
 class CreateUserForm(UserCreationForm):
@@ -298,6 +309,11 @@ class LogisticsForm(forms.ModelForm):
 class SignedOpeningBalanceForm(forms.Form):
     """Signed opening balance: + receivable/payable, − opposite credit."""
 
+    opening_balance_date = _transaction_date_field(
+        label="As-of date",
+        required=False,
+        widget_id="opening_balance_date",
+    )
     opening_sign = forms.ChoiceField(
         choices=[("+", "Receivable / Payable (+)"), ("-", "Payable / Receivable (−)")],
         initial="+",
@@ -314,6 +330,23 @@ class SignedOpeningBalanceForm(forms.Form):
         ),
     )
 
+    def __init__(self, *args, opening_balance_date=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        _init_transaction_date(self, "opening_balance_date")
+        if opening_balance_date:
+            self.initial["opening_balance_date"] = timezone.localtime(
+                opening_balance_date
+            ).strftime(DATETIME_LOCAL_FORMAT)
+
+    def clean(self):
+        cleaned = super().clean()
+        opening_date = cleaned.get("opening_balance_date") or parse_posted_datetime(
+            self.data.get("opening_balance_date")
+        )
+        if opening_date:
+            cleaned["opening_balance_date"] = opening_date
+        return cleaned
+
     def opening_balance_value(self):
         return _signed_opening_value(
             self.cleaned_data["opening_sign"],
@@ -322,7 +355,7 @@ class SignedOpeningBalanceForm(forms.Form):
 
 
 class CustomerAccountTransactionForm(forms.Form):
-    transaction_date = _transaction_date_field()
+    transaction_date = _transaction_date_field(required=False)
     transaction_type = forms.ChoiceField(
         choices=[
             ("sale_in", "Sale in (add receivable)"),
@@ -357,14 +390,22 @@ class CustomerAccountTransactionForm(forms.Form):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        if not self.initial.get("transaction_date"):
-            self.initial["transaction_date"] = timezone.localtime(timezone.now()).strftime(
-                DATETIME_LOCAL_FORMAT
-            )
+        _init_transaction_date(self, "customer_account_txn_date")
+
+    def clean(self):
+        cleaned = super().clean()
+        txn_date = cleaned.get("transaction_date") or parse_posted_datetime(
+            self.data.get("transaction_date")
+        )
+        if not txn_date:
+            self.add_error("transaction_date", "Enter a valid date.")
+            return cleaned
+        cleaned["transaction_date"] = txn_date
+        return cleaned
 
 
 class VendorAccountTransactionForm(forms.Form):
-    transaction_date = _transaction_date_field()
+    transaction_date = _transaction_date_field(required=False)
     transaction_type = forms.ChoiceField(
         choices=[
             ("bill_in", "Bill in (add payable)"),
@@ -405,10 +446,18 @@ class VendorAccountTransactionForm(forms.Form):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        if not self.initial.get("transaction_date"):
-            self.initial["transaction_date"] = timezone.localtime(timezone.now()).strftime(
-                DATETIME_LOCAL_FORMAT
-            )
+        _init_transaction_date(self, "vendor_account_txn_date")
+
+    def clean(self):
+        cleaned = super().clean()
+        txn_date = cleaned.get("transaction_date") or parse_posted_datetime(
+            self.data.get("transaction_date")
+        )
+        if not txn_date:
+            self.add_error("transaction_date", "Enter a valid date.")
+            return cleaned
+        cleaned["transaction_date"] = txn_date
+        return cleaned
 
 
 class SignedAdjustmentForm(forms.Form):
@@ -481,13 +530,11 @@ class CustomerPaymentForm(forms.Form):
 
     def __init__(self, *args, customer=None, **kwargs):
         super().__init__(*args, **kwargs)
-        if not self.initial.get("transaction_date"):
-            self.initial["transaction_date"] = timezone.localtime(timezone.now()).strftime(
-                DATETIME_LOCAL_FORMAT
-            )
+        _init_transaction_date(self, "customer_record_payment_date")
         if customer is not None:
             self.fields["sale"].queryset = (
                 Sale.objects.filter(customer=customer)
+                .exclude(payment_status="D")
                 .order_by("-date_added")
             )
             self.fields["sale"].label_from_instance = (
@@ -496,6 +543,11 @@ class CustomerPaymentForm(forms.Form):
 
     def clean(self):
         cleaned = super().clean()
+        txn_date = cleaned.get("transaction_date") or parse_posted_datetime(
+            self.data.get("transaction_date")
+        )
+        if txn_date:
+            cleaned["transaction_date"] = txn_date
         sale = cleaned.get("sale")
         amount = cleaned.get("amount")
         if sale and amount is not None:
@@ -536,13 +588,11 @@ class VendorPaymentForm(forms.Form):
 
     def __init__(self, *args, vendor=None, **kwargs):
         super().__init__(*args, **kwargs)
-        if not self.initial.get("transaction_date"):
-            self.initial["transaction_date"] = timezone.localtime(timezone.now()).strftime(
-                DATETIME_LOCAL_FORMAT
-            )
+        _init_transaction_date(self, "vendor_record_payment_date")
         if vendor is not None:
             self.fields["purchase"].queryset = (
                 Purchase.objects.filter(vendor=vendor)
+                .exclude(payment_status="D")
                 .order_by("-order_date")
             )
             self.fields["purchase"].label_from_instance = (
@@ -551,6 +601,11 @@ class VendorPaymentForm(forms.Form):
 
     def clean(self):
         cleaned = super().clean()
+        txn_date = cleaned.get("transaction_date") or parse_posted_datetime(
+            self.data.get("transaction_date")
+        )
+        if txn_date:
+            cleaned["transaction_date"] = txn_date
         purchase = cleaned.get("purchase")
         amount = cleaned.get("amount")
         if purchase and amount is not None:

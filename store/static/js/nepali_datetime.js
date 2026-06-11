@@ -81,23 +81,42 @@
         const bsBlock = wrap.querySelector(".nepali-mode-bs");
         const adBlock = wrap.querySelector(".nepali-mode-ad");
         wrap.querySelectorAll(".nepali-cal-toggle [data-cal]").forEach(function (btn) {
-            btn.classList.toggle("active", btn.dataset.cal === mode);
+            const isActive = btn.dataset.cal === mode;
+            btn.classList.toggle("active", isActive);
+            btn.setAttribute("aria-pressed", isActive ? "true" : "false");
         });
         if (bsBlock) {
             bsBlock.classList.toggle("d-none", mode !== "bs");
+            bsBlock.classList.toggle("hidden", mode !== "bs");
         }
         if (adBlock) {
             adBlock.classList.toggle("d-none", mode !== "ad");
+            adBlock.classList.toggle("hidden", mode !== "ad");
         }
     }
 
+    function findHidden(wrap) {
+        const id = wrap.dataset.hidden;
+        if (!id) {
+            return null;
+        }
+        const form = wrap.closest("form");
+        if (form) {
+            const inForm = form.querySelector("#" + CSS.escape(id));
+            if (inForm) {
+                return inForm;
+            }
+        }
+        return document.getElementById(id);
+    }
+
     function readHidden(wrap) {
-        const hidden = document.getElementById(wrap.dataset.hidden);
+        const hidden = findHidden(wrap);
         return hidden ? hidden.value : "";
     }
 
     function writeHidden(wrap, value) {
-        const hidden = document.getElementById(wrap.dataset.hidden);
+        const hidden = findHidden(wrap);
         if (hidden) {
             hidden.value = value || "";
         }
@@ -144,11 +163,12 @@
         const bsInput = wrap.querySelector(".nepali-bs-date");
         const timeInput = wrap.querySelector(".nepali-bs-time");
         const adInput = wrap.querySelector(".nepali-ad-datetime");
-        if (bsInput && bs.bs) {
-            bsInput.value = bs.bs;
+        if (bsInput) {
+            bsInput.value = bs.bs || bsInput.value || "";
+            bsInput.removeAttribute("readonly");
         }
-        if (timeInput && bs.time) {
-            timeInput.value = bs.time;
+        if (timeInput) {
+            timeInput.value = bs.time || timeInput.value || "12:00";
         }
         if (adInput) {
             adInput.value = adValue || "";
@@ -157,11 +177,14 @@
     }
 
     function initWrap(wrap) {
-        const hiddenId = wrap.dataset.hidden;
-        const hidden = document.getElementById(hiddenId);
+        if (wrap.dataset.nepaliInit === "1") {
+            return;
+        }
+        const hidden = findHidden(wrap);
         if (!hidden) {
             return;
         }
+        wrap.dataset.nepaliInit = "1";
 
         setCalMode(wrap, wrap.dataset.defaultCal || "bs");
         loadIntoVisible(wrap, hidden.value);
@@ -188,11 +211,23 @@
 
         const bsInput = wrap.querySelector(".nepali-bs-date");
         if (window.NepaliDatePicker && bsInput && bsInput.id) {
-            new NepaliDatePicker("#" + bsInput.id, {
-                format: "YYYY-MM-DD",
-                locale: "np",
-            });
+            try {
+                new NepaliDatePicker("#" + CSS.escape(bsInput.id), {
+                    format: "YYYY-MM-DD",
+                    locale: "np",
+                    readOnlyInput: false,
+                });
+            } catch (err) {
+                /* allow manual typing if picker fails */
+            }
         }
+    }
+
+    function syncForm(form) {
+        if (!form) {
+            return;
+        }
+        form.querySelectorAll(".nepali-datetime-wrap").forEach(syncFromVisible);
     }
 
     const api = {
@@ -202,6 +237,7 @@
         syncAll: function () {
             document.querySelectorAll(".nepali-datetime-wrap").forEach(syncFromVisible);
         },
+        syncForm: syncForm,
         setToday: function (hiddenId) {
             const wrap = document.querySelector('.nepali-datetime-wrap[data-hidden="' + hiddenId + '"]');
             if (!wrap) {

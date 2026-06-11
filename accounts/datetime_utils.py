@@ -24,3 +24,16 @@ def format_datetime_local(dt):
     if not dt:
         return ""
     return timezone.localtime(dt).strftime(DATETIME_LOCAL_FORMAT)
+
+
+def resolve_posted_transaction_date(request, form=None):
+    """Read a transaction date from a bound form or raw POST."""
+    if form is not None and hasattr(form, "cleaned_data"):
+        dt = form.cleaned_data.get("transaction_date")
+        if dt:
+            return dt
+    if form is not None and hasattr(form, "data"):
+        dt = parse_posted_datetime(form.data.get("transaction_date"))
+        if dt:
+            return dt
+    return parse_posted_datetime(request.POST.get("transaction_date"))

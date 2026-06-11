@@ -51,7 +51,12 @@ from .forms import (
 )
 from .tables import ProfileTable
 from store.list_display import NormalizePageMixin, annotate_list_row_numbers
-from .account_dates import apply_payment_date, update_account_transaction_date
+from .account_dates import (
+    apply_payment_date,
+    save_all_ledger_dates,
+    update_account_transaction_date,
+)
+from .datetime_utils import parse_posted_datetime, resolve_posted_transaction_date
 from .vendor_brands import handle_vendor_brand_action
 
 
@@ -253,7 +258,8 @@ class AccountsBookView(LoginRequiredMixin, View):
 
 def _customer_opening_form(customer):
     form = SignedOpeningBalanceForm(
-        initial=_signed_opening_initial(customer.opening_balance)
+        initial=_signed_opening_initial(customer.opening_balance),
+        opening_balance_date=customer.opening_balance_date,
     )
     form.fields["opening_sign"].choices = [
         ("+", "Receivable (+)"),
@@ -264,7 +270,8 @@ def _customer_opening_form(customer):
 
 def _vendor_opening_form(vendor):
     form = SignedOpeningBalanceForm(
-        initial=_signed_opening_initial(vendor.opening_balance)
+        initial=_signed_opening_initial(vendor.opening_balance),
+        opening_balance_date=vendor.opening_balance_date,
     )
     form.fields["opening_sign"].choices = [
         ("+", "Payable (+)"),
@@ -372,7 +379,12 @@ class CustomerDetailView(LoginRequiredMixin, View):
             form = SignedOpeningBalanceForm(request.POST)
             if form.is_valid():
                 customer.opening_balance = form.opening_balance_value()
-                customer.save(update_fields=["opening_balance"])
+                customer.opening_balance_date = form.cleaned_data.get(
+                    "opening_balance_date"
+                )
+                customer.save(
+                    update_fields=["opening_balance", "opening_balance_date"]
+                )
                 messages.success(request, "Opening balance updated.")
                 return redirect("customer-detail", pk=customer.pk)
         elif action == "account_transaction":
@@ -389,8 +401,10 @@ class CustomerDetailView(LoginRequiredMixin, View):
                 notes = form.cleaned_data.get("notes") or ""
                 reference = form.cleaned_data.get("reference") or ""
                 try:
-                    txn_date = form.cleaned_data.get("transaction_date")
-                    if txn_type == "sale_in":
+                    txn_date = resolve_posted_transaction_date(request, form)
+                    if not txn_date:
+                        messages.error(request, "Enter a valid transaction date.")
+                    elif txn_type == "sale_in":
                         create_receivable_quick_entry(
                             customer,
                             reference=reference,
@@ -404,24 +418,49 @@ class CustomerDetailView(LoginRequiredMixin, View):
                         applied = allocate_customer_credit_to_sales(
                             customer, amount, payment_date=txn_date
                         )
-                        if applied == 0:
-                            messages.warning(
-                                request,
-                                "No unpaid sales to apply this payment to.",
+                        remainder = amount - applied
+                        if remainder > 0:
+                            create_receivable_quick_entry(
+                                customer,
+                                reference=reference,
+                                amount=remainder,
+                                amount_received=remainder,
+                                description=notes or "Account book payment in",
+                                payment_method=method,
+                                sale_date=txn_date,
+                                payment_date=txn_date,
+                                receipt_only=True,
                             )
-                        elif applied < amount:
-                            messages.warning(
+                        if applied == 0 and remainder > 0:
+                            messages.success(
                                 request,
-                                f"Rs {applied} applied to sales; "
-                                f"Rs {amount - applied} had no bill to pay.",
+                                "Payment in recorded (new paid sale entry).",
+                            )
+                        elif applied > 0 and remainder > 0:
+                            messages.success(
+                                request,
+                                f"Rs {applied} applied to unpaid sales; "
+                                f"Rs {remainder} recorded as a new paid sale.",
                             )
                         else:
                             messages.success(request, "Payment in recorded.")
-                    return redirect("customer-detail", pk=customer.pk)
+                    if txn_date:
+                        return redirect("customer-detail", pk=customer.pk)
                 except Exception as exc:
                     messages.error(request, f"Could not save transaction: {exc}")
             else:
-                messages.error(request, "Enter valid transaction details.")
+                messages.error(
+                    request,
+                    "Enter valid transaction details. "
+                    + " ".join(e for errs in form.errors.values() for e in errs),
+                )
+        elif action == "save_all_transaction_dates":
+            ok, msg = save_all_ledger_dates("customer", customer, request.POST)
+            if ok:
+                messages.success(request, msg)
+            else:
+                messages.error(request, msg)
+            return redirect("customer-detail", pk=customer.pk)
         elif action == "record_payment":
             form = CustomerPaymentForm(request.POST, customer=customer)
             if form.is_valid():
@@ -432,14 +471,21 @@ class CustomerDetailView(LoginRequiredMixin, View):
                     method=form.cleaned_data["method"],
                     notes=form.cleaned_data.get("notes") or "Recorded from customer account",
                 )
-                apply_payment_date(
-                    payment,
-                    "customer",
-                    request.POST.get("transaction_date"),
-                )
+                txn_date = form.cleaned_data.get("transaction_date")
+                if txn_date:
+                    apply_payment_date(
+                        payment,
+                        "customer",
+                        txn_date.strftime("%Y-%m-%dT%H:%M"),
+                    )
                 sale.save()
                 messages.success(request, "Payment recorded.")
                 return redirect("customer-detail", pk=customer.pk)
+            messages.error(
+                request,
+                "Could not record payment. "
+                + " ".join(e for errs in form.errors.values() for e in errs),
+            )
         elif action == "receivables_adjustment":
             form = SignedAdjustmentForm(request.POST)
             if form.is_valid():
@@ -519,6 +565,29 @@ class CustomerDetailView(LoginRequiredMixin, View):
         elif action == "record_payment":
             ctx["payment_form"] = form
         return render(request, self.template_name, ctx)
+
+
+class CustomerStatementView(LoginRequiredMixin, View):
+    template_name = "accounts/account_statement.html"
+
+    def get(self, request, pk):
+        from django.shortcuts import get_object_or_404
+        from django.utils import timezone
+
+        customer = get_object_or_404(Customer, pk=pk)
+        ledger_rows, balance = get_customer_ledger_rows(customer)
+        return render(
+            request,
+            self.template_name,
+            {
+                "party_name": customer.get_full_name(),
+                "party_label": "Customer",
+                "ledger_rows": ledger_rows,
+                "balance_due": balance,
+                "printed_at": timezone.localtime(),
+                "back_url": reverse("customer-detail", kwargs={"pk": customer.pk}),
+            },
+        )
 
 
 class CustomerDeleteView(LoginRequiredMixin, DeleteView):
@@ -714,7 +783,12 @@ class VendorDetailView(LoginRequiredMixin, View):
             form = SignedOpeningBalanceForm(request.POST)
             if form.is_valid():
                 vendor.opening_balance = form.opening_balance_value()
-                vendor.save(update_fields=["opening_balance"])
+                vendor.opening_balance_date = form.cleaned_data.get(
+                    "opening_balance_date"
+                )
+                vendor.save(
+                    update_fields=["opening_balance", "opening_balance_date"]
+                )
                 messages.success(request, "Opening balance updated.")
                 return redirect("vendor-detail", pk=vendor.pk)
         elif action == "account_transaction":
@@ -731,8 +805,10 @@ class VendorDetailView(LoginRequiredMixin, View):
                 notes = form.cleaned_data.get("notes") or ""
                 reference = form.cleaned_data.get("reference") or ""
                 try:
-                    txn_date = form.cleaned_data.get("transaction_date")
-                    if txn_type == "bill_in":
+                    txn_date = resolve_posted_transaction_date(request, form)
+                    if not txn_date:
+                        messages.error(request, "Enter a valid transaction date.")
+                    elif txn_type == "bill_in":
                         paid_now = form.cleaned_data.get("amount_paid") or Decimal("0")
                         create_payable_quick_entry(
                             vendor,
@@ -749,19 +825,49 @@ class VendorDetailView(LoginRequiredMixin, View):
                         applied = allocate_vendor_credit_to_purchases(
                             vendor, amount, payment_date=txn_date
                         )
-                        if applied < amount:
-                            messages.warning(
+                        remainder = amount - applied
+                        if remainder > 0:
+                            create_payable_quick_entry(
+                                vendor,
+                                bill_number=reference,
+                                order_date=txn_date,
+                                net_amount=remainder,
+                                amount_paid=remainder,
+                                description=notes or "Account book payment out",
+                                payment_method=method,
+                                payment_date=txn_date,
+                                payment_only=True,
+                            )
+                        if applied == 0 and remainder > 0:
+                            messages.success(
                                 request,
-                                f"Rs {applied} applied to bills; "
-                                f"Rs {amount - applied} had no outstanding bill to pay.",
+                                "Payment out recorded (new paid bill entry).",
+                            )
+                        elif applied > 0 and remainder > 0:
+                            messages.success(
+                                request,
+                                f"Rs {applied} applied to outstanding bills; "
+                                f"Rs {remainder} recorded as a new paid bill.",
                             )
                         else:
                             messages.success(request, "Payment out recorded.")
-                    return redirect("vendor-detail", pk=vendor.pk)
+                    if txn_date:
+                        return redirect("vendor-detail", pk=vendor.pk)
                 except Exception as exc:
                     messages.error(request, f"Could not save transaction: {exc}")
             else:
-                messages.error(request, "Enter valid transaction details.")
+                messages.error(
+                    request,
+                    "Enter valid transaction details. "
+                    + " ".join(e for errs in form.errors.values() for e in errs),
+                )
+        elif action == "save_all_transaction_dates":
+            ok, msg = save_all_ledger_dates("vendor", vendor, request.POST)
+            if ok:
+                messages.success(request, msg)
+            else:
+                messages.error(request, msg)
+            return redirect("vendor-detail", pk=vendor.pk)
         elif action == "payables_adjustment":
             from transactions.services import update_vendor_payables_adjustment
 
@@ -792,14 +898,21 @@ class VendorDetailView(LoginRequiredMixin, View):
                     method=form.cleaned_data["method"],
                     notes=form.cleaned_data.get("notes") or "Recorded from supplier account",
                 )
-                apply_payment_date(
-                    payment,
-                    "vendor",
-                    request.POST.get("transaction_date"),
-                )
+                txn_date = form.cleaned_data.get("transaction_date")
+                if txn_date:
+                    apply_payment_date(
+                        payment,
+                        "vendor",
+                        txn_date.strftime("%Y-%m-%dT%H:%M"),
+                    )
                 purchase.save()
                 messages.success(request, "Payment recorded.")
                 return redirect("vendor-detail", pk=vendor.pk)
+            messages.error(
+                request,
+                "Could not record payment. "
+                + " ".join(e for errs in form.errors.values() for e in errs),
+            )
         elif action == "update_payment":
             form = PaymentEditForm(request.POST)
             payment = VendorPayment.objects.filter(
@@ -868,6 +981,29 @@ class VendorDetailView(LoginRequiredMixin, View):
         elif action == "record_payment":
             ctx["payment_form"] = form
         return render(request, self.template_name, ctx)
+
+
+class VendorStatementView(LoginRequiredMixin, View):
+    template_name = "accounts/account_statement.html"
+
+    def get(self, request, pk):
+        from django.shortcuts import get_object_or_404
+        from django.utils import timezone
+
+        vendor = get_object_or_404(Vendor, pk=pk)
+        ledger_rows, balance = get_vendor_ledger_rows(vendor)
+        return render(
+            request,
+            self.template_name,
+            {
+                "party_name": vendor.name,
+                "party_label": "Supplier",
+                "ledger_rows": ledger_rows,
+                "balance_due": balance,
+                "printed_at": timezone.localtime(),
+                "back_url": reverse("vendor-detail", kwargs={"pk": vendor.pk}),
+            },
+        )
 
 
 class VendorDeleteView(LoginRequiredMixin, DeleteView):

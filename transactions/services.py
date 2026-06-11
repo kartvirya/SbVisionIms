@@ -24,10 +24,39 @@ from transactions.models import (
     InventoryTransactionItem,
     LedgerEntry,
     Purchase,
+    PurchaseLine,
     Sale,
     StockMovement,
     VendorPayment,
 )
+
+ACCOUNT_BILL_ITEM_NAME = "Account bill entry"
+ACCOUNT_CATEGORY_NAME = "Account entries"
+
+
+def get_account_bill_placeholder_item():
+    """Single internal item for account-book purchase lines (not shown in inventory)."""
+    from store.models import Category, Item
+
+    category, _ = Category.objects.get_or_create(name=ACCOUNT_CATEGORY_NAME)
+    item, created = Item.objects.get_or_create(
+        name=ACCOUNT_BILL_ITEM_NAME,
+        is_account_placeholder=True,
+        defaults={
+            "description": "Internal placeholder for supplier account-book bills",
+            "category": category,
+            "vendor": None,
+            "cost_price": 0,
+            "price": 0,
+            "quantity": 0,
+        },
+    )
+    if not created and (item.category_id != category.pk or item.vendor_id):
+        item.category = category
+        item.vendor = None
+        item.quantity = 0
+        item.save(update_fields=["category", "vendor", "quantity"])
+    return item
 
 
 def _to_decimal(value):
@@ -351,6 +380,37 @@ def create_sale_transaction(*, customer: Customer, items, notes=""):
     _create_ledger_entries(transaction_obj, ledger_rows)
     sync_item_quantity_cache([line.item for line in created_items])
     return transaction_obj
+
+
+@db_transaction.atomic
+def ensure_purchase_lines(purchase: Purchase):
+    """
+    Account-book quick entries store amount on the purchase header only.
+    The purchase edit form needs at least one PurchaseLine — backfill when missing.
+    """
+    if not purchase.pk or purchase.lines.exists():
+        return
+
+    from store.models import Category
+
+    quantity = int(purchase.quantity or 0) or 1
+    unit_price = _to_decimal(purchase.price or 0)
+    if unit_price <= 0:
+        unit_price = _to_decimal(purchase.net_amount or 0)
+    if unit_price <= 0 and purchase.sub_total:
+        unit_price = _to_decimal(purchase.sub_total)
+
+    item = purchase.item
+    if not item or getattr(item, "is_account_placeholder", False):
+        item = get_account_bill_placeholder_item()
+
+    PurchaseLine.objects.create(
+        purchase=purchase,
+        item=item,
+        quantity=max(quantity, 1),
+        unit_price=unit_price,
+    )
+    purchase.save()
 
 
 def purchase_stock_item_rows(purchase: Purchase):
@@ -722,6 +782,9 @@ def get_payables_aging_report():
                 "billed_date": purchase.order_date,
                 "last_transaction_date": _purchase_last_transaction_date(purchase),
                 "outstanding": _to_decimal(purchase.amount_remaining),
+                "date_kind": "purchase",
+                "date_pk": purchase.pk,
+                "date": purchase.order_date,
             }
         )
 
@@ -750,14 +813,6 @@ def allocate_customer_credit_to_sales(customer, credit_amount, payment_date=None
     for sale in sales:
         if remaining <= 0:
             break
-        if sale.amount_paid > 0 and not sale.customer_payments.exists():
-            CustomerPayment.objects.create(
-                sale=sale,
-                amount=sale.amount_paid,
-                method="cash",
-                notes="Recorded payment",
-            )
-            _clear_prefetch(sale, "customer_payments")
         sale.save()
         outstanding = _to_decimal(sale.amount_remaining)
         if outstanding <= 0:
@@ -798,14 +853,6 @@ def allocate_vendor_credit_to_purchases(vendor, credit_amount, payment_date=None
     for purchase in purchases:
         if remaining <= 0:
             break
-        if purchase.amount_paid > 0 and not purchase.vendor_payments.exists():
-            VendorPayment.objects.create(
-                purchase=purchase,
-                amount=purchase.amount_paid,
-                method="cash",
-                notes="Recorded payment",
-            )
-            _clear_prefetch(purchase, "vendor_payments")
         purchase.save()
         outstanding = _to_decimal(purchase.amount_remaining)
         if outstanding <= 0:
@@ -1005,6 +1052,7 @@ def create_receivable_quick_entry(
     payment_method="cash",
     sale_date=None,
     payment_date=None,
+    receipt_only=False,
 ):
     """Create a sale bill for the customer account (no stock movement)."""
     amount_dec = _to_decimal(amount)
@@ -1013,10 +1061,12 @@ def create_receivable_quick_entry(
         sub_total=amount_dec,
         grand_total=amount_dec,
         amount_paid=Decimal("0"),
+        is_account_receipt_only=receipt_only,
     )
-    if sale_date is not None:
-        sale.date_added = sale_date
     sale.save()
+    if sale_date is not None:
+        Sale.objects.filter(pk=sale.pk).update(date_added=sale_date)
+        sale.refresh_from_db()
     notes = (description or "").strip() or f"Account entry {reference}".strip()
     received = _to_decimal(amount_received)
     if received > 0:
@@ -1042,15 +1092,17 @@ def create_payable_quick_entry(
     description="",
     payment_method="cash",
     payment_date=None,
+    payment_only=False,
 ):
     """
     Create a purchase bill for the payables book (no stock posted until marked Received).
+  payment_only: when True, only the payment row appears in the supplier account ledger.
     """
     amount_paid_dec = _to_decimal(amount_paid)
     purchase = Purchase(
         vendor=vendor,
         bill_number=(bill_number or "").strip(),
-        order_date=order_date or timezone.now(),
+        order_date=timezone.now(),
         quantity=1,
         price=_to_decimal(net_amount),
         discount_amount=Decimal("0"),
@@ -1059,8 +1111,13 @@ def create_payable_quick_entry(
         amount_paid=Decimal("0"),
         receipt_status="P",
         description=(description or "").strip() or None,
+        is_account_payment_only=payment_only,
     )
     purchase.save()
+    if order_date is not None:
+        Purchase.objects.filter(pk=purchase.pk).update(order_date=order_date)
+        purchase.refresh_from_db()
+    ensure_purchase_lines(purchase)
     if amount_paid_dec > 0:
         payment = VendorPayment.objects.create(
             purchase=purchase,

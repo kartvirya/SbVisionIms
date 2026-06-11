@@ -79,6 +79,10 @@ class Sale(models.Model):
         blank=True,
         related_name="legacy_sale",
     )
+    is_account_receipt_only = models.BooleanField(
+        default=False,
+        help_text="Payment-only account entry; hide the sale row in customer ledger.",
+    )
 
     class Meta:
         db_table = "sales"
@@ -281,6 +285,10 @@ class Purchase(models.Model):
         null=True,
         blank=True,
         related_name="legacy_purchase",
+    )
+    is_account_payment_only = models.BooleanField(
+        default=False,
+        help_text="Payment-only account entry; hide the bill row in supplier ledger.",
     )
 
     @property

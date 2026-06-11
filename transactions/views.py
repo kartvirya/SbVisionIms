@@ -41,6 +41,7 @@ from .services import (
     delete_inventory_transaction_and_sync,
     get_payables_aging,
     create_payable_quick_entry,
+    ensure_purchase_lines,
     get_payables_aging_report,
     get_stock_ledger_rows,
     sync_purchase_inventory_transaction,
@@ -728,6 +729,8 @@ def _purchase_vendor_id(request, purchase=None):
 
 
 def _purchase_form_context(request, purchase=None, form=None, line_formset=None):
+    if purchase and purchase.pk:
+        ensure_purchase_lines(purchase)
     vendor_id = _purchase_vendor_id(request, purchase)
     if line_formset is None:
         if request.method == "POST":
@@ -967,7 +970,19 @@ class PayablesAgingView(LoginRequiredMixin, View):
         action = request.POST.get("action", "adjustment")
         if action == "add_record":
             return self._post_add_record(request)
+        if action == "save_all_bill_dates":
+            return self._post_save_all_bill_dates(request)
         return self._post_adjustment(request)
+
+    def _post_save_all_bill_dates(self, request):
+        from accounts.account_dates import save_bulk_purchase_dates
+
+        ok, msg = save_bulk_purchase_dates(request.POST)
+        if ok:
+            messages.success(request, msg)
+        else:
+            messages.error(request, msg)
+        return HttpResponseRedirect(reverse("payables-aging"))
 
     def _post_add_record(self, request):
         form = PayablesQuickEntryForm(request.POST)

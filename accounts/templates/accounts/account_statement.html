@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>{{ party_name }} — Account Statement</title>
+    <style>
+        body { font-family: Arial, sans-serif; color: #111; margin: 1.5rem; }
+        h1 { font-size: 1.35rem; margin: 0 0 0.25rem; }
+        .meta { color: #555; font-size: 0.9rem; margin-bottom: 1.25rem; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+        th, td { border: 1px solid #ccc; padding: 0.45rem 0.55rem; text-align: left; }
+        th { background: #f3f4f6; }
+        .text-end { text-align: right; }
+        .toolbar { margin-bottom: 1rem; }
+        .toolbar button, .toolbar a {
+            display: inline-block;
+            margin-right: 0.5rem;
+            padding: 0.4rem 0.75rem;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            background: #fff;
+            text-decoration: none;
+            color: #111;
+            cursor: pointer;
+        }
+        @media print {
+            .toolbar { display: none; }
+            body { margin: 0.5rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="toolbar">
+        <button type="button" onclick="window.print()">Print statement</button>
+        <a href="{{ back_url }}">Back to account</a>
+    </div>
+
+    <h1>{{ party_name }}</h1>
+    <p class="meta">{{ party_label }} account statement · Printed {{ printed_at|date:"Y-m-d H:i" }}</p>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th>Type</th>
+                <th>Reference</th>
+                <th class="text-end">Debit</th>
+                <th class="text-end">Credit</th>
+                <th>Method</th>
+                <th class="text-end">Balance</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in ledger_rows %}
+            <tr>
+                <td>{% if row.date %}{{ row.date|date:"Y-m-d H:i" }}{% else %}—{% endif %}</td>
+                <td>{{ row.type }}</td>
+                <td>{{ row.reference }}</td>
+                <td class="text-end">{% if row.debit %}Rs {{ row.debit }}{% else %}—{% endif %}</td>
+                <td class="text-end">{% if row.credit %}Rs {{ row.credit }}{% else %}—{% endif %}</td>
+                <td>{{ row.method|default:"—" }}</td>
+                <td class="text-end">Rs {{ row.balance }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="7">No transactions yet.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <p class="meta" style="margin-top: 1rem;"><strong>Balance due:</strong> Rs {{ balance_due }}</p>
+</body>
+</html>

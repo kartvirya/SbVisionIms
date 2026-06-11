@@ -38,11 +38,20 @@ class Category(models.Model):
         verbose_name_plural = 'Categories'
 
 
+class InventoryItemQuerySet(models.QuerySet):
+    def visible_in_inventory(self):
+        return self.filter(is_account_placeholder=False)
+
+
 class Item(models.Model):
     """
     Represents an item in the inventory.
     """
     slug = AutoSlugField(unique=True, populate_from='name')
+    is_account_placeholder = models.BooleanField(
+        default=False,
+        help_text="Internal placeholder for account-book bills; hidden from inventory.",
+    )
     sku = models.CharField(
         max_length=64,
         blank=True,
@@ -101,6 +110,8 @@ class Item(models.Model):
         help_text='Product image'
     )
 
+    objects = models.Manager.from_queryset(InventoryItemQuerySet)()
+
     def __str__(self):
         """
         String representation of the item.
@@ -109,6 +120,10 @@ class Item(models.Model):
             f"{self.name} - Category: {self.category}, "
             f"Quantity: {self.quantity}"
         )
+
+    @classmethod
+    def inventory_queryset(cls):
+        return cls.objects.visible_in_inventory()
 
     def get_absolute_url(self):
         """

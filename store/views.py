@@ -214,7 +214,7 @@ class ProductListView(NormalizePageMixin, LoginRequiredMixin, ExportMixin, table
     filterset_class = ProductFilter
 
     def get_queryset(self):
-        queryset = super().get_queryset().prefetch_related('variations')
+        queryset = Item.inventory_queryset().prefetch_related('variations')
         self.filterset = self.filterset_class(self.request.GET, queryset=queryset)
         qs = self.filterset.qs
         if not self.request.GET.get("ordering"):
@@ -461,7 +461,7 @@ class ProductUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
 
 
 def _category_delete_blockers(category):
-    count = Item.objects.filter(category=category).count()
+    count = Item.inventory_queryset().filter(category=category).count()
     if count:
         return [f"{count} product(s) in this category"]
     return []
@@ -470,6 +470,8 @@ def _category_delete_blockers(category):
 def _item_delete_blockers(item):
     from transactions.models import PurchaseLine, SaleDetail
 
+    if getattr(item, "is_account_placeholder", False):
+        return ["internal account-book placeholder"]
     blockers = []
     if PurchaseLine.objects.filter(item=item).exists():
         blockers.append("purchase records")
@@ -478,12 +480,13 @@ def _item_delete_blockers(item):
     return blockers
 
 
-def _purge_item_stock_ledger(item):
-    """Remove ledger rows that block product deletion when no purchases/sales exist."""
+def _purge_item_before_delete(item):
+    """Remove related rows that can block product deletion."""
     from transactions.models import InventoryTransactionItem, StockMovement
 
     StockMovement.objects.filter(item=item).delete()
     InventoryTransactionItem.objects.filter(item=item).delete()
+    ProductVariation.objects.filter(item=item).delete()
 
 
 def user_can_manage_products(user):
@@ -523,13 +526,17 @@ class ProductDeleteView(LoginRequiredMixin, DeleteView):
             return auth_redirect(self.get_success_url())
         try:
             with transaction.atomic():
-                _purge_item_stock_ledger(self.object)
+                _purge_item_before_delete(self.object)
                 return super().delete(request, *args, **kwargs)
         except (ProtectedError, IntegrityError):
             messages.error(
                 request,
                 "Cannot delete this product — it is still linked to other records.",
             )
+            return auth_redirect(self.get_success_url())
+        except Exception as exc:
+            logger.exception("Product delete failed for item %s", self.object.pk)
+            messages.error(request, f"Could not delete this product: {exc}")
             return auth_redirect(self.get_success_url())
 
 
@@ -744,7 +751,7 @@ def get_items_ajax_view(request):
         term = (request.POST.get("term") or "").strip()
         page = max(int(request.POST.get("page") or 1), 1)
         page_size = 50
-        qs = Item.objects.select_related("category", "vendor").prefetch_related(
+        qs = Item.inventory_queryset().select_related("category", "vendor").prefetch_related(
             "variations"
         )
         if term:

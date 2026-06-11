@@ -32,13 +32,15 @@ def get_customer_ledger_rows(customer: Customer):
     if opening != 0:
         rows.append(
             {
-                "date": None,
+                "date": customer.opening_balance_date,
                 "type": "Opening balance",
                 "reference": "—",
                 "debit": opening if opening > 0 else Decimal("0"),
                 "credit": abs(opening) if opening < 0 else Decimal("0"),
                 "method": "",
                 "url": "",
+                "date_kind": "opening_balance",
+                "date_pk": customer.pk,
             }
         )
 
@@ -56,7 +58,10 @@ def get_customer_ledger_rows(customer: Customer):
             }
         )
 
-    for sale in Sale.objects.filter(customer=customer).order_by("date_added", "id"):
+    for sale in (
+        Sale.objects.filter(customer=customer, is_account_receipt_only=False)
+        .order_by("date_added", "id")
+    ):
         rows.append(
             {
                 "date": sale.date_added,
@@ -122,13 +127,15 @@ def get_vendor_ledger_rows(vendor: Vendor):
     if opening != 0:
         rows.append(
             {
-                "date": None,
+                "date": vendor.opening_balance_date,
                 "type": "Opening balance",
                 "reference": "—",
                 "debit": abs(opening) if opening < 0 else Decimal("0"),
                 "credit": opening if opening > 0 else Decimal("0"),
                 "method": "",
                 "url": "",
+                "date_kind": "opening_balance",
+                "date_pk": vendor.pk,
             }
         )
 
@@ -146,7 +153,10 @@ def get_vendor_ledger_rows(vendor: Vendor):
             }
         )
 
-    for purchase in Purchase.objects.filter(vendor=vendor).order_by("order_date", "id"):
+    for purchase in (
+        Purchase.objects.filter(vendor=vendor, is_account_payment_only=False)
+        .order_by("order_date", "id")
+    ):
         rows.append(
             {
                 "date": purchase.order_date,
