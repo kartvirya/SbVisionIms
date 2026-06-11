@@ -518,33 +518,40 @@ class ProductDeleteView(LoginRequiredMixin, DeleteView):
         context["delete_blockers"] = _item_delete_blockers(self.object)
         return context
 
-    def delete(self, request, *args, **kwargs):
+    def form_valid(self, form):
+        """Django 5.x DeleteView posts via form_valid(), not delete()."""
         from django.db import IntegrityError
         from django.db.models.deletion import ProtectedError
+        from django.http import HttpResponseRedirect
 
-        self.object = self.get_object()
         blockers = _item_delete_blockers(self.object)
         if blockers:
             messages.error(
-                request,
+                self.request,
                 "Cannot delete this product — it is linked to "
                 + ", ".join(blockers)
                 + ".",
             )
             return auth_redirect(self.get_success_url())
         try:
+            item_name = self.object.name
             with transaction.atomic():
                 _purge_item_before_delete(self.object)
-                return super().delete(request, *args, **kwargs)
+                self.object.delete()
+            messages.success(self.request, f'Product "{item_name}" deleted.')
+            return HttpResponseRedirect(self.get_success_url())
         except (ProtectedError, IntegrityError):
             messages.error(
-                request,
+                self.request,
                 "Cannot delete this product — it is still linked to other records.",
             )
             return auth_redirect(self.get_success_url())
         except Exception as exc:
             logger.exception("Product delete failed for item %s", self.object.pk)
-            messages.error(request, f"Could not delete this product: {exc}")
+            messages.error(
+                self.request,
+                f"Could not delete this product: {exc}",
+            )
             return auth_redirect(self.get_success_url())
 
 

@@ -91,3 +91,30 @@ class InventoryVisibilityTests(TestCase):
         response = client.post(f"/product/{item.slug}/delete/")
         self.assertEqual(response.status_code, 302)
         self.assertFalse(Item.objects.filter(pk=item.pk).exists())
+
+    @override_settings(ALLOWED_HOSTS=["*"])
+    def test_product_delete_clears_stock_ledger_rows(self):
+        from store.stock_adjust import apply_manual_stock_adjustment
+
+        user = get_user_model().objects.create_superuser(
+            "delete-ledger", "ledger@example.com", "pass"
+        )
+        item = Item.objects.create(
+            name="Ledger Delete Product",
+            description="x",
+            category=self.category,
+            vendor=self.vendor,
+            quantity=0,
+            price=10,
+            cost_price=5,
+        )
+        apply_manual_stock_adjustment(item, mode="add", quantity=5, reason="test")
+        from transactions.models import InventoryTransactionItem, StockMovement
+
+        self.assertTrue(StockMovement.objects.filter(item=item).exists())
+        self.assertTrue(InventoryTransactionItem.objects.filter(item=item).exists())
+        client = Client()
+        client.force_login(user)
+        response = client.post(f"/product/{item.slug}/delete/")
+        self.assertEqual(response.status_code, 302, response.content[:500])
+        self.assertFalse(Item.objects.filter(pk=item.pk).exists())
