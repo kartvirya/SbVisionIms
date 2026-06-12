@@ -82,7 +82,7 @@
                 <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
                     <div>
                         <strong>Transaction history</strong>
-                        <p class="text-muted small mb-0">Edit dates inline or use Edit to open the sale. Save all dates when done.</p>
+                        <p class="text-muted small mb-0">Opening balance is always first. Edit amounts inline, then Save.</p>
                     </div>
                     <div class="d-flex flex-wrap gap-2">
                         <a href="{% url 'customer-statement' customer.pk %}" class="btn btn-outline-secondary btn-sm" target="_blank" rel="noopener">Print statement</a>
@@ -106,21 +106,26 @@
                     </thead>
                     <tbody>
                         {% for row in ledger_rows %}
+                        {% include "accounts/partials/ledger_row_amount.html" with row=row %}
                         <tr>
                             <td class="ims-date-cell">{% include "accounts/partials/ledger_date_cell.html" with row=row %}</td>
                             <td>{{ row.type }}</td>
                             <td>
                                 {% if row.url %}<a href="{{ row.url }}">{{ row.reference }}</a>{% else %}{{ row.reference }}{% endif %}
                             </td>
-                            <td class="text-end">{% if row.debit %}Rs {{ row.debit }}{% else %}—{% endif %}</td>
-                            <td class="text-end">{% if row.credit %}Rs {{ row.credit }}{% else %}—{% endif %}</td>
+                            <td class="text-end" style="min-width:7rem;">
+                                {% if row.amount_side == "debit" and row.can_edit_amount %}
+                                <input type="number" name="amount" form="ledger-amount-form-{{ row.row_kind }}-{{ row.row_pk }}" class="form-control form-control-sm text-end" step="0.01" min="0" value="{{ row.amount }}">
+                                {% elif row.debit %}Rs {{ row.debit }}{% else %}—{% endif %}
+                            </td>
+                            <td class="text-end" style="min-width:7rem;">
+                                {% if row.amount_side == "credit" and row.can_edit_amount %}
+                                <input type="number" name="amount" form="ledger-amount-form-{{ row.row_kind }}-{{ row.row_pk }}" class="form-control form-control-sm text-end" step="0.01" min="0" value="{{ row.amount }}">
+                                {% elif row.credit %}Rs {{ row.credit }}{% else %}—{% endif %}
+                            </td>
                             <td>{{ row.method|default:"—" }}</td>
                             <td class="text-end fw-semibold">Rs {{ row.balance }}</td>
-                            <td class="text-nowrap">
-                                {% if row.edit_url %}
-                                <a href="{{ row.edit_url }}" class="btn btn-outline-primary btn-sm py-0">Edit</a>
-                                {% else %}—{% endif %}
-                            </td>
+                            <td class="text-nowrap">{% include "accounts/partials/ledger_row_actions.html" with row=row %}</td>
                         </tr>
                         {% empty %}
                         <tr><td colspan="8" class="text-center text-muted py-3">No transactions yet.</td></tr>

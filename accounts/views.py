@@ -56,6 +56,7 @@ from .account_dates import (
     save_all_ledger_dates,
     update_account_transaction_date,
 )
+from .ledger_actions import delete_ledger_row, update_ledger_row_amount
 from .datetime_utils import parse_posted_datetime, resolve_posted_transaction_date
 from .vendor_brands import handle_vendor_brand_action
 
@@ -456,6 +457,31 @@ class CustomerDetailView(LoginRequiredMixin, View):
                 )
         elif action == "save_all_transaction_dates":
             ok, msg = save_all_ledger_dates("customer", customer, request.POST)
+            if ok:
+                messages.success(request, msg)
+            else:
+                messages.error(request, msg)
+            return redirect("customer-detail", pk=customer.pk)
+        elif action == "update_ledger_amount":
+            ok, msg = update_ledger_row_amount(
+                "customer",
+                customer,
+                request.POST.get("row_kind"),
+                request.POST.get("row_id"),
+                request.POST.get("amount"),
+            )
+            if ok:
+                messages.success(request, msg)
+            else:
+                messages.error(request, msg)
+            return redirect("customer-detail", pk=customer.pk)
+        elif action == "delete_ledger_row":
+            ok, msg = delete_ledger_row(
+                "customer",
+                customer,
+                request.POST.get("row_kind"),
+                request.POST.get("row_id"),
+            )
             if ok:
                 messages.success(request, msg)
             else:
@@ -863,6 +889,31 @@ class VendorDetailView(LoginRequiredMixin, View):
                 )
         elif action == "save_all_transaction_dates":
             ok, msg = save_all_ledger_dates("vendor", vendor, request.POST)
+            if ok:
+                messages.success(request, msg)
+            else:
+                messages.error(request, msg)
+            return redirect("vendor-detail", pk=vendor.pk)
+        elif action == "update_ledger_amount":
+            ok, msg = update_ledger_row_amount(
+                "vendor",
+                vendor,
+                request.POST.get("row_kind"),
+                request.POST.get("row_id"),
+                request.POST.get("amount"),
+            )
+            if ok:
+                messages.success(request, msg)
+            else:
+                messages.error(request, msg)
+            return redirect("vendor-detail", pk=vendor.pk)
+        elif action == "delete_ledger_row":
+            ok, msg = delete_ledger_row(
+                "vendor",
+                vendor,
+                request.POST.get("row_kind"),
+                request.POST.get("row_id"),
+            )
             if ok:
                 messages.success(request, msg)
             else:

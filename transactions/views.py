@@ -745,6 +745,7 @@ def _purchase_form_context(request, purchase=None, form=None, line_formset=None)
                 "id": i.id,
                 "vendor_id": i.vendor_id,
                 "name": i.name,
+                "hs_code": i.hs_code or "",
                 "stock": i.quantity,
                 "cost": float(i.cost_price or 0),
             }

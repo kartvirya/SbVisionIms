@@ -1,0 +1,19 @@
+{% if row.can_edit_amount or row.can_delete or row.edit_url %}
+<div class="d-flex flex-wrap gap-1 justify-content-end">
+    {% if row.edit_url %}
+    <a href="{{ row.edit_url }}" class="btn btn-outline-secondary btn-sm py-0" title="Open full bill">Bill</a>
+    {% endif %}
+    {% if row.can_edit_amount %}
+    <button type="submit" form="ledger-amount-form-{{ row.row_kind }}-{{ row.row_pk }}" class="btn btn-primary btn-sm py-0">Save</button>
+    {% endif %}
+    {% if row.can_delete %}
+    <form method="post" class="d-inline" onsubmit="return confirm('Delete this transaction from the account book?');">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="delete_ledger_row">
+        <input type="hidden" name="row_kind" value="{{ row.row_kind }}">
+        <input type="hidden" name="row_id" value="{{ row.row_pk }}">
+        <button type="submit" class="btn btn-outline-danger btn-sm py-0">Delete</button>
+    </form>
+    {% endif %}
+</div>
+{% else %}—{% endif %}

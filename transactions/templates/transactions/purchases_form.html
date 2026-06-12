@@ -170,32 +170,32 @@
                 </div>
                 {{ line_formset.management_form }}
                 <div class="table-responsive">
-                    <table class="table table-sm align-middle mb-0">
+                    <table class="table table-sm align-middle mb-0 purchase-lines-table">
                         <thead class="table-light">
                             <tr>
-                                <th class="text-center" style="width: 2.5rem;">#</th>
-                                <th style="min-width: 12rem;">Product</th>
-                                <th style="min-width: 10rem;">New product name</th>
-                                <th class="text-end" style="width: 6rem;">In stock</th>
-                                <th class="text-end" style="width: 7rem;">Qty</th>
-                                <th class="text-end" style="width: 8rem;">Unit cost</th>
-                                <th class="text-end" style="width: 8rem;">Line total</th>
-                                <th style="width: 3rem;"></th>
+                                <th class="text-center" style="width:3rem;">S.N</th>
+                                <th style="width:6rem;">HS Code</th>
+                                <th style="min-width:14rem;">Particulars</th>
+                                <th class="text-end" style="width:6rem;">Quantity</th>
+                                <th style="width:5rem;">Unit</th>
+                                <th class="text-end" style="width:8rem;">Rate</th>
+                                <th class="text-end" style="width:9rem;">Amount</th>
+                                <th style="width:3rem;"></th>
                             </tr>
                         </thead>
                         <tbody id="line-items-body">
                             {% for f in line_formset.forms %}
                             <tr class="purchase-line-row" data-form-prefix="{{ f.prefix }}">
                                 <td class="text-center text-muted line-num">—</td>
+                                <td class="text-muted small line-hs-code">—</td>
                                 <td>
                                     {{ f.id }}
-                                    {{ f.item }}
-                                    {{ f.item.errors }}
+                                    <div class="mb-1">{{ f.item }}{{ f.item.errors }}</div>
+                                    <div class="small text-muted">{{ f.new_item_name }}{{ f.new_item_name.errors }}</div>
                                 </td>
-                                <td>{{ f.new_item_name }}{{ f.new_item_name.errors }}</td>
-                                <td class="text-end text-muted line-stock">—</td>
-                                <td>{{ f.quantity }}{{ f.quantity.errors }}</td>
-                                <td>{{ f.unit_price }}{{ f.unit_price.errors }}</td>
+                                <td class="text-end">{{ f.quantity }}{{ f.quantity.errors }}</td>
+                                <td class="text-muted small">Pcs.</td>
+                                <td class="text-end">{{ f.unit_price }}{{ f.unit_price.errors }}</td>
                                 <td class="text-end fw-semibold line-total">0.00</td>
                                 <td class="text-center">
                                     {% if f.DELETE %}
@@ -391,17 +391,17 @@
 
     function updateRow(row) {
         const sel = row.querySelector(".item-select");
-        const stockCell = row.querySelector(".line-stock");
+        const hsCell = row.querySelector(".line-hs-code");
         const totalCell = row.querySelector(".line-total");
         const priceInput = row.querySelector(".line-unit-price");
         if (sel && sel.value && byId[sel.value]) {
             const item = byId[sel.value];
-            if (stockCell) stockCell.textContent = item.stock;
+            if (hsCell) hsCell.textContent = item.hs_code || "—";
             if (priceInput && (!priceInput.value || parseFloat(priceInput.value) === 0)) {
                 priceInput.value = item.cost.toFixed(2);
             }
-        } else if (stockCell) {
-            stockCell.textContent = "—";
+        } else if (hsCell) {
+            hsCell.textContent = "—";
         }
         if (totalCell) totalCell.textContent = lineTotal(row).toFixed(2);
     }
@@ -683,6 +683,7 @@
                         id: data.id,
                         vendor_id: data.vendor_id,
                         name: data.name,
+                        hs_code: "",
                         stock: data.stock,
                         cost: data.cost,
                     };

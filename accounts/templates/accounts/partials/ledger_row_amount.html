@@ -1,0 +1,8 @@
+{% if row.can_edit_amount %}
+<form method="post" id="ledger-amount-form-{{ row.row_kind }}-{{ row.row_pk }}" class="d-none">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="update_ledger_amount">
+    <input type="hidden" name="row_kind" value="{{ row.row_kind }}">
+    <input type="hidden" name="row_id" value="{{ row.row_pk }}">
+</form>
+{% endif %}

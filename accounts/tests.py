@@ -72,6 +72,32 @@ class AccountTransactionTests(TestCase):
         self.assertTrue(any(row["reference"] == "SI/0808" for row in rows))
         self.assertEqual(purchase.lines.count(), 1)
 
+    def test_opening_balance_is_first_in_vendor_ledger(self):
+        from transactions.models import VendorPayment
+
+        old_date = timezone.localtime().replace(
+            year=2020, month=1, day=1, hour=10, minute=0, second=0, microsecond=0
+        )
+        purchase = create_payable_quick_entry(
+            self.vendor,
+            bill_number="OLD-1",
+            net_amount=Decimal("1000"),
+            order_date=old_date,
+        )
+        VendorPayment.objects.create(
+            purchase=purchase,
+            amount=Decimal("200"),
+            method="cash",
+            paid_at=old_date,
+        )
+        self.vendor.opening_balance = Decimal("5000")
+        self.vendor.opening_balance_date = timezone.localtime()
+        self.vendor.save(update_fields=["opening_balance", "opening_balance_date"])
+        rows, balance = get_vendor_ledger_rows(self.vendor)
+        self.assertEqual(rows[0]["type"], "Opening balance")
+        self.assertEqual(rows[0]["balance"], Decimal("5000"))
+        self.assertEqual(balance, Decimal("5800"))
+
     def test_account_transaction_form_requires_date(self):
         form = CustomerAccountTransactionForm(
             {
