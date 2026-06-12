@@ -184,6 +184,22 @@
         <script src="{% static 'js/preview_drawer.js' %}"></script>
         <script>window.STOCK_ADJUST_URL_TPL = "{% url 'stock-adjust' 999999 %}".replace("999999", "__ID__");</script>
         <script src="{% static 'js/stock_adjust.js' %}"></script>
+        <script>
+        (function () {
+            var q = window.location.search.replace(/^\?/, "");
+            if (!q) return;
+            document.addEventListener("DOMContentLoaded", function () {
+                document.querySelectorAll("form[method='post'], form[method='POST']").forEach(function (form) {
+                    if (form.querySelector('input[name="return_query"]')) return;
+                    var input = document.createElement("input");
+                    input.type = "hidden";
+                    input.name = "return_query";
+                    input.value = q;
+                    form.appendChild(input);
+                });
+            });
+        })();
+        </script>
         {% block javascripts %}{% endblock javascripts %}
       </body>
 </html>

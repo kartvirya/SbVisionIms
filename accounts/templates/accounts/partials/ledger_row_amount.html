@@ -4,5 +4,6 @@
     <input type="hidden" name="action" value="update_ledger_amount">
     <input type="hidden" name="row_kind" value="{{ row.row_kind }}">
     <input type="hidden" name="row_id" value="{{ row.row_pk }}">
+    {% if return_query %}<input type="hidden" name="return_query" value="{{ return_query }}">{% endif %}
 </form>
 {% endif %}

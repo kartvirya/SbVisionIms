@@ -5,6 +5,8 @@ from decimal import Decimal
 
 # Django core imports
 from django.http import JsonResponse, HttpResponse, HttpResponseRedirect
+
+from store.query_redirect import redirect_response_preserving_query
 from django.urls import reverse
 from django.shortcuts import render
 from django.db import transaction
@@ -600,7 +602,8 @@ class SaleDeleteView(LoginRequiredMixin, UserPassesTestMixin, DeleteView):
             delete_inventory_transaction_and_sync(payment.inventory_transaction)
         if affected_items:
             sync_item_quantity_cache(affected_items)
-        return super().delete(request, *args, **kwargs)
+        self.object.delete()
+        return redirect_response_preserving_query(request, self.get_success_url())
 
     def test_func(self):
         return user_can_delete_transactions(self.request.user)
@@ -806,7 +809,7 @@ class PurchaseCreateView(LoginRequiredMixin, CreateView):
                     request,
                     "Purchase saved. Stock posts only when Receipt status is Received.",
                 )
-            return HttpResponseRedirect(self.get_success_url())
+            return redirect_response_preserving_query(request, self.get_success_url())
         return self.render_to_response(
             self.get_context_data(form=form, line_formset=line_formset)
         )
@@ -871,7 +874,7 @@ class PurchaseUpdateView(LoginRequiredMixin, UpdateView):
                     request,
                     "Purchase updated. Stock stays unposted while receipt is Pending.",
                 )
-            return HttpResponseRedirect(self.get_success_url())
+            return redirect_response_preserving_query(request, self.get_success_url())
         ctx = super().get_context_data(form=form, line_formset=line_formset)
         return self.render_to_response(ctx)
 
@@ -893,7 +896,8 @@ class PurchaseDeleteView(LoginRequiredMixin, UserPassesTestMixin, DeleteView):
     def delete(self, request, *args, **kwargs):
         self.object = self.get_object()
         delete_inventory_transaction_and_sync(self.object.inventory_transaction)
-        return super().delete(request, *args, **kwargs)
+        self.object.delete()
+        return redirect_response_preserving_query(request, self.get_success_url())
 
     def test_func(self):
         return user_can_delete_transactions(self.request.user)
@@ -983,7 +987,7 @@ class PayablesAgingView(LoginRequiredMixin, View):
             messages.success(request, msg)
         else:
             messages.error(request, msg)
-        return HttpResponseRedirect(reverse("payables-aging"))
+        return redirect_response_preserving_query(request, reverse("payables-aging"))
 
     def _post_add_record(self, request):
         form = PayablesQuickEntryForm(request.POST)
@@ -1007,7 +1011,7 @@ class PayablesAgingView(LoginRequiredMixin, View):
         except Exception as exc:
             messages.error(request, f"Could not add payable: {exc}")
             return self._render_page(request, quick_form=form)
-        return HttpResponseRedirect(reverse("payables-aging"))
+        return redirect_response_preserving_query(request, reverse("payables-aging"))
 
     def _post_adjustment(self, request):
         vendor_id = request.POST.get("vendor_id")
@@ -1017,7 +1021,7 @@ class PayablesAgingView(LoginRequiredMixin, View):
             adjustment_sign = "+"
         if not vendor_id:
             messages.error(request, "Vendor is required.")
-            return HttpResponseRedirect(reverse("payables-aging"))
+            return redirect_response_preserving_query(request, reverse("payables-aging"))
         try:
             update_vendor_payables_adjustment(
                 vendor_id, adjustment_amount, sign=adjustment_sign
@@ -1027,4 +1031,4 @@ class PayablesAgingView(LoginRequiredMixin, View):
             messages.error(request, "Vendor not found.")
         except Exception as exc:
             messages.error(request, f"Could not save adjustment: {exc}")
-        return HttpResponseRedirect(reverse("payables-aging"))
+        return redirect_response_preserving_query(request, reverse("payables-aging"))

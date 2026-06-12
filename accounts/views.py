@@ -59,6 +59,19 @@ from .account_dates import (
 from .ledger_actions import delete_ledger_row, update_ledger_row_amount
 from .datetime_utils import parse_posted_datetime, resolve_posted_transaction_date
 from .vendor_brands import handle_vendor_brand_action
+from store.query_redirect import redirect_preserving_query
+
+
+def _redirect_customer_detail(request, customer):
+    return redirect_preserving_query(
+        request, reverse("customer-detail", kwargs={"pk": customer.pk})
+    )
+
+
+def _redirect_vendor_detail(request, vendor):
+    return redirect_preserving_query(
+        request, reverse("vendor-detail", kwargs={"pk": vendor.pk})
+    )
 
 
 def register(request):
@@ -387,7 +400,7 @@ class CustomerDetailView(LoginRequiredMixin, View):
                     update_fields=["opening_balance", "opening_balance_date"]
                 )
                 messages.success(request, "Opening balance updated.")
-                return redirect("customer-detail", pk=customer.pk)
+                return _redirect_customer_detail(request, customer)
         elif action == "account_transaction":
             from transactions.services import (
                 allocate_customer_credit_to_sales,
@@ -446,7 +459,7 @@ class CustomerDetailView(LoginRequiredMixin, View):
                         else:
                             messages.success(request, "Payment in recorded.")
                     if txn_date:
-                        return redirect("customer-detail", pk=customer.pk)
+                        return _redirect_customer_detail(request, customer)
                 except Exception as exc:
                     messages.error(request, f"Could not save transaction: {exc}")
             else:
@@ -461,7 +474,7 @@ class CustomerDetailView(LoginRequiredMixin, View):
                 messages.success(request, msg)
             else:
                 messages.error(request, msg)
-            return redirect("customer-detail", pk=customer.pk)
+            return _redirect_customer_detail(request, customer)
         elif action == "update_ledger_amount":
             ok, msg = update_ledger_row_amount(
                 "customer",
@@ -469,12 +482,13 @@ class CustomerDetailView(LoginRequiredMixin, View):
                 request.POST.get("row_kind"),
                 request.POST.get("row_id"),
                 request.POST.get("amount"),
+                request.POST.get("amount_side"),
             )
             if ok:
                 messages.success(request, msg)
             else:
                 messages.error(request, msg)
-            return redirect("customer-detail", pk=customer.pk)
+            return _redirect_customer_detail(request, customer)
         elif action == "delete_ledger_row":
             ok, msg = delete_ledger_row(
                 "customer",
@@ -486,7 +500,7 @@ class CustomerDetailView(LoginRequiredMixin, View):
                 messages.success(request, msg)
             else:
                 messages.error(request, msg)
-            return redirect("customer-detail", pk=customer.pk)
+            return _redirect_customer_detail(request, customer)
         elif action == "record_payment":
             form = CustomerPaymentForm(request.POST, customer=customer)
             if form.is_valid():
@@ -506,7 +520,7 @@ class CustomerDetailView(LoginRequiredMixin, View):
                     )
                 sale.save()
                 messages.success(request, "Payment recorded.")
-                return redirect("customer-detail", pk=customer.pk)
+                return _redirect_customer_detail(request, customer)
             messages.error(
                 request,
                 "Could not record payment. "
@@ -522,7 +536,7 @@ class CustomerDetailView(LoginRequiredMixin, View):
                         sign=form.cleaned_data["adjustment_sign"],
                     )
                     messages.success(request, "Balance adjustment saved.")
-                    return redirect("customer-detail", pk=customer.pk)
+                    return _redirect_customer_detail(request, customer)
                 except Exception as exc:
                     messages.error(request, f"Could not save adjustment: {exc}")
             else:
@@ -548,9 +562,9 @@ class CustomerDetailView(LoginRequiredMixin, View):
                 )
                 payment.sale.save()
                 messages.success(request, "Payment updated.")
-                return redirect("customer-detail", pk=customer.pk)
+                return _redirect_customer_detail(request, customer)
             messages.error(request, "Could not update payment.")
-            return redirect("customer-detail", pk=customer.pk)
+            return _redirect_customer_detail(request, customer)
         elif action == "update_transaction_date":
             ok, msg = update_account_transaction_date(
                 "customer",
@@ -563,7 +577,7 @@ class CustomerDetailView(LoginRequiredMixin, View):
                 messages.success(request, msg)
             else:
                 messages.error(request, msg)
-            return redirect("customer-detail", pk=customer.pk)
+            return _redirect_customer_detail(request, customer)
         elif action == "delete_payment":
             payment = CustomerPayment.objects.filter(
                 pk=request.POST.get("payment_id"),
@@ -576,10 +590,10 @@ class CustomerDetailView(LoginRequiredMixin, View):
                 messages.success(request, "Payment deleted.")
             else:
                 messages.error(request, "Payment not found.")
-            return redirect("customer-detail", pk=customer.pk)
+            return _redirect_customer_detail(request, customer)
         else:
             messages.error(request, "Unknown action.")
-            return redirect("customer-detail", pk=customer.pk)
+            return _redirect_customer_detail(request, customer)
 
         ctx = _customer_detail_context(customer)
         if action == "opening_balance":
@@ -816,7 +830,7 @@ class VendorDetailView(LoginRequiredMixin, View):
                     update_fields=["opening_balance", "opening_balance_date"]
                 )
                 messages.success(request, "Opening balance updated.")
-                return redirect("vendor-detail", pk=vendor.pk)
+                return _redirect_vendor_detail(request, vendor)
         elif action == "account_transaction":
             from transactions.services import (
                 allocate_vendor_credit_to_purchases,
@@ -878,7 +892,7 @@ class VendorDetailView(LoginRequiredMixin, View):
                         else:
                             messages.success(request, "Payment out recorded.")
                     if txn_date:
-                        return redirect("vendor-detail", pk=vendor.pk)
+                        return _redirect_vendor_detail(request, vendor)
                 except Exception as exc:
                     messages.error(request, f"Could not save transaction: {exc}")
             else:
@@ -893,7 +907,7 @@ class VendorDetailView(LoginRequiredMixin, View):
                 messages.success(request, msg)
             else:
                 messages.error(request, msg)
-            return redirect("vendor-detail", pk=vendor.pk)
+            return _redirect_vendor_detail(request, vendor)
         elif action == "update_ledger_amount":
             ok, msg = update_ledger_row_amount(
                 "vendor",
@@ -901,12 +915,13 @@ class VendorDetailView(LoginRequiredMixin, View):
                 request.POST.get("row_kind"),
                 request.POST.get("row_id"),
                 request.POST.get("amount"),
+                request.POST.get("amount_side"),
             )
             if ok:
                 messages.success(request, msg)
             else:
                 messages.error(request, msg)
-            return redirect("vendor-detail", pk=vendor.pk)
+            return _redirect_vendor_detail(request, vendor)
         elif action == "delete_ledger_row":
             ok, msg = delete_ledger_row(
                 "vendor",
@@ -918,7 +933,7 @@ class VendorDetailView(LoginRequiredMixin, View):
                 messages.success(request, msg)
             else:
                 messages.error(request, msg)
-            return redirect("vendor-detail", pk=vendor.pk)
+            return _redirect_vendor_detail(request, vendor)
         elif action == "payables_adjustment":
             from transactions.services import update_vendor_payables_adjustment
 
@@ -931,7 +946,7 @@ class VendorDetailView(LoginRequiredMixin, View):
                         sign=form.cleaned_data["adjustment_sign"],
                     )
                     messages.success(request, "Payables adjustment saved.")
-                    return redirect("vendor-detail", pk=vendor.pk)
+                    return _redirect_vendor_detail(request, vendor)
                 except Exception as exc:
                     messages.error(request, f"Could not save adjustment: {exc}")
             else:
@@ -958,7 +973,7 @@ class VendorDetailView(LoginRequiredMixin, View):
                     )
                 purchase.save()
                 messages.success(request, "Payment recorded.")
-                return redirect("vendor-detail", pk=vendor.pk)
+                return _redirect_vendor_detail(request, vendor)
             messages.error(
                 request,
                 "Could not record payment. "
@@ -982,9 +997,9 @@ class VendorDetailView(LoginRequiredMixin, View):
                 )
                 payment.purchase.save()
                 messages.success(request, "Payment updated.")
-                return redirect("vendor-detail", pk=vendor.pk)
+                return _redirect_vendor_detail(request, vendor)
             messages.error(request, "Could not update payment.")
-            return redirect("vendor-detail", pk=vendor.pk)
+            return _redirect_vendor_detail(request, vendor)
         elif action == "update_transaction_date":
             ok, msg = update_account_transaction_date(
                 "vendor",
@@ -997,7 +1012,7 @@ class VendorDetailView(LoginRequiredMixin, View):
                 messages.success(request, msg)
             else:
                 messages.error(request, msg)
-            return redirect("vendor-detail", pk=vendor.pk)
+            return _redirect_vendor_detail(request, vendor)
         elif action == "delete_payment":
             payment = VendorPayment.objects.filter(
                 pk=request.POST.get("payment_id"),
@@ -1010,13 +1025,13 @@ class VendorDetailView(LoginRequiredMixin, View):
                 messages.success(request, "Payment deleted.")
             else:
                 messages.error(request, "Payment not found.")
-            return redirect("vendor-detail", pk=vendor.pk)
+            return _redirect_vendor_detail(request, vendor)
         elif action in ("add_brand", "update_brand", "delete_brand"):
             handle_vendor_brand_action(request, vendor)
-            return redirect("vendor-detail", pk=vendor.pk)
+            return _redirect_vendor_detail(request, vendor)
         else:
             messages.error(request, "Unknown action.")
-            return redirect("vendor-detail", pk=vendor.pk)
+            return _redirect_vendor_detail(request, vendor)
 
         ctx = _vendor_detail_context(vendor)
         if action == "opening_balance":

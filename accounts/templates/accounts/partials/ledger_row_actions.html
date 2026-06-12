@@ -1,10 +1,31 @@
 {% if row.can_edit_amount or row.can_delete or row.edit_url %}
-<div class="d-flex flex-wrap gap-1 justify-content-end">
-    {% if row.edit_url %}
-    <a href="{{ row.edit_url }}" class="btn btn-outline-secondary btn-sm py-0" title="Open full bill">Bill</a>
-    {% endif %}
+<div class="d-flex flex-wrap gap-1 justify-content-end align-items-start">
     {% if row.can_edit_amount %}
+    <div class="text-end" style="min-width:11rem;">
+        <input
+            type="number"
+            name="amount"
+            form="ledger-amount-form-{{ row.row_kind }}-{{ row.row_pk }}"
+            class="form-control form-control-sm text-end mb-1"
+            step="0.01"
+            min="0"
+            value="{{ row.amount }}"
+            title="Amount (Rs)"
+        >
+        <select
+            name="amount_side"
+            form="ledger-amount-form-{{ row.row_kind }}-{{ row.row_pk }}"
+            class="form-select form-select-sm"
+            title="Debit or credit"
+        >
+            <option value="debit" {% if row.amount_side == "debit" %}selected{% endif %}>Debit (Dr)</option>
+            <option value="credit" {% if row.amount_side == "credit" %}selected{% endif %}>Credit (Cr)</option>
+        </select>
+    </div>
     <button type="submit" form="ledger-amount-form-{{ row.row_kind }}-{{ row.row_pk }}" class="btn btn-primary btn-sm py-0">Save</button>
+    {% endif %}
+    {% if row.edit_url %}
+    <a href="{{ row.edit_url }}{% if return_query %}?{{ return_query }}{% endif %}" class="btn btn-outline-secondary btn-sm py-0" title="Open full bill">Bill</a>
     {% endif %}
     {% if row.can_delete %}
     <form method="post" class="d-inline" onsubmit="return confirm('Delete this transaction from the account book?');">
@@ -12,6 +33,7 @@
         <input type="hidden" name="action" value="delete_ledger_row">
         <input type="hidden" name="row_kind" value="{{ row.row_kind }}">
         <input type="hidden" name="row_id" value="{{ row.row_pk }}">
+        {% if return_query %}<input type="hidden" name="return_query" value="{{ return_query }}">{% endif %}
         <button type="submit" class="btn btn-outline-danger btn-sm py-0">Delete</button>
     </form>
     {% endif %}

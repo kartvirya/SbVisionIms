@@ -258,7 +258,12 @@ class ItemSearchListView(ProductListView):
 
 
 def _redirect_after_stock_adjust(request, item, default_url=None):
+    from store.query_redirect import get_return_query, url_with_query
+
     next_url = (request.POST.get("next") or default_url or item.get_absolute_url()).strip()
+    query = get_return_query(request)
+    if query:
+        next_url = url_with_query(next_url.split("?")[0], query)
     if next_url.startswith("/"):
         return auth_redirect(next_url)
     return auth_redirect(item.get_absolute_url())
@@ -522,7 +527,7 @@ class ProductDeleteView(LoginRequiredMixin, DeleteView):
         """Django 5.x DeleteView posts via form_valid(), not delete()."""
         from django.db import IntegrityError
         from django.db.models.deletion import ProtectedError
-        from django.http import HttpResponseRedirect
+        from store.query_redirect import redirect_response_preserving_query
 
         blockers = _item_delete_blockers(self.object)
         if blockers:
@@ -532,27 +537,35 @@ class ProductDeleteView(LoginRequiredMixin, DeleteView):
                 + ", ".join(blockers)
                 + ".",
             )
-            return auth_redirect(self.get_success_url())
+            return redirect_response_preserving_query(
+                self.request, self.get_success_url()
+            )
         try:
             item_name = self.object.name
             with transaction.atomic():
                 _purge_item_before_delete(self.object)
                 self.object.delete()
             messages.success(self.request, f'Product "{item_name}" deleted.')
-            return HttpResponseRedirect(self.get_success_url())
+            return redirect_response_preserving_query(
+                self.request, self.get_success_url()
+            )
         except (ProtectedError, IntegrityError):
             messages.error(
                 self.request,
                 "Cannot delete this product — it is still linked to other records.",
             )
-            return auth_redirect(self.get_success_url())
+            return redirect_response_preserving_query(
+                self.request, self.get_success_url()
+            )
         except Exception as exc:
             logger.exception("Product delete failed for item %s", self.object.pk)
             messages.error(
                 self.request,
                 f"Could not delete this product: {exc}",
             )
-            return auth_redirect(self.get_success_url())
+            return redirect_response_preserving_query(
+                self.request, self.get_success_url()
+            )
 
 
 class DeliveryListView(NormalizePageMixin, LoginRequiredMixin, ListView):
