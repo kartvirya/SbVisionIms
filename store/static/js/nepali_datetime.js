@@ -18,11 +18,27 @@
         }
         var raw = String(value).trim();
         var datePart = raw.split("T")[0];
-        var ymd = datePart.split("-").map(Number);
-        if (!ymd[0] || !ymd[1] || !ymd[2]) {
+        return parseYmdParts(datePart.split(/[-/]/));
+    }
+
+    function parseYmdParts(parts) {
+        if (!parts || parts.length !== 3) {
             return null;
         }
-        return { year: ymd[0], month: ymd[1], day: ymd[2] };
+        var year = Number(String(parts[0]).trim());
+        var month = Number(String(parts[1]).trim());
+        var day = Number(String(parts[2]).trim());
+        if (!year || !month || !day || month < 1 || month > 12 || day < 1 || day > 31) {
+            return null;
+        }
+        return { year: year, month: month, day: day };
+    }
+
+    function parseAdTextInput(value) {
+        if (!value) {
+            return null;
+        }
+        return parseYmdParts(String(value).trim().split(/[-/]/));
     }
 
     function formatHiddenDate(ad) {
@@ -153,8 +169,8 @@
             var adInput = wrap.querySelector(".nepali-ad-date");
             var adVal = adInput ? String(adInput.value || "").trim() : "";
             if (adVal) {
-                var ad = parseHiddenDate(adVal + "T" + DEFAULT_TIME);
-                hiddenValue = formatHiddenDate(ad);
+                var ad = parseAdTextInput(adVal);
+                hiddenValue = ad ? formatHiddenDate(ad) : "";
             }
         }
         if (!hiddenValue && !opts.allowClear && previous) {
