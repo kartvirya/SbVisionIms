@@ -33,6 +33,7 @@ from .contact_ledger import (
     get_customer_ledger_rows,
     get_vendor_balance_due,
     get_vendor_ledger_rows,
+    opening_balance_display,
     should_show_opening_balance,
     update_customer_receivables_adjustment,
 )
@@ -245,6 +246,9 @@ class AccountsBookView(LoginRequiredMixin, View):
                     customer.opening_balance,
                     customer.receivables_adjustment,
                 ),
+                "opening_display": opening_balance_display(
+                    customer.opening_balance, "customer"
+                ),
             }
             for customer in Customer.objects.order_by("first_name", "last_name", "id")
         ]
@@ -255,6 +259,9 @@ class AccountsBookView(LoginRequiredMixin, View):
                 "show_opening_balance": should_show_opening_balance(
                     vendor.opening_balance,
                     vendor.payables_adjustment,
+                ),
+                "opening_display": opening_balance_display(
+                    vendor.opening_balance, "vendor"
                 ),
             }
             for vendor in Vendor.objects.order_by("name")
@@ -303,6 +310,7 @@ def _customer_detail_context(customer):
         "party_type": "customer",
         "ledger_rows": ledger_rows,
         "balance_due": balance_due,
+        "opening_display": opening_balance_display(customer.opening_balance, "customer"),
         "opening_form": _customer_opening_form(customer),
         "account_txn_form": CustomerAccountTransactionForm(),
         "payment_form": CustomerPaymentForm(customer=customer),
@@ -327,6 +335,7 @@ def _vendor_detail_context(vendor):
         "party_type": "vendor",
         "ledger_rows": ledger_rows,
         "balance_due": balance_due,
+        "opening_display": opening_balance_display(vendor.opening_balance, "vendor"),
         "opening_form": _vendor_opening_form(vendor),
         "account_txn_form": VendorAccountTransactionForm(),
         "payables_form": SignedAdjustmentForm(

@@ -55,8 +55,9 @@
                         </td>
                         <td>{{ row.customer.phone|default:"—" }}</td>
                         <td class="text-end">
-                            {% if row.show_opening_balance %}
-                            {{ row.customer.opening_balance }}
+                            {% if row.opening_display %}
+                            {{ row.opening_display.amount }}
+                            <small class="text-muted d-block">{{ row.opening_display.kind }}</small>
                             {% else %}<span class="text-muted">—</span>{% endif %}
                         </td>
                         <td class="text-end fw-semibold {% if row.balance_due > 0 %}text-danger{% elif row.balance_due < 0 %}text-success{% endif %}">
@@ -101,8 +102,9 @@
                         </td>
                         <td>{{ row.vendor.phone_number|default:"—" }}</td>
                         <td class="text-end">
-                            {% if row.show_opening_balance %}
-                            {{ row.vendor.opening_balance }}
+                            {% if row.opening_display %}
+                            {{ row.opening_display.amount }}
+                            <small class="text-muted d-block">{{ row.opening_display.kind }}</small>
                             {% else %}<span class="text-muted">—</span>{% endif %}
                         </td>
                         <td class="text-end fw-semibold {% if row.balance_due > 0 %}text-danger{% elif row.balance_due < 0 %}text-success{% endif %}">

@@ -75,6 +75,19 @@ def should_show_opening_balance(opening, adjustment):
     return _d(opening) != 0
 
 
+def opening_balance_display(opening, party_type="vendor"):
+    """Human-readable opening balance for lists (amount is always positive)."""
+    value = _d(opening)
+    if value == 0:
+        return None
+    amount = abs(value)
+    if party_type == "vendor":
+        kind = "Payable" if value > 0 else "Receivable"
+    else:
+        kind = "Receivable" if value > 0 else "Payable"
+    return {"amount": amount, "kind": kind, "signed": value}
+
+
 def get_customer_ledger_rows(customer: Customer):
     """Chronological ledger: opening balance, sales, returns, payments."""
     rows = []

@@ -26,7 +26,12 @@
                 {% if vendor.vat_number %}&nbsp;|&nbsp; VAT: {{ vendor.vat_number }}{% endif %}
                 {{ vendor.address|default:"" }}
             </p>
-            <div class="fs-5">Closing balance: <strong class="{% if balance_due > 0 %}text-danger{% else %}text-success{% endif %}">Rs {{ balance_due }}</strong></div>
+            <div class="d-flex flex-wrap gap-4">
+                {% if opening_display %}
+                <div>Opening balance: <strong>Rs {{ opening_display.amount }}</strong> <span class="text-muted small">({{ opening_display.kind }})</span></div>
+                {% endif %}
+                <div class="fs-5">Closing balance: <strong class="{% if balance_due > 0 %}text-danger{% else %}text-success{% endif %}">Rs {{ balance_due }}</strong></div>
+            </div>
         </div>
     </div>
 
