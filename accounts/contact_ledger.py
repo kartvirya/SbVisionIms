@@ -71,8 +71,8 @@ def _finalize_vendor_ledger_rows(rows, party_pk):
 
 
 def should_show_opening_balance(opening, adjustment):
-    """Hide opening in lists once a manual balance adjustment has been recorded."""
-    return _d(opening) != 0 and _d(adjustment) == 0
+    """Show opening balance in account lists whenever it is set."""
+    return _d(opening) != 0
 
 
 def get_customer_ledger_rows(customer: Customer):

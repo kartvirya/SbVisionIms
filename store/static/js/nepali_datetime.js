@@ -84,6 +84,16 @@
         if (!id) {
             return null;
         }
+        var formId = wrap.dataset.dateForm;
+        if (formId) {
+            var linkedForm = document.getElementById(formId);
+            if (linkedForm) {
+                var linked = linkedForm.querySelector("#" + CSS.escape(id));
+                if (linked) {
+                    return linked;
+                }
+            }
+        }
         var form = wrap.closest("form");
         if (form) {
             var inForm = form.querySelector("#" + CSS.escape(id));
@@ -130,19 +140,28 @@
         hint.textContent = bs ? "B.S. " + bs : "";
     }
 
-    function syncFromVisible(wrap) {
+    function syncFromVisible(wrap, opts) {
+        opts = opts || {};
         var mode = currentCal(wrap);
+        var previous = readHidden(wrap);
         var hiddenValue = "";
         if (mode === "bs") {
             var bsInput = wrap.querySelector(".nepali-bs-date");
-            hiddenValue = bsToHiddenDate(bsInput ? bsInput.value : "");
+            var bsVal = bsInput ? String(bsInput.value || "").trim() : "";
+            hiddenValue = bsVal ? bsToHiddenDate(bsVal) : "";
         } else {
             var adInput = wrap.querySelector(".nepali-ad-date");
-            var ad = parseHiddenDate(adInput ? adInput.value + "T" + DEFAULT_TIME : "");
-            hiddenValue = formatHiddenDate(ad);
+            var adVal = adInput ? String(adInput.value || "").trim() : "";
+            if (adVal) {
+                var ad = parseHiddenDate(adVal + "T" + DEFAULT_TIME);
+                hiddenValue = formatHiddenDate(ad);
+            }
+        }
+        if (!hiddenValue && !opts.allowClear && previous) {
+            hiddenValue = previous;
         }
         writeHidden(wrap, hiddenValue);
-        updateHint(wrap, hiddenValue);
+        updateHint(wrap, hiddenValue || previous);
     }
 
     function loadIntoVisible(wrap, hiddenValue) {
@@ -174,24 +193,22 @@
 
         setCalMode(wrap, wrap.dataset.defaultCal || "bs");
         loadIntoVisible(wrap, hidden.value);
-        syncFromVisible(wrap);
 
         wrap.querySelectorAll(".nepali-bs-date, .nepali-ad-date").forEach(function (el) {
             el.addEventListener("change", function () {
-                syncFromVisible(wrap);
+                syncFromVisible(wrap, { allowClear: true });
             });
             el.addEventListener("input", function () {
-                syncFromVisible(wrap);
+                syncFromVisible(wrap, { allowClear: true });
             });
         });
 
         wrap.querySelectorAll(".nepali-cal-toggle [data-cal]").forEach(function (btn) {
             btn.addEventListener("click", function () {
-                syncFromVisible(wrap);
+                syncFromVisible(wrap, { allowClear: true });
                 var hiddenValue = readHidden(wrap);
                 setCalMode(wrap, btn.dataset.cal);
                 loadIntoVisible(wrap, hiddenValue);
-                syncFromVisible(wrap);
             });
         });
     }
@@ -200,7 +217,15 @@
         if (!form) {
             return;
         }
-        form.querySelectorAll(".nepali-datetime-wrap").forEach(syncFromVisible);
+        var formId = form.id || "";
+        document.querySelectorAll(".nepali-datetime-wrap").forEach(function (wrap) {
+            if (wrap.dataset.dateForm === formId) {
+                syncFromVisible(wrap, { allowClear: true });
+            }
+        });
+        form.querySelectorAll(".nepali-datetime-wrap").forEach(function (wrap) {
+            syncFromVisible(wrap, { allowClear: true });
+        });
     }
 
     var api = {

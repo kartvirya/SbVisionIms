@@ -1,5 +1,5 @@
 {% if row.date_kind %}
-{% include "accounts/partials/ledger_date_fields.html" with row=row %}
+{% include "accounts/partials/ledger_date_fields.html" with row=row date_form_id=date_form_id %}
 {% else %}
 {% if row.date %}{{ row.date|date:"Y-m-d" }}{% else %}—{% endif %}
 {% endif %}

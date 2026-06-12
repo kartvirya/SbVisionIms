@@ -1,7 +1,7 @@
-<input type="hidden" name="ledger_date_kind" value="{{ row.date_kind }}"{% if date_form_id %} form="{{ date_form_id }}"{% endif %}>
-<input type="hidden" name="ledger_date_id" value="{{ row.date_pk }}"{% if date_form_id %} form="{{ date_form_id }}"{% endif %}>
-<input type="hidden" name="ledger_date_value" id="ledger-date-{{ row.date_kind }}-{{ row.date_pk }}" value="{% if row.date %}{{ row.date|date:'Y-m-d' }}T12:00{% endif %}"{% if date_form_id %} form="{{ date_form_id }}"{% endif %}>
-<div class="nepali-datetime-wrap nepali-datetime-wrap--compact ims-date-cell" data-hidden="ledger-date-{{ row.date_kind }}-{{ row.date_pk }}" data-default-cal="bs">
+<input type="hidden" name="ledger_date_kind" value="{{ row.date_kind }}" form="{{ date_form_id }}">
+<input type="hidden" name="ledger_date_id" value="{{ row.date_pk }}" form="{{ date_form_id }}">
+<input type="hidden" name="ledger_date_value" id="ledger-date-{{ row.date_kind }}-{{ row.date_pk }}" value="{% if row.date %}{{ row.date|date:'Y-m-d' }}T12:00{% endif %}" form="{{ date_form_id }}">
+<div class="nepali-datetime-wrap nepali-datetime-wrap--compact ims-date-cell" data-hidden="ledger-date-{{ row.date_kind }}-{{ row.date_pk }}" data-default-cal="bs" data-date-form="{{ date_form_id }}">
     <div class="flex flex-wrap gap-1 mb-1 nepali-cal-toggle" role="group">
         <button type="button" class="px-2 py-0.5 text-xs rounded border border-slate-300 bg-white active" data-cal="bs">B.S.</button>
         <button type="button" class="px-2 py-0.5 text-xs rounded border border-slate-300 bg-white" data-cal="ad">A.D.</button>

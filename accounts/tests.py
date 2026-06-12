@@ -189,6 +189,37 @@ class AccountTransactionTests(TestCase):
             payment_target.strftime("%Y-%m-%d %H:%M"),
         )
 
+    def test_save_ledger_date_in_ad_via_view(self):
+        self.vendor.opening_balance = Decimal("1000")
+        self.vendor.opening_balance_date = timezone.localtime()
+        self.vendor.save(update_fields=["opening_balance", "opening_balance_date"])
+        target = timezone.localtime().replace(
+            year=2024, month=7, day=4, hour=12, minute=0, second=0, microsecond=0
+        )
+        url = reverse("vendor-detail", args=[self.vendor.pk])
+        response = self.client.post(
+            url,
+            {
+                "action": "save_all_transaction_dates",
+                "ledger_date_kind": "opening_balance",
+                "ledger_date_id": str(self.vendor.pk),
+                "ledger_date_value": target.strftime("%Y-%m-%dT%H:%M"),
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        self.vendor.refresh_from_db()
+        self.assertEqual(
+            timezone.localtime(self.vendor.opening_balance_date).strftime("%Y-%m-%d"),
+            target.strftime("%Y-%m-%d"),
+        )
+
+    def test_opening_balance_stays_visible_after_adjustment(self):
+        from accounts.contact_ledger import should_show_opening_balance
+
+        self.assertTrue(
+            should_show_opening_balance(Decimal("5000"), Decimal("200"))
+        )
+
     def test_save_all_ledger_dates_via_view(self):
         purchase = create_payable_quick_entry(
             self.vendor,

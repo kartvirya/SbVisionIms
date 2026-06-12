@@ -22,7 +22,7 @@
                 {% if customer.pan_number %}&nbsp;|&nbsp; PAN: {{ customer.pan_number }}{% endif %}
                 {{ customer.email|default:"" }}
             </p>
-            <div class="fs-5">Balance due: <strong class="{% if balance_due > 0 %}text-danger{% else %}text-success{% endif %}">Rs {{ balance_due }}</strong></div>
+            <div class="fs-5">Closing balance: <strong class="{% if balance_due > 0 %}text-danger{% else %}text-success{% endif %}">Rs {{ balance_due }}</strong></div>
         </div>
     </div>
 
@@ -74,59 +74,63 @@
 
     {% include "accounts/partials/payment_records.html" %}
 
-    <form method="post" id="ledger-dates-form" class="js-sync-datetime-form" onsubmit="if(window.ImsNepaliDatetime){ImsNepaliDatetime.syncForm(this);}">
+    <form method="post" id="ledger-dates-form" class="js-sync-datetime-form d-none" onsubmit="if(window.ImsNepaliDatetime){ImsNepaliDatetime.syncForm(this);}">
         {% csrf_token %}
         <input type="hidden" name="action" value="save_all_transaction_dates">
-        <div class="card shadow-sm">
-            <div class="card-header bg-light">
-                <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
-                    <div>
-                        <strong>Transaction history</strong>
-                        <p class="text-muted small mb-0">Opening balance is always first. Edit amount and Dr/Cr, then Save.</p>
-                    </div>
-                    <div class="d-flex flex-wrap gap-2">
-                        <a href="{% url 'customer-statement' customer.pk %}" class="btn btn-outline-secondary btn-sm" target="_blank" rel="noopener">Print statement</a>
-                        <button type="submit" class="btn btn-outline-primary btn-sm">Save all dates</button>
-                    </div>
+        {% if return_query %}<input type="hidden" name="return_query" value="{{ return_query }}">{% endif %}
+    </form>
+    {% for row in ledger_rows %}
+        {% include "accounts/partials/ledger_row_amount.html" with row=row %}
+        {% if row.can_delete %}{% include "accounts/partials/ledger_row_delete.html" with row=row %}{% endif %}
+    {% endfor %}
+    <div class="card shadow-sm">
+        <div class="card-header bg-light">
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+                <div>
+                    <strong>Transaction history</strong>
+                    <p class="text-muted small mb-0">Opening balance is always first. Edit amount and Dr/Cr, then Save.</p>
+                </div>
+                <div class="d-flex flex-wrap gap-2">
+                    <a href="{% url 'customer-statement' customer.pk %}" class="btn btn-outline-secondary btn-sm" target="_blank" rel="noopener">Print statement</a>
+                    <button type="submit" form="ledger-dates-form" class="btn btn-outline-primary btn-sm">Save all dates</button>
                 </div>
             </div>
-            <div class="table-responsive ims-ledger-table-wrap">
-                <table class="table table-sm table-striped mb-0">
-                    <thead class="table-light">
-                        <tr>
-                            <th>Date</th>
-                            <th>Type</th>
-                            <th>Reference</th>
-                            <th class="text-end">Debit</th>
-                            <th class="text-end">Credit</th>
-                            <th>Method</th>
-                            <th class="text-end">Balance</th>
-                            <th></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for row in ledger_rows %}
-                        {% include "accounts/partials/ledger_row_amount.html" with row=row %}
-                        <tr>
-                            <td class="ims-date-cell">{% include "accounts/partials/ledger_date_cell.html" with row=row %}</td>
-                            <td>{{ row.type }}</td>
-                            <td>
-                                {% if row.url %}<a href="{{ row.url }}">{{ row.reference }}</a>{% else %}{{ row.reference }}{% endif %}
-                            </td>
-                            <td class="text-end">{% if row.debit %}Rs {{ row.debit }}{% else %}—{% endif %}</td>
-                            <td class="text-end">{% if row.credit %}Rs {{ row.credit }}{% else %}—{% endif %}</td>
-                            <td>{{ row.method|default:"—" }}</td>
-                            <td class="text-end fw-semibold">Rs {{ row.balance }}</td>
-                            <td class="text-nowrap">{% include "accounts/partials/ledger_row_actions.html" with row=row %}</td>
-                        </tr>
-                        {% empty %}
-                        <tr><td colspan="8" class="text-center text-muted py-3">No transactions yet.</td></tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
         </div>
-    </form>
+        <div class="table-responsive ims-ledger-table-wrap">
+            <table class="table table-sm table-striped mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Date</th>
+                        <th>Type</th>
+                        <th>Reference</th>
+                        <th class="text-end">Debit</th>
+                        <th class="text-end">Credit</th>
+                        <th>Method</th>
+                        <th class="text-end">Balance</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in ledger_rows %}
+                    <tr>
+                        <td class="ims-date-cell">{% include "accounts/partials/ledger_date_cell.html" with row=row date_form_id="ledger-dates-form" %}</td>
+                        <td>{{ row.type }}</td>
+                        <td>
+                            {% if row.url %}<a href="{{ row.url }}">{{ row.reference }}</a>{% else %}{{ row.reference }}{% endif %}
+                        </td>
+                        <td class="text-end">{% if row.debit %}Rs {{ row.debit }}{% else %}—{% endif %}</td>
+                        <td class="text-end">{% if row.credit %}Rs {{ row.credit }}{% else %}—{% endif %}</td>
+                        <td>{{ row.method|default:"—" }}</td>
+                        <td class="text-end fw-semibold">Rs {{ row.balance }}</td>
+                        <td class="text-nowrap">{% include "accounts/partials/ledger_row_actions.html" with row=row %}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="8" class="text-center text-muted py-3">No transactions yet.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
 </div>
 {% endblock %}
 
