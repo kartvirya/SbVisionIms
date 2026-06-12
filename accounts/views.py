@@ -297,12 +297,12 @@ def _vendor_opening_form(vendor):
 def _customer_detail_context(customer):
     from transactions.models import CustomerPayment
 
-    ledger_rows, _ = get_customer_ledger_rows(customer)
+    ledger_rows, balance_due = get_customer_ledger_rows(customer)
     return {
         "customer": customer,
         "party_type": "customer",
         "ledger_rows": ledger_rows,
-        "balance_due": get_customer_balance_due(customer),
+        "balance_due": balance_due,
         "opening_form": _customer_opening_form(customer),
         "account_txn_form": CustomerAccountTransactionForm(),
         "payment_form": CustomerPaymentForm(customer=customer),
@@ -321,12 +321,12 @@ def _customer_detail_context(customer):
 def _vendor_detail_context(vendor):
     from transactions.models import VendorPayment
 
-    ledger_rows, _ = get_vendor_ledger_rows(vendor)
+    ledger_rows, balance_due = get_vendor_ledger_rows(vendor)
     return {
         "vendor": vendor,
         "party_type": "vendor",
         "ledger_rows": ledger_rows,
-        "balance_due": get_vendor_balance_due(vendor),
+        "balance_due": balance_due,
         "opening_form": _vendor_opening_form(vendor),
         "account_txn_form": VendorAccountTransactionForm(),
         "payables_form": SignedAdjustmentForm(

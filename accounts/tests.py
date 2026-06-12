@@ -7,7 +7,12 @@ from django.urls import reverse
 from django.utils import timezone
 
 from accounts.account_dates import save_all_ledger_dates, save_bulk_purchase_dates
-from accounts.contact_ledger import get_customer_ledger_rows, get_vendor_ledger_rows
+from accounts.contact_ledger import (
+    get_customer_balance_due,
+    get_customer_ledger_rows,
+    get_vendor_balance_due,
+    get_vendor_ledger_rows,
+)
 from accounts.forms import CustomerAccountTransactionForm, VendorAccountTransactionForm
 from accounts.models import Customer, Vendor
 from transactions.models import CustomerPayment, Purchase, Sale, VendorPayment
@@ -71,6 +76,35 @@ class AccountTransactionTests(TestCase):
         self.assertEqual(balance, Decimal("3000"))
         self.assertTrue(any(row["reference"] == "SI/0808" for row in rows))
         self.assertEqual(purchase.lines.count(), 1)
+
+    def test_vendor_balance_due_matches_ledger_closing(self):
+        self.vendor.opening_balance = Decimal("189037.50")
+        self.vendor.opening_balance_date = timezone.localtime()
+        self.vendor.save(update_fields=["opening_balance", "opening_balance_date"])
+        bill = create_payable_quick_entry(
+            self.vendor,
+            bill_number="B-8000",
+            net_amount=Decimal("8000"),
+            order_date=timezone.now(),
+        )
+        VendorPayment.objects.create(
+            purchase=bill,
+            amount=Decimal("3700"),
+            method="cash",
+            paid_at=timezone.now(),
+        )
+        payment_only = create_payable_quick_entry(
+            self.vendor,
+            bill_number="POUT-1",
+            net_amount=Decimal("10680"),
+            amount_paid=Decimal("10680"),
+            order_date=timezone.now(),
+            payment_only=True,
+        )
+        self.assertTrue(payment_only.is_account_payment_only)
+        _, ledger_balance = get_vendor_ledger_rows(self.vendor)
+        self.assertEqual(get_vendor_balance_due(self.vendor), ledger_balance)
+        self.assertEqual(ledger_balance, Decimal("182657.50"))
 
     def test_opening_balance_is_first_in_vendor_ledger(self):
         from transactions.models import VendorPayment

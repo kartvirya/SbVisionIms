@@ -2,7 +2,6 @@
 
 from decimal import Decimal
 
-from django.db.models import Sum
 from django.urls import reverse
 
 from accounts.models import Customer, Vendor
@@ -301,22 +300,9 @@ def get_vendor_ledger_rows(vendor: Vendor):
 
 
 def get_customer_balance_due(customer: Customer):
-    sales_total = Sale.objects.filter(customer=customer).aggregate(
-        s=Sum("grand_total")
-    )["s"] or Decimal("0")
-    paid_total = CustomerPayment.objects.filter(sale__customer=customer).aggregate(
-        s=Sum("amount")
-    )["s"] or Decimal("0")
-    returns_total = SaleReturn.objects.filter(sale__customer=customer).aggregate(
-        s=Sum("total_credit")
-    )["s"] or Decimal("0")
-    return (
-        _d(customer.opening_balance)
-        + _d(customer.receivables_adjustment)
-        + _d(sales_total)
-        - _d(returns_total)
-        - _d(paid_total)
-    )
+    """Closing balance — must match the last row of the account ledger."""
+    _, balance = get_customer_ledger_rows(customer)
+    return balance
 
 
 def update_customer_receivables_adjustment(customer_id, amount, sign="+"):
@@ -339,19 +325,6 @@ def update_customer_receivables_adjustment(customer_id, amount, sign="+"):
 
 
 def get_vendor_balance_due(vendor: Vendor):
-    purchases_total = Purchase.objects.filter(vendor=vendor).aggregate(
-        s=Sum("net_amount")
-    )["s"] or Decimal("0")
-    paid_total = VendorPayment.objects.filter(purchase__vendor=vendor).aggregate(
-        s=Sum("amount")
-    )["s"] or Decimal("0")
-    returns_total = PurchaseReturn.objects.filter(purchase__vendor=vendor).aggregate(
-        s=Sum("total_credit")
-    )["s"] or Decimal("0")
-    return (
-        _d(vendor.opening_balance)
-        + _d(vendor.payables_adjustment)
-        + _d(purchases_total)
-        - _d(returns_total)
-        - _d(paid_total)
-    )
+    """Closing balance — must match the last row of the account ledger."""
+    _, balance = get_vendor_ledger_rows(vendor)
+    return balance
