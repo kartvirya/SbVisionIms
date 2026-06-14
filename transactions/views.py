@@ -481,7 +481,7 @@ def SaleCreateView(request):
                             "item": item_instance,
                             "variation": variation,
                             "price": float(item["price"]),
-                            "quantity": int(item["quantity"]),
+                            "quantity": Decimal(str(item["quantity"])),
                             "total_detail": float(item["total_item"])
                         }
                         SaleDetail.objects.create(**detail_attributes)

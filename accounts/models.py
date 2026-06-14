@@ -202,6 +202,13 @@ class Customer(models.Model):
         verbose_name='PAN number',
         help_text='PAN / tax ID (optional)',
     )
+    vat_number = models.CharField(
+        max_length=20,
+        blank=True,
+        null=True,
+        verbose_name='VAT number',
+        help_text='VAT registration number (optional)',
+    )
     loyalty_points = models.IntegerField(default=0)
     opening_balance = models.DecimalField(
         max_digits=12,

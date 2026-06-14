@@ -50,6 +50,12 @@
       <div class="row mb-3">
         <div class="col-md-4">
           <div class="form-group">
+            {{ form.vat_number.label_tag }}
+            {{ form.vat_number }}
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="form-group">
             {{ form.opening_sign.label_tag }}
             {{ form.opening_sign }}
             <small class="text-muted d-block">{{ form.opening_sign.help_text }}</small>
@@ -61,6 +67,8 @@
             {{ form.opening_amount }}
           </div>
         </div>
+      </div>
+      <div class="row mb-3">
         <div class="col-md-4">
           <div class="form-group">
             {{ form.loyalty_points.label_tag }}

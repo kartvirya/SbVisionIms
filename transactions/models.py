@@ -169,7 +169,7 @@ class SaleDetail(models.Model):
         max_digits=10,
         decimal_places=2
     )
-    quantity = models.PositiveIntegerField()
+    quantity = models.DecimalField(max_digits=12, decimal_places=3)
     total_detail = models.DecimalField(max_digits=10, decimal_places=2)
 
     class Meta:

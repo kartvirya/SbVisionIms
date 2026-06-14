@@ -127,6 +127,10 @@
                                         <label for="new_customer_email" class="form-label small mb-0">Email</label>
                                         <input type="email" class="form-control form-control-sm" id="new_customer_email" autocomplete="email">
                                     </div>
+                                    <div class="col-12 col-sm-6">
+                                        <label for="new_customer_vat" class="form-label small mb-0">VAT no.</label>
+                                        <input type="text" class="form-control form-control-sm" id="new_customer_vat" autocomplete="off">
+                                    </div>
                                 </div>
                                 <div class="d-flex flex-wrap gap-2 mt-3">
                                     <button type="button" class="btn btn-success btn-sm" id="save_new_customer">
@@ -139,19 +143,19 @@
                         </div>
                         <div class="mb-3">
                             <label for="sub_total" class="form-label">Subtotal</label>
-                            <input name="sub_total" type="number" class="form-control" id="sub_total" aria-label="Subtotal" required>
+                            <input name="sub_total" type="number" step="0.01" class="form-control" id="sub_total" aria-label="Subtotal" required>
                         </div>
                         <div class="mb-3">
                             <label for="tax_percentage" class="form-label">Tax (%)</label>
-                            <input name="tax_percentage" type="number" class="form-control" id="tax_percentage" aria-label="Tax Inclusive" value="13" required>
+                            <input name="tax_percentage" type="number" step="0.01" class="form-control" id="tax_percentage" aria-label="Tax Inclusive" value="13" required>
                         </div>
                         <div class="mb-3">
                             <label for="tax_amount" class="form-label">Tax Amount</label>
-                            <input name="tax_amount" type="number" class="form-control" id="tax_amount" aria-label="Tax Amount" required>
+                            <input name="tax_amount" type="number" step="0.01" class="form-control" id="tax_amount" aria-label="Tax Amount" required>
                         </div>
                         <div class="mb-3">
                             <label for="grand_total" class="form-label">Grand Total</label>
-                            <input name="grand_total" type="number" class="form-control" id="grand_total" aria-label="Grand Total" required>
+                            <input name="grand_total" type="number" step="0.01" class="form-control" id="grand_total" aria-label="Grand Total" required>
                         </div>
                         <div class="mb-3">
                             <label for="payment_method" class="form-label">Payment method</label>
@@ -162,7 +166,7 @@
                         </div>
                         <div class="mb-3">
                             <label for="amount_paid" class="form-label">Amount Payed</label>
-                            <input name="amount_paid" type="number" class="form-control" id="amount_paid" aria-label="Amount Paid" required>
+                            <input name="amount_paid" type="number" step="0.01" class="form-control" id="amount_paid" aria-label="Amount Paid" required>
                             <div class="form-check mt-2">
                                 <input class="form-check-input" type="checkbox" id="sale-pay-full" checked>
                                 <label class="form-check-label small" for="sale-pay-full">Mark fully paid (auto-fill net bill)</label>
@@ -373,16 +377,16 @@
                             return v.id == data.selected_variant;
                         });
                         if (sel && sel.quantity) {
-                            maxQty = parseInt(sel.quantity, 10) || maxQty;
+                            maxQty = parseFloat(sel.quantity) || maxQty;
                         }
                     } else if (data.stock !== undefined) {
-                        maxQty = parseInt(data.stock, 10) || maxQty;
+                        maxQty = parseFloat(data.stock) || maxQty;
                     }
                     $(row).find("input[name='quantity']").TouchSpin({
-                        min: 1,
+                        min: 0.01,
                         max: maxQty,
-                        step: 1,
-                        decimals: 0,
+                        step: 0.01,
+                        decimals: 2,
                         boostat: 1,
                         maxboostedstep: 3,
                         postfix: ''
@@ -422,7 +426,7 @@
         }
 
         function resetNewCustomerFields() {
-            $('#new_customer_first_name, #new_customer_last_name, #new_customer_phone, #new_customer_email').val('');
+            $('#new_customer_first_name, #new_customer_last_name, #new_customer_phone, #new_customer_email, #new_customer_vat').val('');
         }
 
         function selectCustomerOption(id, label) {
@@ -459,6 +463,7 @@
                     last_name: $('#new_customer_last_name').val().trim(),
                     phone: $('#new_customer_phone').val().trim(),
                     email: $('#new_customer_email').val().trim(),
+                    vat_number: $('#new_customer_vat').val().trim(),
                     csrfmiddlewaretoken: $('input[name="csrfmiddlewaretoken"]').val()
                 },
                 success: function (response) {
@@ -568,7 +573,10 @@
                 }
             });
         }).on('change keyup', 'input[name="quantity"]', function () {
-            var quantity = parseInt($(this).val(), 10);
+            var quantity = parseFloat($(this).val());
+            if (isNaN(quantity) || quantity <= 0) {
+                quantity = 0.01;
+            }
             var rowData = tblItems.row($(this).closest('tr')).data();
             var cartIndex = rowData.cartIndex;
             sale.products.items[cartIndex].quantity = quantity;
@@ -586,16 +594,16 @@
             var rowNode = tblItems.row($(this).closest('tr')).node();
             $('td:eq(3)', rowNode).html(parseFloat(displayPrice).toFixed(2) + ' Rs');
             $('td:eq(5)', rowNode).html(item.total_item + ' Rs');
-            var maxQty = parseInt(item.stock, 10) || 9999;
+            var maxQty = parseFloat(item.stock) || 9999;
             if (item.selected_variant && item.variations) {
                 var sel = item.variations.find(function (v) { return v.id == item.selected_variant; });
-                if (sel) maxQty = parseInt(sel.quantity, 10) || maxQty;
+                if (sel) maxQty = parseFloat(sel.quantity) || maxQty;
             }
             var $qtyInput = $(rowNode).find("input[name='quantity']");
             if ($qtyInput.data('TouchSpin')) {
                 $qtyInput.trigger('touchspin.updatesettings', { max: maxQty });
             }
-            if (parseInt($qtyInput.val(), 10) > maxQty) {
+            if (parseFloat($qtyInput.val()) > maxQty) {
                 $qtyInput.val(maxQty).trigger('change');
             }
         });

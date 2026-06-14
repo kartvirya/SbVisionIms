@@ -704,11 +704,13 @@ def create_customer_quick(request):
     last_name = (request.POST.get("last_name") or "").strip() or None
     phone = (request.POST.get("phone") or "").strip() or None
     email = (request.POST.get("email") or "").strip() or None
+    vat_number = (request.POST.get("vat_number") or "").strip() or None
     customer = Customer.objects.create(
         first_name=first_name,
         last_name=last_name,
         phone=phone,
         email=email or None,
+        vat_number=vat_number,
     )
     full_name = customer.get_full_name().strip()
     return JsonResponse(

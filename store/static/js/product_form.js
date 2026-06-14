@@ -21,7 +21,7 @@
       brandSelect.innerHTML = "";
       var placeholder = document.createElement("option");
       placeholder.value = "";
-      placeholder.textContent = "Select brand";
+      placeholder.textContent = brands.length ? "Select brand" : "No brands for this supplier";
       brandSelect.appendChild(placeholder);
       brands.forEach(function (b) {
         var opt = document.createElement("option");
@@ -29,6 +29,7 @@
         opt.textContent = b.name;
         brandSelect.appendChild(opt);
       });
+      brandSelect.disabled = brands.length === 0;
       if (current && brands.some(function (b) { return String(b.id) === current; })) {
         brandSelect.value = current;
       }
@@ -36,9 +37,11 @@
 
     function loadBrands(vendorId, keepValue) {
       if (!vendorId) {
+        brandSelect.disabled = true;
         setBrandOptions([], false);
         return;
       }
+      brandSelect.disabled = true;
       var url = brandsUrlTemplate.replace("/0/", "/" + vendorId + "/");
       fetch(url, { credentials: "same-origin", headers: { "X-Requested-With": "XMLHttpRequest" } })
         .then(function (r) { return r.json(); })
@@ -55,6 +58,8 @@
     }
     if (vendorSelect.value) {
       loadBrands(vendorSelect.value, true);
+    } else {
+      brandSelect.disabled = true;
     }
   }
 

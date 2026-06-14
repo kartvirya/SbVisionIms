@@ -1,5 +1,7 @@
 from django import forms
 from django.forms import inlineformset_factory
+from django.urls import reverse
+
 from .models import Item, Category, Delivery, ProductVariation, StockAdjustmentLog
 from accounts.models import Brand, Logistics, Vendor
 
@@ -28,8 +30,18 @@ class ItemForm(forms.ModelForm):
             'image',
         ]
         widgets = {
-            'vendor': forms.Select(attrs={'class': 'form-control', 'id': 'id_vendor'}),
-            'brand': forms.Select(attrs={'class': 'form-control', 'id': 'id_brand'}),
+            'vendor': forms.Select(
+                attrs={
+                    'class': 'form-select product-cascade-select',
+                    'id': 'id_vendor',
+                }
+            ),
+            'brand': forms.Select(
+                attrs={
+                    'class': 'form-select product-cascade-select',
+                    'id': 'id_brand',
+                }
+            ),
             'category': forms.Select(attrs={'class': 'form-control'}),
             'name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Product name'}),
             'sku': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Optional SKU'}),
@@ -88,6 +100,10 @@ class ItemForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields['vendor'].widget.attrs['data-brands-url'] = reverse(
+            'vendor-brands-json',
+            kwargs={'pk': 0},
+        )
         self.fields['vendor'].queryset = Vendor.objects.order_by('name')
         self.fields['vendor'].required = True
         self.fields['brand'].required = True

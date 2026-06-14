@@ -125,6 +125,7 @@ class CustomerForm(forms.ModelForm):
             'email',
             'phone',
             'pan_number',
+            'vat_number',
             'loyalty_points',
         ]
         widgets = {
@@ -152,6 +153,10 @@ class CustomerForm(forms.ModelForm):
             'pan_number': forms.TextInput(attrs={
                 'class': 'form-control',
                 'placeholder': 'PAN / tax ID (optional)',
+            }),
+            'vat_number': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'VAT registration no. (optional)',
             }),
             'loyalty_points': forms.NumberInput(attrs={
                 'class': 'form-control',

@@ -5,7 +5,7 @@
     Update Product
 {% endblock title %}
 
-{% block extra_css %}
+{% block stylesheets %}
 <style>
     .variation-form-row input, .variation-form-row select {
         width: 100%;
@@ -23,8 +23,16 @@
         border: 1px solid #ddd;
         border-radius: 4px;
     }
+    .product-cascade-col {
+        min-width: 0;
+    }
+    .product-cascade-select {
+        width: 100% !important;
+        max-width: 100%;
+        min-width: 0;
+    }
 </style>
-{% endblock extra_css %}
+{% endblock stylesheets %}
 
 {% block content %}
 <div class="container my-5">
@@ -192,15 +200,7 @@
 </div>
 {% endblock content %}
 
-{% block extra_js %}
-<script>
-  (function () {
-    var v = document.getElementById("id_vendor");
-    if (v) {
-      v.setAttribute("data-brands-url", "{% url 'vendor-brands-json' pk=0 %}");
-    }
-  })();
-</script>
+{% block javascripts %}
 <script src="{% static 'js/product_form.js' %}"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
@@ -302,4 +302,4 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 </script>
-{% endblock extra_js %}
+{% endblock javascripts %}

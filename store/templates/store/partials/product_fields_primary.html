@@ -1,14 +1,14 @@
 {% load static %}
 <p class="text-muted small">Select supplier, then brand, category, and enter the product name.</p>
 <div class="row">
-    <div class="col-md-6 mb-3">
+    <div class="col-md-6 mb-3 product-cascade-col">
         <label for="{{ form.vendor.id_for_label }}" class="form-label">{{ form.vendor.label }}</label>
         {{ form.vendor }}
         <div class="text-danger">{{ form.vendor.errors }}</div>
     </div>
-    <div class="col-md-6 mb-3">
+    <div class="col-md-6 mb-3 product-cascade-col">
         <label for="{{ form.brand.id_for_label }}" class="form-label">{{ form.brand.label }}</label>
-        <select name="{{ form.brand.html_name }}" id="id_brand" class="form-control"
+        <select name="{{ form.brand.html_name }}" id="id_brand" class="form-select product-cascade-select"
                 data-selected-brand="{% if form.brand.value %}{{ form.brand.value }}{% elif form.instance.brand_id %}{{ form.instance.brand_id }}{% endif %}">
             <option value="">Select brand</option>
             {% for choice in form.brand.field.queryset %}
