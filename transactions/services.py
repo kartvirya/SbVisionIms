@@ -418,6 +418,8 @@ def purchase_stock_item_rows(purchase: Purchase):
     rows = []
     if purchase.lines.exists():
         for line in purchase.lines.select_related("item"):
+            if getattr(line.item, "is_account_placeholder", False):
+                continue
             rows.append(
                 {
                     "item": line.item_id,
@@ -425,7 +427,7 @@ def purchase_stock_item_rows(purchase: Purchase):
                     "unit_price": line.unit_price,
                 }
             )
-    elif purchase.item_id:
+    elif purchase.item_id and not getattr(purchase.item, "is_account_placeholder", False):
         rows.append(
             {
                 "item": purchase.item_id,

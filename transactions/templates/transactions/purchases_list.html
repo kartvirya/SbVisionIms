@@ -175,7 +175,9 @@
                         {% endif %}
                     </td>
                     <td>
-                        {% if purchase.receipt_status == 'P' %}
+                        {% if purchase.is_account_entry %}
+                        <span class="badge bg-info text-dark">Account entry</span>
+                        {% elif purchase.receipt_status == 'P' %}
                         <span class="badge bg-secondary">Pending</span>
                         {% else %}
                         <span class="badge bg-success">Received</span>

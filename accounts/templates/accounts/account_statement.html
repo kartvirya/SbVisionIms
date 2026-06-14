@@ -53,7 +53,7 @@
         <tbody>
             {% for row in ledger_rows %}
             <tr>
-                <td>{% if row.date %}{{ row.date|date:"Y-m-d H:i" }}{% else %}—{% endif %}</td>
+                <td>{% if row.date %}{{ row.date|date:"Y-m-d" }}{% else %}—{% endif %}</td>
                 <td>{{ row.type }}</td>
                 <td>{{ row.reference }}</td>
                 <td class="text-end">{% if row.debit %}Rs {{ row.debit }}{% else %}—{% endif %}</td>

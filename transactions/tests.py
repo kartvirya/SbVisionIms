@@ -672,6 +672,93 @@ class StockLedgerTests(TestCase):
         self.assertEqual(sale.amount_remaining, Decimal("60"))
 
 
+class PurchaseTotalsAndReceiptTests(TestCase):
+    def setUp(self):
+        self.vendor = Vendor.objects.create(name="VAT Vendor")
+        self.category = Category.objects.create(name="General")
+        self.item = Item.objects.create(
+            name="Stock Widget",
+            description="Test",
+            category=self.category,
+            quantity=0,
+            price=100,
+            cost_price=50,
+            vendor=self.vendor,
+        )
+
+    def test_vat_not_double_counted_when_percentage_zero(self):
+        purchase = Purchase.objects.create(
+            vendor=self.vendor,
+            receipt_status="P",
+            discount_amount=Decimal("0"),
+            vat_percentage=0,
+            vat_amount=Decimal("0"),
+            amount_paid=Decimal("0"),
+        )
+        PurchaseLine.objects.create(
+            purchase=purchase,
+            item=self.item,
+            quantity=1,
+            unit_price=Decimal("1000"),
+        )
+        purchase.save()
+        purchase.refresh_from_db()
+        self.assertEqual(purchase.sub_total, Decimal("1000"))
+        self.assertEqual(purchase.vat_amount, Decimal("0"))
+        self.assertEqual(purchase.net_amount, Decimal("1000"))
+
+    def test_vat_added_on_top_of_taxable_lines(self):
+        purchase = Purchase.objects.create(
+            vendor=self.vendor,
+            receipt_status="P",
+            discount_amount=Decimal("0"),
+            vat_percentage=13,
+            amount_paid=Decimal("0"),
+        )
+        PurchaseLine.objects.create(
+            purchase=purchase,
+            item=self.item,
+            quantity=1,
+            unit_price=Decimal("1000"),
+        )
+        purchase.save()
+        purchase.refresh_from_db()
+        self.assertEqual(purchase.vat_amount, Decimal("130.00"))
+        self.assertEqual(purchase.net_amount, Decimal("1130.00"))
+
+    def test_paid_stock_bill_marks_received(self):
+        purchase = Purchase.objects.create(
+            vendor=self.vendor,
+            receipt_status="P",
+            discount_amount=Decimal("0"),
+            vat_percentage=0,
+            amount_paid=Decimal("500"),
+        )
+        PurchaseLine.objects.create(
+            purchase=purchase,
+            item=self.item,
+            quantity=2,
+            unit_price=Decimal("250"),
+        )
+        purchase.save()
+        purchase.refresh_from_db()
+        self.assertEqual(purchase.payment_status, "D")
+        self.assertEqual(purchase.receipt_status, "S")
+        self.assertIsNotNone(purchase.receipt_date)
+
+    def test_paid_account_entry_stays_account_not_received(self):
+        purchase = create_payable_quick_entry(
+            self.vendor,
+            bill_number="ACC-1",
+            net_amount=Decimal("500"),
+            amount_paid=Decimal("500"),
+        )
+        purchase.refresh_from_db()
+        self.assertEqual(purchase.payment_status, "D")
+        self.assertTrue(purchase.is_account_entry())
+        self.assertEqual(purchase.receipt_status, "P")
+
+
 class IndianNumberFormatTests(TestCase):
     def test_indian_number_grouping(self):
         from transactions.templatetags.indian_format import _format_indian_number

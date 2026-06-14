@@ -254,7 +254,7 @@
                                         class="vat-pct-field"
                                         step="0.01"
                                         min="0"
-                                        value="{{ form.vat_percentage.value|default:'13' }}"
+                                        value="{{ form.vat_percentage.value|default:'0' }}"
                                     >% VAT
                                 </th>
                                 <td>
@@ -278,6 +278,7 @@
                     </table>
                 </div>
                 <p class="text-muted small mt-2 mb-0 text-end">
+                    Enter line amounts <strong>before VAT</strong>. Set VAT % (e.g. 13) to add tax on top, or leave VAT % at 0 when the line total is already the final bill amount.
                     Clear VAT % to enter a custom VAT amount. Numbers use Indian grouping (e.g. 2,33,299.69).
                     {% if object %} Saved remaining: Rs {{ object.amount_remaining }}.{% endif %}
                 </p>
@@ -331,6 +332,7 @@
     const purchaseForm = document.getElementById("purchase-form");
     if (purchaseForm) {
         purchaseForm.addEventListener("submit", function () {
+            updatePreview();
             if (window.ImsNepaliDatetime) ImsNepaliDatetime.syncForm(purchaseForm);
         });
     }
@@ -611,6 +613,9 @@
         vatPctInput.addEventListener("input", function () {
             if (parseFloat(vatPctInput.value || "0") > 0) {
                 vatAmountManual = false;
+            } else if (!vatAmountManual) {
+                const vatAmtField = document.getElementById("id_vat_amount");
+                if (vatAmtField) vatAmtField.value = "0";
             }
             updatePreview();
         });

@@ -307,6 +307,40 @@ class Purchase(models.Model):
             return f"PUR-{self.pk}"
         return "—"
 
+    @property
+    def taxable_amount(self):
+        """Amount before VAT (subtotal minus discount)."""
+        taxable = _d(self.sub_total) - _d(self.discount_amount)
+        return taxable if taxable > 0 else Decimal("0")
+
+    def is_account_entry(self):
+        """Account-book bill without real stock lines."""
+        if self.is_account_payment_only:
+            return True
+        if not self.pk:
+            return False
+        lines = list(self.lines.select_related("item"))
+        if not lines:
+            return False
+        return all(getattr(line.item, "is_account_placeholder", False) for line in lines)
+
+    def _sync_receipt_fields(self):
+        """Keep receipt status and date aligned; auto-receive paid stock bills."""
+        if self.receipt_date and self.receipt_status != "S":
+            self.receipt_status = "S"
+        elif self.receipt_status == "S" and not self.receipt_date:
+            self.receipt_date = self.order_date or timezone.now()
+
+        if (
+            self.payment_status in ("D", "X")
+            and self.receipt_status == "P"
+            and self.pk
+            and not self.is_account_entry()
+        ):
+            self.receipt_status = "S"
+            if not self.receipt_date:
+                self.receipt_date = self.order_date or timezone.now()
+
     def save(self, *args, **kwargs):
         """
         Calculates the total value before saving the Purchase instance.
@@ -332,9 +366,11 @@ class Purchase(models.Model):
 
         vat_percentage = Decimal(str(self.vat_percentage or 0))
         if vat_percentage > 0:
-            self.vat_amount = taxable_amount * (vat_percentage / Decimal("100"))
+            self.vat_amount = (
+                taxable_amount * (vat_percentage / Decimal("100"))
+            ).quantize(Decimal("0.01"))
         else:
-            self.vat_amount = vat_amount
+            self.vat_amount = Decimal(str(vat_amount or 0)).quantize(Decimal("0.01"))
 
         self.net_amount = taxable_amount + self.vat_amount
         self.amount_paid = amount_paid
@@ -351,7 +387,13 @@ class Purchase(models.Model):
         else:
             self.payment_status = "X"
         self.total_value = self.net_amount
+        self._sync_receipt_fields()
+        update_fields = kwargs.get("update_fields")
         super().save(*args, **kwargs)
+        if update_fields is None and self.receipt_status == "S" and not self.is_account_entry():
+            from transactions.services import sync_purchase_inventory_transaction
+
+            sync_purchase_inventory_transaction(purchase=self)
 
     def __str__(self):
         """

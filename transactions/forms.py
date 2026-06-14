@@ -103,10 +103,8 @@ class PurchaseForm(BootstrapMixin, forms.ModelForm):
                     self.initial[field_name] = timezone.localtime(dt).strftime("%Y-%m-%dT%H:%M")
         elif not self.initial.get("order_date"):
             self.initial["order_date"] = timezone.localtime(timezone.now()).strftime("%Y-%m-%dT%H:%M")
-            if not self.initial.get("vat_percentage"):
-                self.initial["vat_percentage"] = 13
         if not (self.instance and self.instance.pk):
-            self.fields["vat_percentage"].initial = self.initial.get("vat_percentage", 13)
+            self.fields["vat_percentage"].initial = self.initial.get("vat_percentage", 0)
 
     def clean(self):
         cleaned_data = super().clean()
@@ -128,8 +126,11 @@ class PurchaseForm(BootstrapMixin, forms.ModelForm):
             cleaned_data["receipt_date"] = None
 
         vat_pct = cleaned_data.get("vat_percentage") or 0
-        if not vat_pct and cleaned_data.get("vat_amount"):
+        vat_amt = cleaned_data.get("vat_amount") or 0
+        if not vat_pct:
             cleaned_data["vat_percentage"] = 0
+            if not vat_amt:
+                cleaned_data["vat_amount"] = Decimal("0")
 
         return cleaned_data
 

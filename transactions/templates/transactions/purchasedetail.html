@@ -10,9 +10,11 @@
             <div class="row g-3">
                 <div class="col-md-6"><strong>Vendor:</strong> {{ object.vendor.name }}</div>
                 <div class="col-md-6"><strong>Bill number:</strong> {{ object.display_bill_number }}</div>
-                <div class="col-md-6"><strong>Billed date:</strong> {{ object.order_date|date:"Y-m-d H:i" }}</div>
-                <div class="col-md-6"><strong>Receipt status:</strong> {{ object.get_receipt_status_display }}</div>
-                <div class="col-md-6"><strong>Receipt date:</strong> {{ object.receipt_date|default:"-" }}</div>
+                <div class="col-md-6"><strong>Billed date:</strong> {{ object.order_date|date:"Y-m-d" }}</div>
+                <div class="col-md-6"><strong>Receipt status:</strong>
+                    {% if object.is_account_entry %}Account entry (no stock){% else %}{{ object.get_receipt_status_display }}{% endif %}
+                </div>
+                <div class="col-md-6"><strong>Receipt date:</strong> {% if object.receipt_date %}{{ object.receipt_date|date:"Y-m-d" }}{% else %}—{% endif %}</div>
                 <div class="col-md-6"><strong>Inventory txn:</strong>
                     {% if object.inventory_transaction_id %}
                     Posted (ref {{ object.inventory_transaction.source_ref|default:"—" }})
