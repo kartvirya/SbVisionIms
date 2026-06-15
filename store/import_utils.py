@@ -62,16 +62,26 @@ PURCHASE_HEADERS = [
 ]
 
 SALE_HEADERS = [
+    "sale_reference",
+    "sale_date",
     "customer_first_name",
     "customer_last_name",
     "customer_phone",
+    "vendor",
+    "brand",
+    "category",
     "item_name",
     "quantity",
+    "stock",
     "unit_price",
     "tax_percentage",
     "amount_paid",
     "description",
 ]
+
+IMPORT_REQUIRED_HEADERS = {
+    "sales": ["customer_first_name", "item_name"],
+}
 
 DELIVERY_HEADERS = [
     "item_name",
@@ -112,14 +122,16 @@ def inventory_template_workbook():
     ws.append(INVENTORY_HEADERS)
     ws.append(
         [
+            "ABC Traders",
+            "Samsung",
+            "General",
             "Sample Product",
+            "8471.30",
             "SKU-001",
             "Optional description",
-            "General",
             10,
             50,
             100,
-            "",
             5,
         ]
     )
@@ -184,15 +196,40 @@ def sale_template_workbook():
     ws.append(SALE_HEADERS)
     ws.append(
         [
+            "SALE-001",
+            "2026-06-01",
             "Ram",
             "Sharma",
             "9800000000",
-            "Sample Product",
+            "ABC Traders",
+            "Samsung",
+            "Electronics",
+            "Sample Product A",
             2,
+            8,
             100,
             13,
             226,
-            "Imported sale",
+            "First line of multi-product sale",
+        ]
+    )
+    ws.append(
+        [
+            "SALE-001",
+            "2026-06-01",
+            "Ram",
+            "Sharma",
+            "9800000000",
+            "ABC Traders",
+            "Samsung",
+            "Electronics",
+            "Sample Product B",
+            1,
+            5,
+            50,
+            13,
+            "",
+            "Second line — same sale_reference groups into one bill",
         ]
     )
     return wb
@@ -344,28 +381,34 @@ def _parse_import_datetime(value):
     return parsed or timezone.now()
 
 
-def _read_csv_rows(uploaded_file, expected_headers):
+def _read_csv_rows(uploaded_file, expected_headers, required_headers=None):
+    required_headers = required_headers or expected_headers
     text = uploaded_file.read().decode("utf-8-sig")
     reader = csv.reader(io.StringIO(text))
     header_row = next(reader, None)
     if not header_row:
         return [], ["Empty CSV file."]
     headers = [_cell_str(h).lower().replace(" ", "_") for h in header_row]
-    missing = [h for h in expected_headers if h not in headers]
+    missing = [h for h in required_headers if h not in headers]
     if missing:
         return [], [f"Missing columns: {', '.join(missing)}"]
-    idx = {h: headers.index(h) for h in expected_headers}
+    known = set(expected_headers)
+    idx = {h: headers.index(h) for h in headers if h in known}
     out = []
     for line in reader:
         if not any(line):
             continue
         out.append(
-            {h: line[idx[h]] if idx[h] < len(line) else None for h in expected_headers}
+            {
+                h: line[idx[h]] if h in idx and idx[h] < len(line) else None
+                for h in expected_headers
+            }
         )
     return out, []
 
 
-def _read_xlsx_rows(uploaded_file, expected_headers):
+def _read_xlsx_rows(uploaded_file, expected_headers, required_headers=None):
+    required_headers = required_headers or expected_headers
     wb = load_workbook(uploaded_file, read_only=True, data_only=True)
     ws = wb.active
     rows_iter = ws.iter_rows(values_only=True)
@@ -373,25 +416,29 @@ def _read_xlsx_rows(uploaded_file, expected_headers):
     if not header_row:
         return [], ["Empty spreadsheet."]
     headers = [_cell_str(h).lower().replace(" ", "_") for h in header_row]
-    missing = [h for h in expected_headers if h not in headers]
+    missing = [h for h in required_headers if h not in headers]
     if missing:
         return [], [f"Missing columns: {', '.join(missing)}"]
-    idx = {h: headers.index(h) for h in expected_headers}
+    known = set(expected_headers)
+    idx = {h: headers.index(h) for h in headers if h in known}
     out = []
     for line in rows_iter:
         if not any(line):
             continue
         out.append(
-            {h: line[idx[h]] if idx[h] < len(line) else None for h in expected_headers}
+            {
+                h: line[idx[h]] if h in idx and idx[h] < len(line) else None
+                for h in expected_headers
+            }
         )
     return out, []
 
 
-def read_sheet_rows(uploaded_file, expected_headers):
+def read_sheet_rows(uploaded_file, expected_headers, required_headers=None):
     name = (getattr(uploaded_file, "name", "") or "").lower()
     if name.endswith(".csv"):
-        return _read_csv_rows(uploaded_file, expected_headers)
-    return _read_xlsx_rows(uploaded_file, expected_headers)
+        return _read_csv_rows(uploaded_file, expected_headers, required_headers)
+    return _read_xlsx_rows(uploaded_file, expected_headers, required_headers)
 
 
 def import_inventory_rows(rows):
@@ -591,6 +638,106 @@ def import_purchase_rows(rows):
     return created, updated, errors
 
 
+def _resolve_customer_from_row(row):
+    first = _cell_str(row.get("customer_first_name"))
+    last = _cell_str(row.get("customer_last_name")) or None
+    phone = _phone_str(row.get("customer_phone"))
+    customer = Customer.objects.filter(phone=phone).first() if phone else None
+    if not customer:
+        customer = Customer.objects.create(
+            first_name=first,
+            last_name=last,
+            phone=phone,
+        )
+    return customer
+
+
+def _resolve_item_from_sale_row(row):
+    item_name = _cell_str(row.get("item_name"))
+    category_name = _cell_str(row.get("category")) or "General"
+    category, _ = Category.objects.get_or_create(name=category_name)
+    vendor = None
+    brand = None
+    vendor_name = _cell_str(row.get("vendor"))
+    if vendor_name:
+        vendor, _ = Vendor.objects.get_or_create(name=vendor_name)
+        brand_name = _cell_str(row.get("brand"))
+        if brand_name:
+            brand, _ = Brand.objects.get_or_create(
+                vendor=vendor,
+                name=brand_name,
+                defaults={"is_active": True},
+            )
+    unit_price = _parse_decimal(row.get("unit_price"), 0)
+    item = Item.objects.filter(name=item_name).first()
+    if item:
+        updates = []
+        if item.category_id != category.id:
+            item.category = category
+            updates.append("category")
+        if vendor and item.vendor_id != vendor.id:
+            item.vendor = vendor
+            updates.append("vendor")
+        if brand and item.brand_id != brand.id:
+            item.brand = brand
+            updates.append("brand")
+        if unit_price and not item.price:
+            item.price = float(unit_price)
+            updates.append("price")
+        if updates:
+            item.save(update_fields=updates)
+    else:
+        item = Item.objects.create(
+            name=item_name,
+            description=_cell_str(row.get("description")) or item_name,
+            category=category,
+            vendor=vendor,
+            brand=brand,
+            quantity=0,
+            price=float(unit_price),
+        )
+    return item, unit_price
+
+
+def _ensure_sale_stock(item, qty, stock_cell, row_num):
+    """Set ledger stock so a sale of qty can post; stock column = on-hand after sale."""
+    from store.stock_utils import get_sellable_stock
+
+    qty_int = max(int(qty), 1)
+    stock_raw = stock_cell
+    if stock_raw not in (None, ""):
+        stock_after = int(_parse_decimal(stock_raw, 0))
+        target = max(stock_after + qty_int, 0)
+    else:
+        available = int(get_sellable_stock(item))
+        target = available if available >= qty_int else qty_int
+    reconcile_ledger_stock_to_target(
+        item,
+        target,
+        notes=f"Pre-import stock row {row_num}",
+    )
+    sync_item_quantity_cache([item])
+
+
+def _group_sale_import_rows(rows):
+    groups = []
+    current_key = None
+    current = []
+    for index, row in enumerate(rows):
+        ref = _cell_str(row.get("sale_reference"))
+        key = ("ref", ref) if ref else ("row", index)
+        if key != current_key:
+            if current:
+                groups.append(current)
+            current_key = key
+            current = [(index, row)]
+        else:
+            current.append((index, row))
+    if current:
+        groups.append(current)
+    return groups
+
+
 def import_sale_rows(rows):
     from django.db import transaction as db_transaction
 
@@ -599,46 +746,79 @@ def import_sale_rows(rows):
 
     created = 0
     errors = []
-    for i, row in enumerate(rows, start=2):
-        first = _cell_str(row.get("customer_first_name"))
-        item_name = _cell_str(row.get("item_name"))
-        if not first or not item_name:
-            errors.append(f"Row {i}: customer_first_name and item_name are required.")
+    for group in _group_sale_import_rows(rows):
+        first_row = group[0][1]
+        first_name = _cell_str(first_row.get("customer_first_name"))
+        if not first_name:
+            errors.append(f"Row {group[0][0] + 2}: customer_first_name is required.")
             continue
-        last = _cell_str(row.get("customer_last_name")) or None
-        phone = _cell_str(row.get("customer_phone")) or None
-        customer = Customer.objects.filter(phone=phone).first() if phone else None
-        if not customer:
-            customer = Customer.objects.create(
-                first_name=first,
-                last_name=last,
-                phone=phone,
-            )
-        category, _ = Category.objects.get_or_create(name="General")
-        unit_price = _parse_decimal(row.get("unit_price"), 0)
-        item, _ = Item.objects.get_or_create(
-            name=item_name,
-            defaults={
-                "description": item_name,
-                "category": category,
-                "quantity": 0,
-                "price": float(unit_price),
-            },
-        )
-        qty = max(int(_parse_decimal(row.get("quantity"), 1)), 1)
-        tax_pct = _parse_decimal(row.get("tax_percentage"), 13)
-        amount_paid = _parse_decimal(row.get("amount_paid"), 0)
-        sub_total = unit_price * Decimal(str(qty))
-        tax_amount = sub_total * (tax_pct / Decimal("100"))
-        grand_total = sub_total + tax_amount
-        if amount_paid == 0:
-            amount_paid = grand_total
-        try:
-            with db_transaction.atomic():
-                reconcile_ledger_stock_to_target(
-                    item, qty, notes=f"Pre-import stock row {i}"
+
+        line_items = []
+        group_errors = []
+        for row_index, row in group:
+            item_name = _cell_str(row.get("item_name"))
+            if not item_name:
+                group_errors.append(f"Row {row_index + 2}: item_name is required.")
+                continue
+            try:
+                item, unit_price = _resolve_item_from_sale_row(row)
+                qty = _parse_decimal(row.get("quantity"), 1)
+                if qty <= 0:
+                    qty = Decimal("1")
+                _ensure_sale_stock(item, qty, row.get("stock"), row_index + 2)
+                line_items.append(
+                    {
+                        "row_index": row_index + 2,
+                        "item": item,
+                        "unit_price": unit_price,
+                        "quantity": qty,
+                        "description": _cell_str(row.get("description")),
+                    }
                 )
-                sync_item_quantity_cache([item])
+            except Exception as exc:
+                group_errors.append(f"Row {row_index + 2}: {exc}")
+
+        if group_errors:
+            errors.extend(group_errors)
+            continue
+        if not line_items:
+            continue
+
+        try:
+            customer = _resolve_customer_from_row(first_row)
+            sale_date = _parse_import_datetime(first_row.get("sale_date"))
+            tax_pct = _parse_decimal(first_row.get("tax_percentage"), 13)
+            sub_total = sum(
+                (line["unit_price"] * line["quantity"] for line in line_items),
+                Decimal("0"),
+            )
+            tax_amount = (sub_total * (tax_pct / Decimal("100"))).quantize(
+                Decimal("0.01")
+            )
+            grand_total = sub_total + tax_amount
+
+            amount_paid = Decimal("0")
+            for _, row in group:
+                row_paid = _parse_decimal(row.get("amount_paid"), 0)
+                if row_paid > 0:
+                    amount_paid = row_paid
+                    break
+            if amount_paid == 0:
+                amount_paid = grand_total
+            elif amount_paid < grand_total and len(line_items) == 1:
+                line = line_items[0]
+                unit_with_tax = (
+                    line["unit_price"]
+                    * (Decimal("1") + tax_pct / Decimal("100"))
+                ).quantize(Decimal("0.01"))
+                if amount_paid == unit_with_tax and line["quantity"] > 1:
+                    amount_paid = grand_total
+
+            notes = next(
+                (line["description"] for line in line_items if line["description"]),
+                "",
+            )
+            with db_transaction.atomic():
                 sale = Sale.objects.create(
                     customer=customer,
                     sub_total=sub_total,
@@ -647,27 +827,33 @@ def import_sale_rows(rows):
                     tax_percentage=float(tax_pct),
                     amount_paid=amount_paid,
                     amount_change=amount_paid - grand_total,
+                    date_added=sale_date,
                 )
-                SaleDetail.objects.create(
-                    sale=sale,
-                    item=item,
-                    price=float(unit_price),
-                    quantity=qty,
-                    total_detail=float(sub_total),
-                )
+                for line in line_items:
+                    line_sub = line["unit_price"] * line["quantity"]
+                    SaleDetail.objects.create(
+                        sale=sale,
+                        item=line["item"],
+                        price=float(line["unit_price"]),
+                        quantity=line["quantity"],
+                        total_detail=float(line_sub),
+                    )
                 inventory_transaction = create_sale_transaction(
                     customer=customer,
                     items=[
                         {
-                            "item": item.id,
-                            "quantity": qty,
-                            "unit_price": unit_price,
+                            "item": line["item"].id,
+                            "quantity": line["quantity"],
+                            "unit_price": line["unit_price"],
                         }
+                        for line in line_items
                     ],
-                    notes=_cell_str(row.get("description")) or f"Sale #{sale.id}",
+                    notes=notes or f"Sale #{sale.id}",
                 )
                 sale.inventory_transaction = inventory_transaction
                 sale.save(update_fields=["inventory_transaction"])
+                inventory_transaction.source_ref = f"sale:{sale.id}"
+                inventory_transaction.save(update_fields=["source_ref"])
                 if amount_paid > 0:
                     CustomerPayment.objects.create(
                         sale=sale,
@@ -677,7 +863,7 @@ def import_sale_rows(rows):
                     )
             created += 1
         except Exception as exc:
-            errors.append(f"Row {i}: {exc}")
+            errors.append(f"Row {group[0][0] + 2}: {exc}")
     return created, 0, errors
 
 

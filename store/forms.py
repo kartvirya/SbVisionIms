@@ -105,8 +105,8 @@ class ItemForm(forms.ModelForm):
             kwargs={'pk': 0},
         )
         self.fields['vendor'].queryset = Vendor.objects.order_by('name')
-        self.fields['vendor'].required = True
-        self.fields['brand'].required = True
+        self.fields['vendor'].required = not self.instance.pk
+        self.fields['brand'].required = not self.instance.pk
         self.fields['category'].required = True
         self.fields['brand'].queryset = Brand.objects.none()
 
@@ -127,7 +127,11 @@ class ItemForm(forms.ModelForm):
         brand = cleaned.get('brand')
         if vendor and brand and brand.vendor_id != vendor.id:
             self.add_error('brand', 'This brand does not belong to the selected supplier.')
-        if vendor and not brand:
+        if self.instance.pk:
+            return cleaned
+        if not vendor:
+            self.add_error('vendor', 'Select a supplier.')
+        elif not brand:
             self.add_error('brand', 'Select a brand for this supplier.')
         return cleaned
 

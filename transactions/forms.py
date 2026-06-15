@@ -299,7 +299,7 @@ class PayablesQuickEntryForm(BootstrapMixin, forms.Form):
 
 
 class SaleEditForm(BootstrapMixin, forms.ModelForm):
-    """Edit sale header (customer, tax, payment). Line items stay as recorded."""
+    """Edit sale header (customer, tax, payment, date). Line items stay as recorded."""
 
     payment_method = forms.ChoiceField(
         choices=PAYMENT_METHOD_CHOICES,
@@ -307,6 +307,11 @@ class SaleEditForm(BootstrapMixin, forms.ModelForm):
         initial="cash",
         label="Payment method",
         widget=forms.Select(attrs={"class": "form-select"}),
+    )
+    sale_date = forms.DateField(
+        required=False,
+        label="Sale date",
+        widget=forms.DateInput(attrs={"type": "date", "class": "form-control"}),
     )
 
     class Meta:
@@ -337,6 +342,8 @@ class SaleEditForm(BootstrapMixin, forms.ModelForm):
             payment = self.instance.customer_payments.order_by("id").first()
             if payment:
                 self.fields["payment_method"].initial = payment.method
+            if self.instance.date_added:
+                self.fields["sale_date"].initial = self.instance.date_added.date()
 
 
 def _sync_purchase_vendor_payment(purchase, amount_paid, payment_method="cash"):

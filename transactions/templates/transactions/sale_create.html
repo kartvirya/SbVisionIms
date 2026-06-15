@@ -96,6 +96,11 @@
                     <div class="card-body">
                         {% csrf_token %}
                         <div class="mb-3">
+                            <label for="sale_date" class="form-label">Sale date</label>
+                            <input name="sale_date" type="date" class="form-control" id="sale_date" aria-label="Sale date">
+                            <small class="text-muted">Leave blank for today</small>
+                        </div>
+                        <div class="mb-3">
                             <div class="d-flex justify-content-between align-items-center mb-1">
                                 <label for="customer" class="form-label mb-0">Customer</label>
                                 <button type="button" class="btn btn-link btn-sm p-0 text-success" id="toggle_new_customer" aria-expanded="false" aria-controls="new_customer_panel">
@@ -442,6 +447,9 @@
             showNewCustomerPanel($newCustomerPanel.hasClass('d-none'));
         });
 
+        var today = new Date().toISOString().slice(0, 10);
+        $('#sale_date').val(today);
+
         $('#cancel_new_customer').on('click', function () {
             resetNewCustomerFields();
             showNewCustomerPanel(false);
@@ -725,6 +733,7 @@
             // Gather sale details
             var formData = {
                 customer: $('select[name="customer"]').val(),
+                sale_date: $('#sale_date').val(),
                 sub_total: $('input[name="sub_total"]').val(),
                 tax_percentage: $('input[name="tax_percentage"]').val(),
                 tax_amount: $('input[name="tax_amount"]').val(),

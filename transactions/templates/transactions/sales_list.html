@@ -18,6 +18,9 @@
                 <a class="btn btn-outline-primary btn-sm rounded-pill shadow-sm" href="{% url 'import-data' kind='sales' %}">
                     <i class="fa-solid fa-file-import"></i> Import Excel
                 </a>
+                <a class="btn btn-outline-secondary btn-sm rounded-pill shadow-sm" href="{% url 'import-data' kind='inventory' %}" title="Set stock levels for many products at once">
+                    <i class="fa-solid fa-boxes-stacked"></i> Bulk stock
+                </a>
                 <a class="btn btn-primary btn-sm rounded-pill shadow-sm" href="{% url 'sales-export' %}">
                     <i class="fa-solid fa-download"></i> Export Excel
                 </a>

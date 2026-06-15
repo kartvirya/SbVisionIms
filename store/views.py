@@ -57,6 +57,7 @@ from .forms import (
 from .import_utils import (
     IMPORT_HANDLERS,
     IMPORT_HEADERS,
+    IMPORT_REQUIRED_HEADERS,
     TEMPLATE_BUILDERS,
     read_sheet_rows,
 )
@@ -901,7 +902,8 @@ def import_data_view(request, kind):
             messages.error(request, "Choose a file to upload (.xlsx or .csv).")
         else:
             headers = IMPORT_HEADERS[kind]
-            rows, sheet_errors = read_sheet_rows(upload, headers)
+            required = IMPORT_REQUIRED_HEADERS.get(kind, headers)
+            rows, sheet_errors = read_sheet_rows(upload, headers, required)
             if sheet_errors:
                 for err in sheet_errors:
                     messages.error(request, err)

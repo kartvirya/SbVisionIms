@@ -26,6 +26,17 @@
                 </div>
             </div>
             {% endif %}
+            {% if kind == 'sales' %}
+            <div class="alert alert-light border small mb-3">
+                <strong>Sales import tips:</strong>
+                <ul class="mb-0 ps-3">
+                    <li>Use <code>sale_reference</code> to group multiple product rows into one bill (same customer).</li>
+                    <li><code>sale_date</code>, <code>vendor</code>, <code>brand</code>, <code>category</code>, and <code>stock</code> are optional.</li>
+                    <li><code>stock</code> = quantity on hand <em>after</em> the sale; quantity sold goes in <code>quantity</code>.</li>
+                    <li><code>amount_paid</code> is the bill total — put it on the first line of a grouped sale.</li>
+                </ul>
+            </div>
+            {% endif %}
             <a href="?download=template" class="btn btn-outline-primary btn-sm mb-3">
                 <i class="fa-solid fa-download"></i> Download template
             </a>

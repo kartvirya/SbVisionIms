@@ -353,6 +353,16 @@ class SaleUpdateView(LoginRequiredMixin, UpdateView):
 
     def form_valid(self, form):
         sale = form.save(commit=False)
+        sale_date = form.cleaned_data.get("sale_date")
+        if sale_date:
+            from datetime import datetime
+
+            from django.utils import timezone
+
+            existing = sale.date_added or timezone.now()
+            time_part = existing.time()
+            aware = timezone.make_aware(datetime.combine(sale_date, time_part))
+            sale.date_added = aware
         sub_total = Decimal("0")
         for detail in sale.saledetail_set.all():
             sub_total += detail.price * detail.quantity
@@ -438,6 +448,20 @@ def SaleCreateView(request):
                 amount_paid = Decimal(str(data["amount_paid"]))
                 amount_change = amount_paid - grand_total
 
+                from datetime import datetime
+
+                from django.utils import timezone
+                from django.utils.dateparse import parse_date
+
+                sale_date = timezone.now()
+                sale_date_raw = data.get("sale_date")
+                if sale_date_raw:
+                    parsed_date = parse_date(str(sale_date_raw))
+                    if parsed_date:
+                        sale_date = timezone.make_aware(
+                            datetime.combine(parsed_date, datetime.min.time())
+                        )
+
                 sale_attributes = {
                     "customer": Customer.objects.get(id=int(data['customer'])),
                     "sub_total": sub_total,
@@ -446,6 +470,7 @@ def SaleCreateView(request):
                     "tax_percentage": float(tax_pct),
                     "amount_paid": amount_paid,
                     "amount_change": amount_change,
+                    "date_added": sale_date,
                 }
 
                 # Use a transaction to ensure atomicity
