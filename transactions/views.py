@@ -21,14 +21,15 @@ from django.views.generic.edit import CreateView, UpdateView, DeleteView
 # Authentication and permissions
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
+from django.views.decorators.http import require_POST
 
 # Third-party packages
 from openpyxl import Workbook
 
 # Local app imports
 from store.list_display import annotate_list_row_numbers, NormalizePageMixin
-from store.models import Item
-from accounts.models import Customer, Company, Vendor
+from store.models import Category, Item
+from accounts.models import Brand, Customer, Company, Vendor
 from .models import CustomerPayment, Purchase, Sale, SaleDetail
 from .forms import (
     PayablesQuickEntryForm,
@@ -244,10 +245,162 @@ class SaleListView(NormalizePageMixin, LoginRequiredMixin, ListView):
         context['filter'] = self.filterset
         context['can_delete_sales'] = user_can_delete_transactions(self.request.user)
         context['can_edit_sales'] = self.request.user.is_authenticated
+        context['categories'] = Category.objects.order_by('name')
+        context['brands'] = Brand.objects.filter(is_active=True).select_related(
+            'vendor'
+        ).order_by('name')
         annotate_list_row_numbers(
             context.get("sales") or [], context.get("page_obj")
         )
         return context
+
+
+def _apply_sale_payment_amount(sale, amount_paid):
+    """Set customer payment rows so sale.save() derives the correct status."""
+    paid = Decimal(str(amount_paid or 0)).quantize(Decimal("0.01"))
+    payment = sale.customer_payments.order_by("id").first()
+    if paid <= 0:
+        sale.customer_payments.all().delete()
+        sale.amount_paid = Decimal("0")
+        sale.save()
+        return
+    if payment:
+        payment.amount = paid
+        payment.save(update_fields=["amount"])
+    else:
+        CustomerPayment.objects.create(
+            sale=sale,
+            amount=paid,
+            method="cash",
+            notes="Updated from sales book",
+        )
+    sale.refresh_from_db()
+    sale.save()
+
+
+@require_POST
+@login_required
+def sale_inline_update(request):
+    """AJAX inline edits from the sales book list."""
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse(
+            {"status": "error", "message": "Invalid request."},
+            status=400,
+        )
+
+    field = data.get("field")
+    try:
+        if field == "date":
+            sale = Sale.objects.get(pk=int(data["sale_id"]))
+            from datetime import datetime
+
+            from django.utils import timezone
+            from django.utils.dateparse import parse_date
+
+            parsed = parse_date(str(data.get("value") or ""))
+            if not parsed:
+                return JsonResponse(
+                    {"status": "error", "message": "Enter a valid date."},
+                    status=400,
+                )
+            existing = sale.date_added or timezone.now()
+            sale.date_added = timezone.make_aware(
+                datetime.combine(parsed, existing.time())
+            )
+            sale.save(update_fields=["date_added"])
+            return JsonResponse(
+                {
+                    "status": "success",
+                    "display": sale.date_added.strftime("%Y-%m-%d"),
+                }
+            )
+
+        if field == "payment_status":
+            sale = Sale.objects.get(pk=int(data["sale_id"]))
+            status = str(data.get("status") or "").upper()
+            grand_total = Decimal(str(sale.grand_total or 0))
+            if status == "U":
+                _apply_sale_payment_amount(sale, 0)
+            elif status == "D":
+                _apply_sale_payment_amount(sale, grand_total)
+            elif status == "T":
+                raw = data.get("amount_paid")
+                if raw in (None, ""):
+                    return JsonResponse(
+                        {
+                            "status": "error",
+                            "message": "Enter amount paid for partial payment.",
+                        },
+                        status=400,
+                    )
+                paid = Decimal(str(raw))
+                if paid <= 0 or paid >= grand_total:
+                    return JsonResponse(
+                        {
+                            "status": "error",
+                            "message": "Partial payment must be between 0 and grand total.",
+                        },
+                        status=400,
+                    )
+                _apply_sale_payment_amount(sale, paid)
+            else:
+                return JsonResponse(
+                    {"status": "error", "message": "Unknown payment status."},
+                    status=400,
+                )
+            sale.refresh_from_db()
+            return JsonResponse(
+                {
+                    "status": "success",
+                    "payment_status": sale.payment_status,
+                    "amount_paid": str(sale.amount_paid),
+                    "amount_remaining": str(sale.amount_remaining),
+                }
+            )
+
+        if field == "item_category":
+            detail = SaleDetail.objects.select_related("item").get(
+                pk=int(data["detail_id"])
+            )
+            category = Category.objects.get(pk=int(data["category_id"]))
+            detail.item.category = category
+            detail.item.save(update_fields=["category"])
+            return JsonResponse(
+                {"status": "success", "display": category.name}
+            )
+
+        if field == "item_brand":
+            detail = SaleDetail.objects.select_related("item").get(
+                pk=int(data["detail_id"])
+            )
+            brand_id = data.get("brand_id")
+            if brand_id in (None, "", "0"):
+                detail.item.brand = None
+                detail.item.save(update_fields=["brand"])
+                return JsonResponse({"status": "success", "display": "—"})
+            brand = Brand.objects.get(pk=int(brand_id), is_active=True)
+            detail.item.brand = brand
+            if not detail.item.vendor_id:
+                detail.item.vendor = brand.vendor
+                detail.item.save(update_fields=["brand", "vendor"])
+            else:
+                detail.item.save(update_fields=["brand"])
+            return JsonResponse(
+                {"status": "success", "display": brand.name}
+            )
+
+    except (Sale.DoesNotExist, SaleDetail.DoesNotExist, Category.DoesNotExist, Brand.DoesNotExist, KeyError, ValueError, TypeError):
+        return JsonResponse(
+            {"status": "error", "message": "Could not save changes."},
+            status=400,
+        )
+
+    return JsonResponse(
+        {"status": "error", "message": "Unknown field."},
+        status=400,
+    )
 
 
 class SaleDetailView(LoginRequiredMixin, DetailView):

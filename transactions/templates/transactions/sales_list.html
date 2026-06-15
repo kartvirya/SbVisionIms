@@ -75,6 +75,7 @@
 </div>
 
 <div class="container px-3">
+    {% csrf_token %}
     <style>
         .table th, .table td {
             text-align: center;
@@ -82,6 +83,14 @@
         .btn-custom {
             padding: 8px 20px;
             margin: 4px;
+        }
+        .sale-inline-control {
+            min-width: 7rem;
+            font-size: 0.8rem;
+        }
+        .sale-inline-date {
+            max-width: 9.5rem;
+            margin: 0 auto;
         }
     </style>
     <table class="table table-bordered table-striped table-hover table-sm">
@@ -109,7 +118,16 @@
                     data-preview-url="{% url 'preview-sale' sale.id %}"
                     data-preview-title="Sale #{{ sale.id }}">
                     <td class="text-muted">{{ sale.list_row_number }}</td>
-                    <td>{{ sale.date_added|date:"Y-m-d H:i" }}</td>
+                    <td class="no-preview">
+                        {% if can_edit_sales %}
+                        <input type="date" class="form-control form-control-sm sale-inline-date sale-inline-control"
+                               data-sale-id="{{ sale.id }}"
+                               value="{{ sale.date_added|date:'Y-m-d' }}"
+                               onclick="event.stopPropagation()">
+                        {% else %}
+                        {{ sale.date_added|date:"Y-m-d" }}
+                        {% endif %}
+                    </td>
                     <td>
                         {% if sale.customer_id %}
                         <a href="{% url 'customer-detail' sale.customer.pk %}" class="fw-semibold text-success text-decoration-none">
@@ -124,14 +142,43 @@
                         <div>{{ detail.item.name }} × {{ detail.quantity }}</div>
                         {% empty %}<span class="text-muted">—</span>{% endfor %}
                     </td>
-                    <td class="small">
+                    <td class="small no-preview">
                         {% for detail in sale.saledetail_set.all %}
-                        <div>{{ detail.item.brand.name|default:"—" }}</div>
+                        <div class="mb-1">
+                            {% if can_edit_sales %}
+                            <select class="form-select form-select-sm sale-inline-brand sale-inline-control"
+                                    data-detail-id="{{ detail.id }}"
+                                    onclick="event.stopPropagation()">
+                                <option value="">—</option>
+                                {% for brand in brands %}
+                                <option value="{{ brand.id }}"{% if detail.item.brand_id == brand.id %} selected{% endif %}>
+                                    {{ brand.name }}{% if brand.vendor %} ({{ brand.vendor.name }}){% endif %}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            {% else %}
+                            {{ detail.item.brand.name|default:"—" }}
+                            {% endif %}
+                        </div>
                         {% empty %}—{% endfor %}
                     </td>
-                    <td class="small">
+                    <td class="small no-preview">
                         {% for detail in sale.saledetail_set.all %}
-                        <div>{{ detail.item.category.name|default:"—" }}</div>
+                        <div class="mb-1">
+                            {% if can_edit_sales %}
+                            <select class="form-select form-select-sm sale-inline-category sale-inline-control"
+                                    data-detail-id="{{ detail.id }}"
+                                    onclick="event.stopPropagation()">
+                                {% for category in categories %}
+                                <option value="{{ category.id }}"{% if detail.item.category_id == category.id %} selected{% endif %}>
+                                    {{ category.name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            {% else %}
+                            {{ detail.item.category.name|default:"—" }}
+                            {% endif %}
+                        </div>
                         {% empty %}—{% endfor %}
                     </td>
                     <td class="small">
@@ -140,9 +187,30 @@
                         {% empty %}—{% endfor %}
                     </td>
                     <td><strong>Rs {{ sale.grand_total }}</strong></td>
-                    <td>{% include "store/partials/payment_status_badge.html" with status=sale.payment_status %}</td>
-                    <td>Rs {{ sale.amount_paid }}</td>
-                    <td>
+                    <td class="no-preview">
+                        {% if can_edit_sales %}
+                        <select class="form-select form-select-sm sale-inline-payment sale-inline-control"
+                                data-sale-id="{{ sale.id }}"
+                                onclick="event.stopPropagation()">
+                            <option value="U"{% if sale.payment_status == 'U' %} selected{% endif %}>Unpaid</option>
+                            <option value="T"{% if sale.payment_status == 'T' %} selected{% endif %}>Partial</option>
+                            <option value="D"{% if sale.payment_status == 'D' %} selected{% endif %}>Paid</option>
+                            {% if sale.payment_status == 'X' %}
+                            <option value="X" selected>Overpaid</option>
+                            {% endif %}
+                        </select>
+                        <input type="number" step="0.01" min="0"
+                               class="form-control form-control-sm sale-inline-paid sale-inline-control mt-1{% if sale.payment_status != 'T' %} d-none{% endif %}"
+                               data-sale-id="{{ sale.id }}"
+                               value="{{ sale.amount_paid }}"
+                               placeholder="Amount paid"
+                               onclick="event.stopPropagation()">
+                        {% else %}
+                        {% include "store/partials/payment_status_badge.html" with status=sale.payment_status %}
+                        {% endif %}
+                    </td>
+                    <td class="sale-paid-cell">Rs {{ sale.amount_paid }}</td>
+                    <td class="sale-unpaid-cell">
                         {% if sale.amount_remaining > 0 %}
                         <span class="text-danger fw-semibold">Rs {{ sale.amount_remaining }}</span>
                         {% else %}
@@ -225,5 +293,9 @@
         {% endif %}
     </div>
 </div>
+<script>
+window.SALES_INLINE_UPDATE_URL = "{% url 'sale-inline-update' %}";
+</script>
+<script src="{% static 'js/sales_list_inline.js' %}"></script>
 <script>bindPreviewRows('.sale-row', 'data-preview-url');</script>
 {% endblock content %}

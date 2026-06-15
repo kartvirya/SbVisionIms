@@ -17,6 +17,7 @@ from .views import (
     SaleUpdateView,
     SaleCreateView,
     SaleDeleteView,
+    sale_inline_update,
     StockLedgerView,
     PayablesAgingView,
 
@@ -50,6 +51,7 @@ urlpatterns = [
 
     # Sale URLs
     path('sales/', SaleListView.as_view(), name='saleslist'),
+    path('sales/inline-update/', sale_inline_update, name='sale-inline-update'),
     path('sale/<int:pk>/', SaleDetailView.as_view(), name='sale-detail'),
     path('sale/<int:pk>/update/', SaleUpdateView.as_view(), name='sale-update'),
     path('new-sale/', SaleCreateView, name='sale-create'),

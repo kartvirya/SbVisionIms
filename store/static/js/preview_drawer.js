@@ -25,7 +25,7 @@ function openImsPreview(url, title) {
 function bindPreviewRows(selector, urlAttr) {
     document.querySelectorAll(selector).forEach(function (row) {
         row.addEventListener('click', function (e) {
-            if (e.target.closest('a, button, input, .no-preview')) return;
+            if (e.target.closest('a, button, input, select, .no-preview')) return;
             var url = row.getAttribute(urlAttr);
             var title = row.getAttribute('data-preview-title') || 'Details';
             if (url) openImsPreview(url, title);
