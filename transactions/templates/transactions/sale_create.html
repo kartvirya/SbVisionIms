@@ -96,9 +96,8 @@
                     <div class="card-body">
                         {% csrf_token %}
                         <div class="mb-3">
-                            <label for="sale_date" class="form-label">Sale date</label>
-                            <input name="sale_date" type="date" class="form-control" id="sale_date" aria-label="Sale date">
-                            <small class="text-muted">Leave blank for today</small>
+                            {% include "store/partials/nepali_datetime_compact.html" with hidden_id="sale_date" label="Sale date" hidden_value="" %}
+                            <small class="text-muted">Leave blank for today (B.S. / A.D.)</small>
                         </div>
                         <div class="mb-3">
                             <div class="d-flex justify-content-between align-items-center mb-1">
@@ -205,6 +204,9 @@
 
 <!-- Sweet Alert -->
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.6.15/dist/sweetalert2.all.min.js" defer></script>
+
+<script src="https://cdn.jsdelivr.net/npm/nepali-date-converter@3.4.0/dist/nepali-date-converter.umd.js"></script>
+<script src="{% static 'js/nepali_datetime.js' %}"></script>
 
 <script>
     // Source: https://stackoverflow.com/a/32605063
@@ -447,8 +449,10 @@
             showNewCustomerPanel($newCustomerPanel.hasClass('d-none'));
         });
 
-        var today = new Date().toISOString().slice(0, 10);
-        $('#sale_date').val(today);
+        if (window.ImsNepaliDatetime) {
+            ImsNepaliDatetime.initAll();
+            ImsNepaliDatetime.setToday('sale_date');
+        }
 
         $('#cancel_new_customer').on('click', function () {
             resetNewCustomerFields();
@@ -731,9 +735,15 @@
             });
 
             // Gather sale details
+            if (window.ImsNepaliDatetime) {
+                ImsNepaliDatetime.syncAll();
+            }
+            var saleDateRaw = $('#sale_date').val();
+            var saleDate = saleDateRaw ? saleDateRaw.split('T')[0] : '';
+
             var formData = {
                 customer: $('select[name="customer"]').val(),
-                sale_date: $('#sale_date').val(),
+                sale_date: saleDate,
                 sub_total: $('input[name="sub_total"]').val(),
                 tax_percentage: $('input[name="tax_percentage"]').val(),
                 tax_amount: $('input[name="tax_amount"]').val(),

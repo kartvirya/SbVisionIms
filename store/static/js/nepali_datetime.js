@@ -252,6 +252,14 @@
             document.querySelectorAll(".nepali-datetime-wrap").forEach(syncFromVisible);
         },
         syncForm: syncForm,
+        syncWrap: function (wrap) {
+            if (typeof wrap === "string") {
+                wrap = document.querySelector(wrap);
+            }
+            if (wrap) {
+                syncFromVisible(wrap, { allowClear: true });
+            }
+        },
         setToday: function (hiddenId) {
             var wrap = document.querySelector('.nepali-datetime-wrap[data-hidden="' + hiddenId + '"]');
             if (!wrap) {

@@ -1,0 +1,62 @@
+{% comment %}
+Compact B.S. / A.D. date entry. Pass either:
+  - field: Django form field (hidden input rendered in d-none)
+  - hidden_id + hidden_value (+ optional hidden_name)
+  - sale_row_id + hidden_value (inline sales book; builds sale-date-{id})
+Optional: label, wrap_class, data_sale_id
+{% endcomment %}
+{% if sale_row_id %}
+    {% if label %}<span class="form-label small d-block mb-1">{{ label }}</span>{% endif %}
+    <input type="hidden" id="sale-date-{{ sale_row_id }}" value="{{ hidden_value|default:'' }}">
+    <div class="nepali-datetime-wrap nepali-datetime-wrap--compact {{ wrap_class|default:'' }}"
+         data-hidden="sale-date-{{ sale_row_id }}"
+         data-default-cal="bs"
+         data-sale-id="{{ sale_row_id }}"
+         onclick="event.stopPropagation()">
+        <div class="btn-group btn-group-sm mb-1 nepali-cal-toggle" role="group" aria-label="Calendar type">
+            <button type="button" class="btn btn-outline-secondary btn-sm active" data-cal="bs">B.S.</button>
+            <button type="button" class="btn btn-outline-secondary btn-sm" data-cal="ad">A.D.</button>
+        </div>
+        <div class="nepali-mode-bs">
+            <input type="text" id="sale-date-{{ sale_row_id }}_bs" class="form-control form-control-sm nepali-bs-date sale-inline-control" placeholder="YYYY-MM-DD" autocomplete="off" inputmode="numeric">
+        </div>
+        <div class="nepali-mode-ad d-none">
+            <input type="text" id="sale-date-{{ sale_row_id }}_ad" class="form-control form-control-sm nepali-ad-date sale-inline-control" placeholder="YYYY-MM-DD" autocomplete="off" inputmode="numeric">
+        </div>
+        <small class="text-muted nepali-ad-hint d-block" style="font-size:0.7rem;"></small>
+    </div>
+{% else %}
+{% if label %}<span class="form-label small d-block mb-1">{{ label }}</span>{% endif %}
+{% if field %}
+<div class="d-none">{{ field }}</div>
+{% else %}
+<input type="hidden" id="{{ hidden_id }}"{% if hidden_name %} name="{{ hidden_name }}"{% endif %} value="{{ hidden_value|default:'' }}">
+{% endif %}
+<div class="nepali-datetime-wrap nepali-datetime-wrap--compact {{ wrap_class|default:'' }}"
+     data-hidden="{% if field %}{{ field.id_for_label }}{% else %}{{ hidden_id }}{% endif %}"
+     data-default-cal="bs"
+     {% if data_sale_id %}data-sale-id="{{ data_sale_id }}"{% endif %}
+     onclick="event.stopPropagation()">
+    <div class="btn-group btn-group-sm mb-1 nepali-cal-toggle" role="group" aria-label="Calendar type">
+        <button type="button" class="btn btn-outline-secondary btn-sm active" data-cal="bs">B.S.</button>
+        <button type="button" class="btn btn-outline-secondary btn-sm" data-cal="ad">A.D.</button>
+    </div>
+    <div class="nepali-mode-bs">
+        <input type="text"
+               id="{% if field %}{{ field.id_for_label }}{% else %}{{ hidden_id }}{% endif %}_bs"
+               class="form-control form-control-sm nepali-bs-date sale-inline-control"
+               placeholder="YYYY-MM-DD"
+               autocomplete="off"
+               inputmode="numeric">
+    </div>
+    <div class="nepali-mode-ad d-none">
+        <input type="text"
+               id="{% if field %}{{ field.id_for_label }}{% else %}{{ hidden_id }}{% endif %}_ad"
+               class="form-control form-control-sm nepali-ad-date sale-inline-control"
+               placeholder="YYYY-MM-DD"
+               autocomplete="off"
+               inputmode="numeric">
+    </div>
+    <small class="text-muted nepali-ad-hint d-block" style="font-size:0.7rem;"></small>
+</div>
+{% endif %}

@@ -88,9 +88,13 @@
             min-width: 7rem;
             font-size: 0.8rem;
         }
-        .sale-inline-date {
-            max-width: 9.5rem;
-            margin: 0 auto;
+        .sale-inline-date-wrap {
+            min-width: 8.5rem;
+        }
+        .nepali-cal-toggle .btn.active {
+            background: #6BB6D6;
+            border-color: #6BB6D6;
+            color: #fff;
         }
     </style>
     <table class="table table-bordered table-striped table-hover table-sm">
@@ -120,10 +124,7 @@
                     <td class="text-muted">{{ sale.list_row_number }}</td>
                     <td class="no-preview">
                         {% if can_edit_sales %}
-                        <input type="date" class="form-control form-control-sm sale-inline-date sale-inline-control"
-                               data-sale-id="{{ sale.id }}"
-                               value="{{ sale.date_added|date:'Y-m-d' }}"
-                               onclick="event.stopPropagation()">
+                        {% include "store/partials/nepali_datetime_compact.html" with sale_row_id=sale.id hidden_value=sale.date_added|date:"Y-m-d" wrap_class="sale-inline-date-wrap mx-auto" %}
                         {% else %}
                         {{ sale.date_added|date:"Y-m-d" }}
                         {% endif %}
@@ -293,9 +294,17 @@
         {% endif %}
     </div>
 </div>
+{% endblock content %}
+
+{% block javascripts %}
+<script src="https://cdn.jsdelivr.net/npm/nepali-date-converter@3.4.0/dist/nepali-date-converter.umd.js"></script>
+<script src="{% static 'js/nepali_datetime.js' %}"></script>
+<script src="{% static 'js/sales_list_inline.js' %}"></script>
 <script>
 window.SALES_INLINE_UPDATE_URL = "{% url 'sale-inline-update' %}";
+if (window.ImsNepaliDatetime) {
+    ImsNepaliDatetime.initAll('.sale-inline-date-wrap');
+}
+bindPreviewRows('.sale-row', 'data-preview-url');
 </script>
-<script src="{% static 'js/sales_list_inline.js' %}"></script>
-<script>bindPreviewRows('.sale-row', 'data-preview-url');</script>
-{% endblock content %}
+{% endblock javascripts %}

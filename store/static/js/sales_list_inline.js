@@ -35,20 +35,29 @@
   function initSaleInlineEdits() {
     if (!window.SALES_INLINE_UPDATE_URL) return;
 
-    document.querySelectorAll('.sale-inline-date').forEach(function (input) {
-      input.addEventListener('change', function () {
-        var el = this;
-        postUpdate({
-          field: 'date',
-          sale_id: el.dataset.saleId,
-          value: el.value,
-        })
-          .then(function () {
-            flashSaved(el);
+    document.querySelectorAll('.sale-inline-date-wrap').forEach(function (wrap) {
+      wrap.querySelectorAll('.nepali-bs-date, .nepali-ad-date').forEach(function (input) {
+        input.addEventListener('change', function () {
+          if (window.ImsNepaliDatetime) {
+            ImsNepaliDatetime.syncWrap(wrap);
+          }
+          var hidden = document.getElementById(wrap.dataset.hidden);
+          if (!hidden || !hidden.value) {
+            return;
+          }
+          var datePart = hidden.value.split('T')[0];
+          postUpdate({
+            field: 'date',
+            sale_id: wrap.dataset.saleId,
+            value: datePart,
           })
-          .catch(function (err) {
-            alert(err.message || 'Could not save date.');
-          });
+            .then(function () {
+              flashSaved(wrap);
+            })
+            .catch(function (err) {
+              alert(err.message || 'Could not save date.');
+            });
+        });
       });
     });
 

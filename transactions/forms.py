@@ -311,7 +311,7 @@ class SaleEditForm(BootstrapMixin, forms.ModelForm):
     sale_date = forms.DateField(
         required=False,
         label="Sale date",
-        widget=forms.DateInput(attrs={"type": "date", "class": "form-control"}),
+        widget=forms.HiddenInput(attrs={"id": "id_sale_date"}),
     )
 
     class Meta:

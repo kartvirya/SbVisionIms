@@ -23,7 +23,10 @@
                 {% csrf_token %}
                 <div class="row g-3">
                     <div class="col-md-6">{{ form.customer.label_tag }}{{ form.customer }}{{ form.customer.errors }}</div>
-                    <div class="col-md-3">{{ form.sale_date.label_tag }}{{ form.sale_date }}{{ form.sale_date.errors }}</div>
+                    <div class="col-md-3">
+                        {% include "store/partials/nepali_datetime_compact.html" with field=form.sale_date label="Sale date" %}
+                        {{ form.sale_date.errors }}
+                    </div>
                     <div class="col-md-3">{{ form.tax_percentage.label_tag }}{{ form.tax_percentage }}{{ form.tax_percentage.errors }}</div>
                     <div class="col-md-3">{{ form.tax_amount.label_tag }}{{ form.tax_amount }}{{ form.tax_amount.errors }}</div>
                     <div class="col-md-4">{{ form.amount_paid.label_tag }}{{ form.amount_paid }}{{ form.amount_paid.errors }}</div>
@@ -91,6 +94,9 @@
 {% endblock %}
 
 {% block javascripts %}
+{% load static %}
+<script src="https://cdn.jsdelivr.net/npm/nepali-date-converter@3.4.0/dist/nepali-date-converter.umd.js"></script>
+<script src="{% static 'js/nepali_datetime.js' %}"></script>
 <script>
 (function () {
     const subtotal = {{ object.sub_total|default:0 }};
@@ -130,6 +136,22 @@
     });
     if (payFull) payFull.addEventListener("change", recalc);
     recalc();
+
+    if (window.ImsNepaliDatetime) {
+        ImsNepaliDatetime.initAll();
+    }
+    var editForm = document.getElementById("sale-edit-form");
+    if (editForm) {
+        editForm.addEventListener("submit", function () {
+            if (window.ImsNepaliDatetime) {
+                ImsNepaliDatetime.syncForm(editForm);
+            }
+            var h = document.getElementById("id_sale_date");
+            if (h && h.value && h.value.indexOf("T") !== -1) {
+                h.value = h.value.split("T")[0];
+            }
+        });
+    }
 })();
 </script>
 {% endblock %}
