@@ -83,11 +83,24 @@ class Sale(models.Model):
         default=False,
         help_text="Payment-only account entry; hide the sale row in customer ledger.",
     )
+    import_reference = models.CharField(
+        max_length=100,
+        blank=True,
+        default="",
+        help_text="Excel sale_reference used to prevent duplicate imports.",
+    )
 
     class Meta:
         db_table = "sales"
         verbose_name = "Sale"
         verbose_name_plural = "Sales"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["import_reference"],
+                condition=~models.Q(import_reference=""),
+                name="uniq_sale_import_reference",
+            ),
+        ]
 
     def save(self, *args, **kwargs):
         """When CustomerPayment rows exist, amount_paid is derived from those rows."""

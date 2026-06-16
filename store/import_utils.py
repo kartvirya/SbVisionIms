@@ -204,32 +204,13 @@ def sale_template_workbook():
             "ABC Traders",
             "Samsung",
             "Electronics",
-            "Sample Product A",
-            2,
-            8,
-            100,
-            13,
-            226,
-            "First line of multi-product sale",
-        ]
-    )
-    ws.append(
-        [
-            "SALE-001",
-            "2026-06-01",
-            "Ram",
-            "Sharma",
-            "9800000000",
-            "ABC Traders",
-            "Samsung",
-            "Electronics",
-            "Sample Product B",
+            "Sample Product",
             1,
             5,
-            50,
+            100,
             13,
-            "",
-            "Second line — same sale_reference groups into one bill",
+            113,
+            "Delete this sample row before importing your data",
         ]
     )
     return wb
@@ -568,73 +549,112 @@ def import_purchase_rows(rows):
 
     created = updated = 0
     errors = []
-    bills = {}
-    for i, row in enumerate(rows, start=2):
-        vendor_name = _cell_str(row.get("vendor"))
-        item_name = _cell_str(row.get("item_name"))
-        if not vendor_name or not item_name:
-            errors.append(f"Row {i}: vendor and item_name are required.")
+    for group in _group_purchase_import_rows(rows):
+        first_row = group[0][1]
+        vendor_name = _cell_str(first_row.get("vendor"))
+        if not vendor_name:
+            errors.append(f"Row {group[0][0] + 2}: vendor is required.")
             continue
-        vendor, _ = Vendor.objects.get_or_create(name=vendor_name)
-        category, _ = Category.objects.get_or_create(name="General")
-        unit_price = _parse_decimal(row.get("unit_price"), 0)
-        item, _ = Item.objects.get_or_create(
-            name=item_name,
-            defaults={
-                "description": item_name,
-                "category": category,
-                "vendor": vendor,
-                "cost_price": float(unit_price),
-                "price": float(unit_price * Decimal("1.3")) if unit_price else 0,
-                "quantity": 0,
-            },
-        )
-        bill_key = (
-            vendor.id,
-            _cell_str(row.get("bill_number")) or f"import-{i}",
-        )
-        if bill_key not in bills:
-            order_raw = _cell_str(row.get("order_date"))
-            order_date = timezone.now()
-            if order_raw:
-                parsed = parse_datetime(order_raw)
-                if not parsed:
-                    d = parse_date(order_raw)
-                    if d:
-                        parsed = timezone.make_aware(
-                            datetime.combine(d, datetime.min.time())
-                        )
-                if parsed:
-                    order_date = parsed
-            receipt_status = (_cell_str(row.get("receipt_status")) or "P").upper()[:1]
-            if receipt_status not in ("P", "S"):
-                receipt_status = "P"
-            purchase = Purchase.objects.create(
-                vendor=vendor,
-                bill_number=bill_key[1],
-                order_date=order_date,
-                receipt_status=receipt_status,
-                discount_amount=_parse_decimal(row.get("discount_amount"), 0),
-                vat_percentage=float(_parse_decimal(row.get("vat_percentage"), 0)),
-                amount_paid=_parse_decimal(row.get("amount_paid"), 0),
-                description=_cell_str(row.get("description")),
-            )
-            bills[bill_key] = purchase
-            created += 1
-        else:
-            purchase = bills[bill_key]
-            updated += 1
-        qty = int(_parse_decimal(row.get("quantity"), 1))
-        PurchaseLine.objects.create(
-            purchase=purchase,
-            item=item,
-            quantity=max(qty, 1),
-            unit_price=unit_price,
-        )
-        purchase.save()
-        from transactions.services import sync_purchase_inventory_transaction
 
-        sync_purchase_inventory_transaction(purchase=purchase)
+        line_specs = []
+        group_errors = []
+        for row_index, row in group:
+            item_name = _cell_str(row.get("item_name"))
+            if not item_name:
+                group_errors.append(f"Row {row_index + 2}: item_name is required.")
+                continue
+            line_specs.append((row_index, row, item_name))
+
+        if group_errors:
+            errors.extend(group_errors)
+            continue
+        if not line_specs:
+            continue
+
+        try:
+            vendor, _ = Vendor.objects.get_or_create(name=vendor_name)
+            bill_number = _cell_str(first_row.get("bill_number"))
+            if not bill_number:
+                bill_number = f"import-{group[0][0] + 2}"
+
+            purchase = Purchase.objects.filter(
+                vendor=vendor,
+                bill_number=bill_number,
+            ).first()
+            was_new = purchase is None
+
+            if was_new:
+                order_raw = _cell_str(first_row.get("order_date"))
+                order_date = timezone.now()
+                if order_raw:
+                    parsed = parse_datetime(order_raw)
+                    if not parsed:
+                        d = parse_date(order_raw)
+                        if d:
+                            parsed = timezone.make_aware(
+                                datetime.combine(d, datetime.min.time())
+                            )
+                    if parsed:
+                        order_date = parsed
+                receipt_status = (
+                    _cell_str(first_row.get("receipt_status")) or "P"
+                ).upper()[:1]
+                if receipt_status not in ("P", "S"):
+                    receipt_status = "P"
+                purchase = Purchase.objects.create(
+                    vendor=vendor,
+                    bill_number=bill_number,
+                    order_date=order_date,
+                    receipt_status=receipt_status,
+                    discount_amount=_parse_decimal(
+                        first_row.get("discount_amount"), 0
+                    ),
+                    vat_percentage=float(
+                        _parse_decimal(first_row.get("vat_percentage"), 0)
+                    ),
+                    amount_paid=_parse_decimal(first_row.get("amount_paid"), 0),
+                    description=_cell_str(first_row.get("description")),
+                )
+                created += 1
+            else:
+                updated += 1
+
+            for row_index, row, item_name in line_specs:
+                category, _ = Category.objects.get_or_create(name="General")
+                unit_price = _parse_decimal(row.get("unit_price"), 0)
+                item, _ = Item.objects.get_or_create(
+                    name=item_name,
+                    defaults={
+                        "description": item_name,
+                        "category": category,
+                        "vendor": vendor,
+                        "cost_price": float(unit_price),
+                        "price": float(unit_price * Decimal("1.3"))
+                        if unit_price
+                        else 0,
+                        "quantity": 0,
+                    },
+                )
+                qty = int(_parse_decimal(row.get("quantity"), 1))
+                line, line_created = PurchaseLine.objects.get_or_create(
+                    purchase=purchase,
+                    item=item,
+                    defaults={
+                        "quantity": max(qty, 1),
+                        "unit_price": unit_price,
+                    },
+                )
+                if not line_created:
+                    line.quantity = max(qty, 1)
+                    line.unit_price = unit_price
+                    line.save(update_fields=["quantity", "unit_price"])
+
+            purchase.save()
+            from transactions.services import sync_purchase_inventory_transaction
+
+            sync_purchase_inventory_transaction(purchase=purchase)
+        except Exception as exc:
+            errors.append(f"Row {group[0][0] + 2}: {exc}")
     return created, updated, errors
 
 
@@ -719,23 +739,60 @@ def _ensure_sale_stock(item, qty, stock_cell, row_num):
     sync_item_quantity_cache([item])
 
 
-def _group_sale_import_rows(rows):
+def _group_import_rows(rows, key_fn, inherit_blank=True):
+    """
+    Group consecutive spreadsheet rows into one bill/sale.
+    Blank keys inherit the previous group's key when inherit_blank is True.
+    """
     groups = []
-    current_key = None
     current = []
+    active_key = None
+
     for index, row in enumerate(rows):
-        ref = _cell_str(row.get("sale_reference"))
-        key = ("ref", ref) if ref else ("row", index)
-        if key != current_key:
+        key = key_fn(row)
+        if not key and inherit_blank and active_key is not None:
+            current.append((index, row))
+            continue
+        if not key:
             if current:
                 groups.append(current)
-            current_key = key
-            current = [(index, row)]
-        else:
+                current = []
+            active_key = None
+            groups.append([(index, row)])
+            continue
+        if key == active_key:
             current.append((index, row))
+        else:
+            if current:
+                groups.append(current)
+            active_key = key
+            current = [(index, row)]
+
     if current:
         groups.append(current)
     return groups
+
+
+def _sale_import_key(row):
+    return _cell_str(row.get("sale_reference"))
+
+
+def _purchase_import_key(row):
+    vendor = _cell_str(row.get("vendor"))
+    bill = _cell_str(row.get("bill_number"))
+    if bill:
+        return f"bill::{vendor}::{bill}"
+    if vendor:
+        return f"vendor::{vendor}"
+    return ""
+
+
+def _group_sale_import_rows(rows):
+    return _group_import_rows(rows, _sale_import_key, inherit_blank=True)
+
+
+def _group_purchase_import_rows(rows):
+    return _group_import_rows(rows, _purchase_import_key, inherit_blank=True)
 
 
 def import_sale_rows(rows):
@@ -786,6 +843,15 @@ def import_sale_rows(rows):
 
         try:
             customer = _resolve_customer_from_row(first_row)
+            import_ref = _sale_import_key(first_row)
+            if import_ref and Sale.objects.filter(import_reference=import_ref).exists():
+                existing = Sale.objects.filter(import_reference=import_ref).first()
+                errors.append(
+                    f"Row {group[0][0] + 2}: sale_reference '{import_ref}' "
+                    f"was already imported (sale #{existing.id})."
+                )
+                continue
+
             sale_date = _parse_import_datetime(first_row.get("sale_date"))
             tax_pct = _parse_decimal(first_row.get("tax_percentage"), 13)
             sub_total = sum(
@@ -825,9 +891,10 @@ def import_sale_rows(rows):
                     grand_total=grand_total,
                     tax_amount=tax_amount,
                     tax_percentage=float(tax_pct),
-                    amount_paid=amount_paid,
-                    amount_change=amount_paid - grand_total,
+                    amount_paid=Decimal("0"),
+                    amount_change=Decimal("0"),
                     date_added=sale_date,
+                    import_reference=import_ref,
                 )
                 for line in line_items:
                     line_sub = line["unit_price"] * line["quantity"]
@@ -861,6 +928,8 @@ def import_sale_rows(rows):
                         method="cash",
                         notes="Import",
                     )
+                else:
+                    sale.save()
             created += 1
         except Exception as exc:
             errors.append(f"Row {group[0][0] + 2}: {exc}")
