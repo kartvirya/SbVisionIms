@@ -473,6 +473,11 @@ def import_inventory_rows(rows):
 
 
 def import_customer_rows(rows):
+    from accounts.customer_utils import (
+        find_customer_by_identity,
+        get_or_create_customer_by_identity,
+    )
+
     created = updated = 0
     errors = []
     for i, row in enumerate(rows, start=2):
@@ -481,27 +486,39 @@ def import_customer_rows(rows):
             errors.append(f"Row {i}: first_name is required.")
             continue
         last = _cell_str(row.get("last_name")) or None
-        phone = _cell_str(row.get("phone")) or None
-        if phone:
-            existing = Customer.objects.filter(phone=phone).first()
-            if existing:
-                existing.first_name = first
-                existing.last_name = last
-                existing.email = _cell_str(row.get("email")) or existing.email
-                existing.address = _cell_str(row.get("address")) or existing.address
-                opening = row.get("opening_balance")
-                if opening not in (None, ""):
-                    existing.opening_balance = _parse_decimal(opening, 0)
-                existing.save()
-                updated += 1
-                continue
-        Customer.objects.create(
+        phone = _phone_str(row.get("phone"))
+        opening = row.get("opening_balance")
+        defaults = {
+            "email": _cell_str(row.get("email")) or None,
+            "address": _cell_str(row.get("address")) or None,
+            "opening_balance": _parse_decimal(opening, 0)
+            if opening not in (None, "")
+            else 0,
+        }
+        existing = find_customer_by_identity(
             first_name=first,
             last_name=last,
             phone=phone,
-            email=_cell_str(row.get("email")) or None,
-            address=_cell_str(row.get("address")) or None,
-            opening_balance=_parse_decimal(row.get("opening_balance"), 0),
+        )
+        if existing:
+            existing.first_name = first
+            existing.last_name = last
+            if phone:
+                existing.phone = phone
+            if defaults["email"]:
+                existing.email = defaults["email"]
+            if defaults["address"]:
+                existing.address = defaults["address"]
+            if opening not in (None, ""):
+                existing.opening_balance = defaults["opening_balance"]
+            existing.save()
+            updated += 1
+            continue
+        get_or_create_customer_by_identity(
+            first_name=first,
+            last_name=last,
+            phone=phone,
+            defaults=defaults,
         )
         created += 1
     return created, updated, errors
@@ -659,16 +676,16 @@ def import_purchase_rows(rows):
 
 
 def _resolve_customer_from_row(row):
+    from accounts.customer_utils import get_or_create_customer_by_identity
+
     first = _cell_str(row.get("customer_first_name"))
     last = _cell_str(row.get("customer_last_name")) or None
     phone = _phone_str(row.get("customer_phone"))
-    customer = Customer.objects.filter(phone=phone).first() if phone else None
-    if not customer:
-        customer = Customer.objects.create(
-            first_name=first,
-            last_name=last,
-            phone=phone,
-        )
+    customer, _ = get_or_create_customer_by_identity(
+        first_name=first,
+        last_name=last,
+        phone=phone,
+    )
     return customer
 
 
@@ -773,8 +790,38 @@ def _group_import_rows(rows, key_fn, inherit_blank=True):
     return groups
 
 
+def _sale_date_group_key(row):
+    raw = _cell_str(row.get("sale_date"))
+    if not raw:
+        return "nodate"
+    from datetime import datetime
+
+    from django.utils.dateparse import parse_date, parse_datetime
+
+    parsed = parse_datetime(raw)
+    if parsed:
+        return parsed.date().isoformat()
+    day = parse_date(raw)
+    if day:
+        return day.isoformat()
+    return raw
+
+
+def _customer_group_key(row):
+    from accounts.customer_utils import customer_identity_key
+
+    return customer_identity_key(
+        _cell_str(row.get("customer_first_name")),
+        _cell_str(row.get("customer_last_name")) or None,
+        _phone_str(row.get("customer_phone")),
+    )
+
+
 def _sale_import_key(row):
-    return _cell_str(row.get("sale_reference"))
+    ref = _cell_str(row.get("sale_reference"))
+    if ref:
+        return f"ref::{ref}"
+    return f"sale::{_customer_group_key(row)}::{_sale_date_group_key(row)}"
 
 
 def _purchase_import_key(row):

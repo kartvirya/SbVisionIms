@@ -705,12 +705,16 @@ def create_customer_quick(request):
     phone = (request.POST.get("phone") or "").strip() or None
     email = (request.POST.get("email") or "").strip() or None
     vat_number = (request.POST.get("vat_number") or "").strip() or None
-    customer = Customer.objects.create(
+    from accounts.customer_utils import get_or_create_customer_by_identity
+
+    customer, created = get_or_create_customer_by_identity(
         first_name=first_name,
         last_name=last_name,
         phone=phone,
-        email=email or None,
-        vat_number=vat_number,
+        defaults={
+            "email": email,
+            "vat_number": vat_number,
+        },
     )
     full_name = customer.get_full_name().strip()
     return JsonResponse(

@@ -30,6 +30,7 @@
             <div class="alert alert-light border small mb-3">
                 <strong>Sales import tips:</strong>
                 <ul class="mb-0 ps-3">
+                    <li>Rows with the same <strong>customer + date</strong> (and no <code>sale_reference</code>) are grouped into one bill automatically.</li>
                     <li>Use the same <code>sale_reference</code> on every row that belongs to one bill (only needed on the first row if rows are together).</li>
                     <li>Re-importing the same <code>sale_reference</code> is skipped automatically (no duplicate sale).</li>
                     <li><code>sale_date</code>, <code>vendor</code>, <code>brand</code>, <code>category</code>, and <code>stock</code> are optional.</li>
