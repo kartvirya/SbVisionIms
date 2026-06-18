@@ -34,7 +34,7 @@
                     <li>Use the same <code>sale_reference</code> on every row that belongs to one bill (only needed on the first row if rows are together).</li>
                     <li>Re-importing the same <code>sale_reference</code> is skipped automatically (no duplicate sale).</li>
                     <li><code>sale_date</code>, <code>vendor</code>, <code>brand</code>, <code>category</code>, and <code>stock</code> are optional.</li>
-                    <li><code>stock</code> = quantity on hand <em>after</em> the sale; quantity sold goes in <code>quantity</code>.</li>
+                    <li><code>stock</code> (optional) = quantity on hand <em>before</em> the sale. Leave blank to deduct from current inventory stock.</li>
                     <li><code>amount_paid</code> is the bill total — put it on the first line of a grouped sale.</li>
                     <li>Delete the sample row from the template before uploading your data.</li>
                 </ul>

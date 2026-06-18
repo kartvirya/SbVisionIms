@@ -737,23 +737,61 @@ def _resolve_item_from_sale_row(row):
 
 
 def _ensure_sale_stock(item, qty, stock_cell, row_num):
-    """Set ledger stock so a sale of qty can post; stock column = on-hand after sale."""
+    """
+    Validate or sync on-hand stock before posting an imported sale.
+    When stock column is set, it is on-hand *before* the sale (not after).
+    When omitted, the sale must deduct from existing inventory stock.
+    """
     from store.stock_utils import get_sellable_stock
 
     qty_int = max(int(qty), 1)
     stock_raw = stock_cell
-    if stock_raw not in (None, ""):
-        stock_after = int(_parse_decimal(stock_raw, 0))
-        target = max(stock_after + qty_int, 0)
-    else:
+    if stock_raw in (None, ""):
         available = int(get_sellable_stock(item))
-        target = available if available >= qty_int else qty_int
+        if qty_int > available:
+            raise ValueError(
+                f"Not enough stock for {item.name} "
+                f"(have {available}, need {qty_int}). "
+                f"Add stock in Inventory first or set the stock column."
+            )
+        return
+
+    stock_before = int(_parse_decimal(stock_raw, 0))
+    if stock_before < qty_int:
+        raise ValueError(
+            f"Row {row_num}: stock ({stock_before}) is less than quantity sold ({qty_int})."
+        )
     reconcile_ledger_stock_to_target(
         item,
-        target,
-        notes=f"Pre-import stock row {row_num}",
+        stock_before,
+        notes=f"Import row {row_num} stock sync",
     )
     sync_item_quantity_cache([item])
+
+
+def _prepare_sale_stock_for_group(line_items):
+    """Run stock checks once per product (supports multi-line bills)."""
+    from collections import defaultdict
+
+    totals = defaultdict(
+        lambda: {"qty": Decimal("0"), "stock": None, "item": None, "row": None}
+    )
+    for line in line_items:
+        item = line["item"]
+        bucket = totals[item.id]
+        bucket["qty"] += line["quantity"]
+        bucket["item"] = item
+        bucket["row"] = line["row_index"]
+        if line.get("stock") not in (None, ""):
+            bucket["stock"] = line.get("stock")
+
+    for bucket in totals.values():
+        _ensure_sale_stock(
+            bucket["item"],
+            bucket["qty"],
+            bucket["stock"],
+            bucket["row"],
+        )
 
 
 def _group_import_rows(rows, key_fn, inherit_blank=True):
@@ -869,13 +907,13 @@ def import_sale_rows(rows):
                 qty = _parse_decimal(row.get("quantity"), 1)
                 if qty <= 0:
                     qty = Decimal("1")
-                _ensure_sale_stock(item, qty, row.get("stock"), row_index + 2)
                 line_items.append(
                     {
                         "row_index": row_index + 2,
                         "item": item,
                         "unit_price": unit_price,
                         "quantity": qty,
+                        "stock": row.get("stock"),
                         "description": _cell_str(row.get("description")),
                     }
                 )
@@ -886,6 +924,12 @@ def import_sale_rows(rows):
             errors.extend(group_errors)
             continue
         if not line_items:
+            continue
+
+        try:
+            _prepare_sale_stock_for_group(line_items)
+        except Exception as exc:
+            errors.append(f"Row {group[0][0] + 2}: {exc}")
             continue
 
         try:
