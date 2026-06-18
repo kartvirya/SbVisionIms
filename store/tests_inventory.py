@@ -118,3 +118,56 @@ class InventoryVisibilityTests(TestCase):
         response = client.post(f"/product/{item.slug}/delete/")
         self.assertEqual(response.status_code, 302, response.content[:500])
         self.assertFalse(Item.objects.filter(pk=item.pk).exists())
+
+
+class SaleImportStockTests(TestCase):
+    def setUp(self):
+        self.category = Category.objects.create(name="Cables")
+        self.item = Item.objects.create(
+            name="USB Cable",
+            description="Test",
+            category=self.category,
+            quantity=0,
+            price=100,
+        )
+        from transactions.services import reconcile_ledger_stock_to_target, sync_item_quantity_cache
+
+        reconcile_ledger_stock_to_target(self.item, 10, notes="test setup")
+        sync_item_quantity_cache([self.item])
+
+    def test_import_sale_without_stock_column_reduces_inventory(self):
+        from store.import_utils import import_sale_rows
+        from store.stock_utils import get_item_current_stock
+
+        created, _, errors = import_sale_rows(
+            [
+                {
+                    "customer_first_name": "Ram",
+                    "item_name": "USB Cable",
+                    "quantity": 3,
+                    "unit_price": 100,
+                }
+            ]
+        )
+        self.assertEqual(errors, [])
+        self.assertEqual(created, 1)
+        self.assertEqual(get_item_current_stock(self.item), 7)
+
+    def test_import_sale_with_stock_column_syncs_before_deduction(self):
+        from store.import_utils import import_sale_rows
+        from store.stock_utils import get_item_current_stock
+
+        created, _, errors = import_sale_rows(
+            [
+                {
+                    "customer_first_name": "Sita",
+                    "item_name": "USB Cable",
+                    "quantity": 2,
+                    "stock": 10,
+                    "unit_price": 100,
+                }
+            ]
+        )
+        self.assertEqual(errors, [])
+        self.assertEqual(created, 1)
+        self.assertEqual(get_item_current_stock(self.item), 8)
