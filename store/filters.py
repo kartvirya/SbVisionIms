@@ -1,7 +1,7 @@
 import django_filters
 from django import forms
 from .models import Item, Category, Delivery
-from accounts.models import Vendor, Logistics
+from accounts.models import Brand, Vendor, Logistics
 
 
 class ProductFilter(django_filters.FilterSet):
@@ -19,6 +19,10 @@ class ProductFilter(django_filters.FilterSet):
     vendor = django_filters.ModelChoiceFilter(
         queryset=Vendor.objects.all(),
         widget=forms.Select
+    )
+    brand = django_filters.ModelChoiceFilter(
+        queryset=Brand.objects.filter(is_active=True).order_by("name"),
+        widget=forms.Select,
     )
     min_price = django_filters.NumberFilter(
         field_name='price',
@@ -52,7 +56,7 @@ class ProductFilter(django_filters.FilterSet):
 
     class Meta:
         model = Item
-        fields = ['name', 'category', 'vendor']
+        fields = ['name', 'category', 'vendor', 'brand']
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -60,6 +64,7 @@ class ProductFilter(django_filters.FilterSet):
         self.filters['name'].field.widget.attrs.update({'class': 'form-control', 'placeholder': 'Search by name'})
         self.filters['category'].field.widget.attrs.update({'class': 'form-control'})
         self.filters['vendor'].field.widget.attrs.update({'class': 'form-control'})
+        self.filters['brand'].field.widget.attrs.update({'class': 'form-control'})
         self.filters['min_price'].field.widget.attrs.update({'class': 'form-control', 'placeholder': 'Min price', 'step': '0.01'})
         self.filters['max_price'].field.widget.attrs.update({'class': 'form-control', 'placeholder': 'Max price', 'step': '0.01'})
         self.filters['min_quantity'].field.widget.attrs.update({'class': 'form-control', 'placeholder': 'Min quantity'})

@@ -14,6 +14,22 @@
     .table td {
         vertical-align: middle;
     }
+    .inventory-brand-filters {
+        gap: 0.35rem;
+    }
+    .inventory-brand-filters .brand-filter-badge {
+        font-size: 0.8rem;
+        font-weight: 500;
+        padding: 0.4em 0.75em;
+        cursor: pointer;
+        transition: opacity 0.15s ease;
+    }
+    .inventory-brand-filters .brand-filter-badge:hover {
+        opacity: 0.85;
+    }
+    .inventory-brand-filters .brand-filter-badge.is-active {
+        box-shadow: 0 0 0 2px rgba(25, 135, 84, 0.35);
+    }
 </style>
 {% endblock extra_css %}
 {% block content %}
@@ -55,6 +71,9 @@
             </div>
             <div class="card-body">
                 <form method="get" class="row g-3">
+                    {% if active_brand_id %}
+                    <input type="hidden" name="brand" value="{{ active_brand_id }}">
+                    {% endif %}
                     <div class="col-md-3">
                         <label class="form-label">Product Name</label>
                         {{ filter.form.name }}
@@ -101,12 +120,32 @@
     </div>
 
     <div class="px-4">
+        {% if inventory_brands %}
+        <div class="card shadow-sm mb-3">
+            <div class="card-body py-2">
+                <div class="d-flex flex-wrap align-items-center inventory-brand-filters">
+                    <span class="text-muted small me-2 mb-1"><i class="fa-solid fa-tags"></i> Brands:</span>
+                    <a href="{% querystring 'brand'='' 'page'=1 %}"
+                       class="badge rounded-pill text-decoration-none brand-filter-badge mb-1 {% if not active_brand_id %}bg-success is-active{% else %}bg-light text-dark border{% endif %}">
+                        All
+                    </a>
+                    {% for brand in inventory_brands %}
+                    <a href="{% querystring 'brand'=brand.pk 'page'=1 %}"
+                       class="badge rounded-pill text-decoration-none brand-filter-badge mb-1 {% if active_brand_id == brand.id %}bg-success is-active{% else %}bg-primary{% endif %}">
+                        {{ brand.name }}
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
         <table class="table table-bordered table-striped table-hover table-sm">
             <thead class="thead-light">
                 <tr>
                     <th scope="col">#</th>
                     <th scope="col">Name</th>
                     <th scope="col">Category</th>
+                    <th scope="col">Brand</th>
                     <th scope="col">Stock</th>
                     <th scope="col">Price (Rs)</th>
                     <th scope="col" class="no-preview">Actions</th>
@@ -131,6 +170,13 @@
                         {% endwith %}
                     </td>
                     <td>{{ item.category }}</td>
+                    <td>
+                        {% if item.brand %}
+                        <span class="badge bg-light text-dark border">{{ item.brand.name }}</span>
+                        {% else %}
+                        <span class="text-muted">—</span>
+                        {% endif %}
+                    </td>
                     <td>
                         {% with stock=item.current_stock|default:item.quantity %}
                         {% if stock == 0 %}<span class="badge bg-danger">0</span>

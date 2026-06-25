@@ -44,7 +44,7 @@ import django_tables2 as tables
 from django_tables2.export.views import ExportMixin
 
 # Local app imports
-from accounts.models import Vendor, Customer
+from accounts.models import Brand, Vendor, Customer
 from transactions.models import Sale, SaleDetail, Purchase
 from .models import Category, Item, Delivery, ProductVariation, StockAdjustmentLog
 from .forms import (
@@ -215,7 +215,11 @@ class ProductListView(NormalizePageMixin, LoginRequiredMixin, ExportMixin, table
     filterset_class = ProductFilter
 
     def get_queryset(self):
-        queryset = Item.inventory_queryset().prefetch_related('variations')
+        queryset = (
+            Item.inventory_queryset()
+            .select_related("category", "brand", "vendor")
+            .prefetch_related("variations")
+        )
         self.filterset = self.filterset_class(self.request.GET, queryset=queryset)
         qs = self.filterset.qs
         if not self.request.GET.get("ordering"):
@@ -231,6 +235,19 @@ class ProductListView(NormalizePageMixin, LoginRequiredMixin, ExportMixin, table
             item.current_stock = stock_map.get(item.id, item.quantity)
         annotate_list_row_numbers(items, context.get("page_obj"))
         context["can_manage_products"] = user_can_manage_products(self.request.user)
+
+        brand_ids = (
+            Item.inventory_queryset()
+            .exclude(brand_id__isnull=True)
+            .values_list("brand_id", flat=True)
+            .distinct()
+        )
+        context["inventory_brands"] = Brand.objects.filter(
+            id__in=brand_ids,
+            is_active=True,
+        ).order_by("name")
+        raw_brand = self.request.GET.get("brand", "")
+        context["active_brand_id"] = int(raw_brand) if raw_brand.isdigit() else None
         return context
 
 
