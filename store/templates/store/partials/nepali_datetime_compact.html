@@ -18,12 +18,13 @@ Optional: label, wrap_class, data_sale_id
             <button type="button" class="btn btn-outline-secondary btn-sm" data-cal="ad">A.D.</button>
         </div>
         <div class="nepali-mode-bs">
-            <input type="text" id="sale-date-{{ sale_row_id }}_bs" class="form-control form-control-sm nepali-bs-date sale-inline-control" placeholder="YYYY-MM-DD" autocomplete="off" inputmode="numeric">
+            <input type="text" id="sale-date-{{ sale_row_id }}_bs" class="form-control form-control-sm nepali-bs-date sale-inline-control" placeholder="DD-MM-YYYY" autocomplete="off" inputmode="numeric" maxlength="10">
         </div>
         <div class="nepali-mode-ad d-none">
-            <input type="text" id="sale-date-{{ sale_row_id }}_ad" class="form-control form-control-sm nepali-ad-date sale-inline-control" placeholder="YYYY-MM-DD" autocomplete="off" inputmode="numeric">
+            <input type="text" id="sale-date-{{ sale_row_id }}_ad" class="form-control form-control-sm nepali-ad-date sale-inline-control" placeholder="DD-MM-YYYY" autocomplete="off" inputmode="numeric" maxlength="10">
         </div>
-        <small class="text-muted nepali-ad-hint d-block" style="font-size:0.7rem;"></small>
+        <small class="text-danger nepali-date-error d-none" style="font-size:0.7rem;"></small>
+        <small class="text-muted nepali-ad-hint d-block fw-semibold" style="font-size:0.72rem;"></small>
     </div>
 {% else %}
 {% if label %}<span class="form-label small d-block mb-1">{{ label }}</span>{% endif %}
@@ -45,18 +46,21 @@ Optional: label, wrap_class, data_sale_id
         <input type="text"
                id="{% if field %}{{ field.id_for_label }}{% else %}{{ hidden_id }}{% endif %}_bs"
                class="form-control form-control-sm nepali-bs-date sale-inline-control"
-               placeholder="YYYY-MM-DD"
+               placeholder="DD-MM-YYYY"
                autocomplete="off"
-               inputmode="numeric">
+               inputmode="numeric"
+               maxlength="10">
     </div>
     <div class="nepali-mode-ad d-none">
         <input type="text"
                id="{% if field %}{{ field.id_for_label }}{% else %}{{ hidden_id }}{% endif %}_ad"
                class="form-control form-control-sm nepali-ad-date sale-inline-control"
-               placeholder="YYYY-MM-DD"
+               placeholder="DD-MM-YYYY"
                autocomplete="off"
-               inputmode="numeric">
+               inputmode="numeric"
+               maxlength="10">
     </div>
-    <small class="text-muted nepali-ad-hint d-block" style="font-size:0.7rem;"></small>
+    <small class="text-danger nepali-date-error d-none" style="font-size:0.7rem;"></small>
+    <small class="text-muted nepali-ad-hint d-block fw-semibold" style="font-size:0.72rem;"></small>
 </div>
 {% endif %}

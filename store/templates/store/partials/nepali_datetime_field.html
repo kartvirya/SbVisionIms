@@ -9,9 +9,10 @@
             type="text"
             id="{{ field.id_for_label }}_bs"
             class="form-control nepali-bs-date"
-            placeholder="YYYY-MM-DD (BS)"
+            placeholder="DD-MM-YYYY (B.S.)"
             autocomplete="off"
             inputmode="numeric"
+            maxlength="10"
         >
     </div>
     <div class="nepali-mode-ad d-none">
@@ -19,11 +20,13 @@
             type="text"
             id="{{ field.id_for_label }}_ad"
             class="form-control nepali-ad-date"
-            placeholder="YYYY-MM-DD (A.D.)"
+            placeholder="DD-MM-YYYY (A.D.)"
             autocomplete="off"
             inputmode="numeric"
+            maxlength="10"
         >
     </div>
-    <small class="text-muted nepali-ad-hint d-block mt-1"></small>
+    <small class="text-danger nepali-date-error d-none d-block mt-1"></small>
+    <small class="text-muted nepali-ad-hint d-block mt-1 fw-semibold"></small>
 </div>
 <div class="d-none">{{ field }}</div>

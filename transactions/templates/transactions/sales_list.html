@@ -89,7 +89,15 @@
             font-size: 0.8rem;
         }
         .sale-inline-date-wrap {
-            min-width: 8.5rem;
+            min-width: 10.5rem;
+        }
+        .sale-inline-date-wrap .nepali-bs-date.is-invalid,
+        .sale-inline-date-wrap .nepali-ad-date.is-invalid {
+            border-color: #dc3545;
+            background-color: #fff5f5;
+        }
+        .sale-inline-date-wrap .nepali-ad-hint {
+            line-height: 1.2;
         }
         .nepali-cal-toggle .btn.active {
             background: #6BB6D6;
@@ -126,7 +134,7 @@
                         {% if can_edit_sales %}
                         {% include "store/partials/nepali_datetime_compact.html" with sale_row_id=sale.id hidden_value=sale.date_added|date:"Y-m-d" wrap_class="sale-inline-date-wrap mx-auto" %}
                         {% else %}
-                        {{ sale.date_added|date:"Y-m-d" }}
+                        {{ sale.date_added|date:"d-m-Y" }}
                         {% endif %}
                     </td>
                     <td>

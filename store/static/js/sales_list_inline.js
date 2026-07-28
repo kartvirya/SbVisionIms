@@ -41,6 +41,13 @@
           if (window.ImsNepaliDatetime) {
             ImsNepaliDatetime.syncWrap(wrap);
           }
+          if (window.ImsNepaliDatetime && !ImsNepaliDatetime.isWrapValid(wrap)) {
+            alert('Invalid date. Use DD-MM-YYYY (day-month-year), e.g. 30-03-2083.');
+            if (window.ImsNepaliDatetime.reloadWrap) {
+              ImsNepaliDatetime.reloadWrap(wrap);
+            }
+            return;
+          }
           var hidden = document.getElementById(wrap.dataset.hidden);
           if (!hidden || !hidden.value) {
             return;
