@@ -294,26 +294,20 @@ def sale_inline_update(request):
     try:
         if field == "date":
             sale = Sale.objects.get(pk=int(data["sale_id"]))
-            from datetime import datetime
+            from accounts.datetime_utils import parse_sale_date_value
 
-            from django.utils import timezone
-            from django.utils.dateparse import parse_date
-
-            parsed = parse_date(str(data.get("value") or ""))
-            if not parsed:
+            parsed_dt = parse_sale_date_value(data.get("value"))
+            if not parsed_dt:
                 return JsonResponse(
                     {"status": "error", "message": "Enter a valid date."},
                     status=400,
                 )
-            existing = sale.date_added or timezone.now()
-            sale.date_added = timezone.make_aware(
-                datetime.combine(parsed, existing.time())
-            )
-            sale.save(update_fields=["date_added"])
+            Sale.objects.filter(pk=sale.pk).update(date_added=parsed_dt)
+            sale.refresh_from_db()
             return JsonResponse(
                 {
                     "status": "success",
-                    "display": sale.date_added.strftime("%Y-%m-%d"),
+                    "display": sale.date_added.strftime("%d-%m-%Y"),
                 }
             )
 
@@ -601,19 +595,15 @@ def SaleCreateView(request):
                 amount_paid = Decimal(str(data["amount_paid"]))
                 amount_change = amount_paid - grand_total
 
-                from datetime import datetime
-
+                from accounts.datetime_utils import parse_sale_date_value
                 from django.utils import timezone
-                from django.utils.dateparse import parse_date
 
                 sale_date = timezone.now()
                 sale_date_raw = data.get("sale_date")
                 if sale_date_raw:
-                    parsed_date = parse_date(str(sale_date_raw))
-                    if parsed_date:
-                        sale_date = timezone.make_aware(
-                            datetime.combine(parsed_date, datetime.min.time())
-                        )
+                    parsed = parse_sale_date_value(sale_date_raw)
+                    if parsed:
+                        sale_date = parsed
 
                 sale_attributes = {
                     "customer": Customer.objects.get(id=int(data['customer'])),

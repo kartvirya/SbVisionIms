@@ -766,3 +766,30 @@ class IndianNumberFormatTests(TestCase):
         self.assertEqual(_format_indian_number("233299.69"), "2,33,299.69")
         self.assertEqual(_format_indian_number("263628.65"), "2,63,628.65")
         self.assertEqual(_format_indian_number("0"), "0.00")
+
+
+class SaleDateTests(TestCase):
+    def setUp(self):
+        self.customer = Customer.objects.create(first_name="Date", last_name="Tester")
+
+    def test_sale_create_respects_custom_date_added(self):
+        custom = timezone.datetime(2025, 6, 15, 12, 0, tzinfo=timezone.get_current_timezone())
+        sale = Sale.objects.create(
+            customer=self.customer,
+            sub_total=Decimal("100"),
+            grand_total=Decimal("100"),
+            date_added=custom,
+        )
+        sale.refresh_from_db()
+        self.assertEqual(sale.date_added.date(), custom.date())
+
+    def test_parse_sale_date_value_accepts_day_first_format(self):
+        from accounts.datetime_utils import parse_sale_date_value
+
+        parsed = parse_sale_date_value("15-06-2025")
+        self.assertIsNotNone(parsed)
+        self.assertEqual(parsed.date().isoformat(), "2025-06-15")
+
+        parsed_iso = parse_sale_date_value("2025-06-15")
+        self.assertIsNotNone(parsed_iso)
+        self.assertEqual(parsed_iso.date().isoformat(), "2025-06-15")

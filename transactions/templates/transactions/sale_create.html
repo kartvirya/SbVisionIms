@@ -451,7 +451,6 @@
 
         if (window.ImsNepaliDatetime) {
             ImsNepaliDatetime.initAll();
-            ImsNepaliDatetime.setToday('sale_date');
         }
 
         $('#cancel_new_customer').on('click', function () {
@@ -737,6 +736,15 @@
             // Gather sale details
             if (window.ImsNepaliDatetime) {
                 ImsNepaliDatetime.syncAll();
+            }
+            var saleDateWrap = document.querySelector('.nepali-datetime-wrap[data-hidden="sale_date"]');
+            if (saleDateWrap && window.ImsNepaliDatetime && !ImsNepaliDatetime.isWrapValid(saleDateWrap)) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Invalid sale date',
+                    text: 'Use DD-MM-YYYY (day-month-year), e.g. 30-03-2083.'
+                });
+                return;
             }
             var saleDateRaw = $('#sale_date').val();
             var saleDate = saleDateRaw ? saleDateRaw.split('T')[0] : '';

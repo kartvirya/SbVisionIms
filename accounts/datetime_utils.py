@@ -10,6 +10,33 @@ DATETIME_LOCAL_FORMAT = "%Y-%m-%dT%H:%M"
 DATE_LOCAL_FORMAT = "%Y-%m-%d"
 
 
+def parse_sale_date_value(value):
+    """Parse YYYY-MM-DD or DD-MM-YYYY into a timezone-aware datetime."""
+    if not value:
+        return None
+    raw = str(value).strip().split("T")[0].replace("/", "-")
+    parts = [p.strip() for p in raw.split("-") if p.strip()]
+    if len(parts) != 3:
+        return None
+    try:
+        first, second, third = (int(p) for p in parts)
+    except (TypeError, ValueError):
+        return None
+    if len(parts[0]) >= 4 and first > 31:
+        year, month, day = first, second, third
+    elif len(parts[2]) >= 4 or third > 31:
+        day, month, year = first, second, third
+    else:
+        year, month, day = first, second, third
+    if month < 1 or month > 12 or day < 1 or day > 31:
+        return None
+    parsed_date = datetime(year, month, day).date()
+    dt = datetime.combine(parsed_date, time(12, 0))
+    if timezone.is_naive(dt):
+        return timezone.make_aware(dt, timezone.get_current_timezone())
+    return dt
+
+
 def parse_posted_datetime(value):
     """Parse date or datetime-local POST value into a timezone-aware datetime."""
     if not value:

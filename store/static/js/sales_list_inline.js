@@ -36,35 +36,41 @@
     if (!window.SALES_INLINE_UPDATE_URL) return;
 
     document.querySelectorAll('.sale-inline-date-wrap').forEach(function (wrap) {
-      wrap.querySelectorAll('.nepali-bs-date, .nepali-ad-date').forEach(function (input) {
-        input.addEventListener('change', function () {
-          if (window.ImsNepaliDatetime) {
-            ImsNepaliDatetime.syncWrap(wrap);
+      function saveSaleDate() {
+        if (window.ImsNepaliDatetime) {
+          ImsNepaliDatetime.syncWrap(wrap);
+        }
+        if (window.ImsNepaliDatetime && !ImsNepaliDatetime.isWrapValid(wrap)) {
+          alert('Invalid date. Use DD-MM-YYYY (day-month-year), e.g. 30-03-2083.');
+          if (window.ImsNepaliDatetime.reloadWrap) {
+            ImsNepaliDatetime.reloadWrap(wrap);
           }
-          if (window.ImsNepaliDatetime && !ImsNepaliDatetime.isWrapValid(wrap)) {
-            alert('Invalid date. Use DD-MM-YYYY (day-month-year), e.g. 30-03-2083.');
-            if (window.ImsNepaliDatetime.reloadWrap) {
+          return;
+        }
+        var hidden = document.getElementById(wrap.dataset.hidden);
+        if (!hidden || !hidden.value) {
+          return;
+        }
+        var datePart = hidden.value.split('T')[0];
+        postUpdate({
+          field: 'date',
+          sale_id: wrap.dataset.saleId,
+          value: datePart,
+        })
+          .then(function () {
+            flashSaved(wrap);
+          })
+          .catch(function (err) {
+            alert(err.message || 'Could not save date.');
+            if (window.ImsNepaliDatetime && ImsNepaliDatetime.reloadWrap) {
               ImsNepaliDatetime.reloadWrap(wrap);
             }
-            return;
-          }
-          var hidden = document.getElementById(wrap.dataset.hidden);
-          if (!hidden || !hidden.value) {
-            return;
-          }
-          var datePart = hidden.value.split('T')[0];
-          postUpdate({
-            field: 'date',
-            sale_id: wrap.dataset.saleId,
-            value: datePart,
-          })
-            .then(function () {
-              flashSaved(wrap);
-            })
-            .catch(function (err) {
-              alert(err.message || 'Could not save date.');
-            });
-        });
+          });
+      }
+
+      wrap.querySelectorAll('.nepali-bs-date, .nepali-ad-date').forEach(function (input) {
+        input.addEventListener('change', saveSaleDate);
+        input.addEventListener('blur', saveSaleDate);
       });
     });
 

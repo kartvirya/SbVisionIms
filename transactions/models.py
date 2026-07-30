@@ -28,8 +28,8 @@ class Sale(models.Model):
     """
 
     date_added = models.DateTimeField(
-        auto_now_add=True,
-        verbose_name="Sale Date"
+        default=timezone.now,
+        verbose_name="Sale Date",
     )
     customer = models.ForeignKey(
         Customer,
