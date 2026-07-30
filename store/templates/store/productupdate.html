@@ -45,6 +45,9 @@
                     </h1>
                     <form method="POST" enctype="multipart/form-data">
                         {% csrf_token %}
+                        {% if form.non_field_errors %}
+                        <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+                        {% endif %}
                         {% include "store/partials/product_fields_primary.html" %}
                         <div class="row">
                             <div class="col mb-3">
@@ -61,6 +64,7 @@
                                     Quantity
                                 </label>
                                 {{ form.quantity }}
+                                <small class="form-text text-muted">Total stock (all colours/sizes combined). Edit variants below for per-variant qty.</small>
                                 <div class="text-danger">{{ form.quantity.errors }}</div>
                             </div>
                             <div class="col-md-4 mb-3">

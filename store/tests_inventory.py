@@ -171,3 +171,39 @@ class SaleImportStockTests(TestCase):
         self.assertEqual(errors, [])
         self.assertEqual(created, 1)
         self.assertEqual(get_item_current_stock(self.item), 8)
+
+
+class VariantStockSyncTests(TestCase):
+    def setUp(self):
+        self.category = Category.objects.create(name="Earbuds")
+        self.item = Item.objects.create(
+            name="B05 Test Earbuds",
+            description="Test",
+            category=self.category,
+            quantity=0,
+            price=100,
+        )
+        ProductVariation.objects.create(
+            item=self.item, variation_type="color", name="Black", quantity=4, is_active=True
+        )
+        ProductVariation.objects.create(
+            item=self.item, variation_type="color", name="White", quantity=5, is_active=True
+        )
+        from transactions.services import sync_item_quantity_cache
+
+        sync_item_quantity_cache([self.item])
+
+    def test_set_total_stock_updates_variant_product(self):
+        from store.stock_utils import get_item_current_stock, set_item_total_stock
+
+        self.assertEqual(get_item_current_stock(self.item), 9)
+        before, after = set_item_total_stock(self.item, 12, notes="test")
+        self.assertEqual(before, 9)
+        self.assertEqual(after, 12)
+        self.assertEqual(get_item_current_stock(self.item), 12)
+
+    def test_set_total_stock_can_reduce_variant_product(self):
+        from store.stock_utils import get_item_current_stock, set_item_total_stock
+
+        set_item_total_stock(self.item, 5, notes="test")
+        self.assertEqual(get_item_current_stock(self.item), 5)

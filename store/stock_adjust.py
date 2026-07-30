@@ -90,20 +90,39 @@ def apply_manual_stock_adjustment(
         sync_item_quantity_cache([item])
         delta = after - before
     else:
-        from store.stock_utils import get_ledger_stock
+        from store.stock_utils import get_item_current_stock, set_item_total_stock
 
-        before = int(get_ledger_stock(item))
-        if mode == "add":
-            after = before + qty
-        elif mode == "remove":
-            after = before - qty
-            if after < 0:
-                raise ValueError(f"Cannot remove {qty}; only {before} in base ledger stock.")
+        has_variants = item.variations.filter(is_active=True).exists()
+        if has_variants:
+            current = int(get_item_current_stock(item))
+            if mode == "add":
+                target = current + qty
+            elif mode == "remove":
+                target = max(0, current - qty)
+            else:
+                target = qty
+            before, after = set_item_total_stock(
+                item, target, notes=f"Manual: {reason}"
+            )
+            delta = after - before
+            txn = None
         else:
-            after = qty
-        delta = after - before
-        txn = _post_ledger_delta(item, delta, f"Manual: {reason}")
-        sync_item_quantity_cache([item])
+            from store.stock_utils import get_ledger_stock
+
+            before = int(get_ledger_stock(item))
+            if mode == "add":
+                after = before + qty
+            elif mode == "remove":
+                after = before - qty
+                if after < 0:
+                    raise ValueError(
+                        f"Cannot remove {qty}; only {before} in base ledger stock."
+                    )
+            else:
+                after = qty
+            delta = after - before
+            txn = _post_ledger_delta(item, delta, f"Manual: {reason}")
+            sync_item_quantity_cache([item])
 
     log = StockAdjustmentLog.objects.create(
         item=item,

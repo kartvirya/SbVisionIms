@@ -185,10 +185,27 @@ class ProductVariationForm(forms.ModelForm):
 
 
 # Create formset for product variations
+class BaseProductVariationFormSet(forms.BaseInlineFormSet):
+    """Ignore blank extra variation rows so product save is not blocked."""
+
+    def _should_delete_form(self, form):
+        if super()._should_delete_form(form):
+            return True
+        if form.instance.pk:
+            return False
+        if not form.has_changed():
+            return True
+        cleaned = getattr(form, "cleaned_data", None) or {}
+        if cleaned.get("DELETE"):
+            return True
+        return not str(cleaned.get("name") or "").strip()
+
+
 ProductVariationFormSet = inlineformset_factory(
     Item,
     ProductVariation,
     form=ProductVariationForm,
+    formset=BaseProductVariationFormSet,
     extra=1,
     can_delete=True,
     min_num=0,

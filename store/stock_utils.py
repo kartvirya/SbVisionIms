@@ -81,3 +81,61 @@ def get_sellable_stock(item, variation_id=None):
             return int(variation.quantity or 0)
         return 0
     return get_ledger_stock(item)
+
+
+def set_item_total_stock(item, target_total, *, notes="Stock adjustment"):
+    """
+    Set combined ledger + active variant stock to target_total.
+    Returns (quantity_before, quantity_after).
+    """
+    from store.models import ProductVariation
+    from transactions.services import reconcile_ledger_stock_to_target, sync_item_quantity_cache
+
+    target = max(0, int(target_total))
+    variants = list(
+        ProductVariation.objects.filter(item=item, is_active=True).order_by("id")
+    )
+    variant_total = sum(int(v.quantity or 0) for v in variants)
+    before = get_ledger_stock(item) + variant_total
+
+    if target == before:
+        sync_item_quantity_cache([item])
+        return before, before
+
+    if not variants:
+        reconcile_ledger_stock_to_target(item, target, notes=notes)
+        sync_item_quantity_cache([item])
+        return before, target
+
+    reconcile_ledger_stock_to_target(item, 0, notes=notes)
+
+    if target == 0:
+        for variation in variants:
+            if int(variation.quantity or 0) != 0:
+                variation.quantity = 0
+                variation.save(update_fields=["quantity"])
+    elif variant_total <= 0:
+        variants[0].quantity = target
+        variants[0].save(update_fields=["quantity"])
+    elif target > variant_total:
+        reconcile_ledger_stock_to_target(
+            item, target - variant_total, notes=notes
+        )
+    else:
+        remaining = target
+        for index, variation in enumerate(variants):
+            old_qty = int(variation.quantity or 0)
+            if index == len(variants) - 1:
+                new_qty = remaining
+            elif variant_total > 0:
+                new_qty = int(round(target * old_qty / variant_total))
+                new_qty = min(new_qty, remaining)
+                remaining -= new_qty
+            else:
+                new_qty = 0
+            variation.quantity = new_qty
+            variation.save(update_fields=["quantity"])
+
+    sync_item_quantity_cache([item])
+    after = get_item_current_stock(item)
+    return before, after

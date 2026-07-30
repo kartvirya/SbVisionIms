@@ -395,13 +395,24 @@ class ProductCreateView(LoginRequiredMixin, CreateView):
         return context
 
     def _sync_product_stock(self, item, form):
-        variant_total = get_variant_stock_total(item)
-        desired_total = int(form.cleaned_data.get("quantity") or 0)
-        ledger_target = max(0, desired_total - variant_total)
-        reconcile_ledger_stock_to_target(
-            item, ledger_target, notes=f"Product create #{item.pk}"
-        )
-        sync_item_quantity_cache([item])
+        from store.stock_utils import get_item_current_stock, set_item_total_stock
+        from transactions.services import sync_item_quantity_cache
+
+        desired_raw = form.cleaned_data.get("quantity")
+        if desired_raw is None:
+            sync_item_quantity_cache([item])
+            return
+
+        desired_total = int(desired_raw or 0)
+        initial_total = int(form.initial.get("quantity", item.quantity or 0))
+        if desired_total != initial_total:
+            set_item_total_stock(
+                item,
+                desired_total,
+                notes=f"Product create #{item.pk}",
+            )
+        else:
+            sync_item_quantity_cache([item])
 
     def form_valid(self, form):
         context = self.get_context_data()
@@ -455,13 +466,31 @@ class ProductUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
         return context
 
     def _sync_product_stock(self, item, form):
-        variant_total = get_variant_stock_total(item)
-        desired_total = int(form.cleaned_data.get("quantity") or 0)
-        ledger_target = max(0, desired_total - variant_total)
-        reconcile_ledger_stock_to_target(
-            item, ledger_target, notes=f"Product update #{item.pk}"
+        from store.stock_utils import set_item_total_stock
+        from transactions.services import sync_item_quantity_cache
+
+        desired_raw = form.cleaned_data.get("quantity")
+        if desired_raw is None:
+            sync_item_quantity_cache([item])
+            return
+
+        desired_total = int(desired_raw or 0)
+        initial_total = int(form.initial.get("quantity", item.quantity or 0))
+        if desired_total != initial_total:
+            set_item_total_stock(
+                item,
+                desired_total,
+                notes=f"Product update #{item.pk}",
+            )
+        else:
+            sync_item_quantity_cache([item])
+
+    def form_invalid(self, form):
+        messages.error(
+            self.request,
+            "Could not update product. Check the form for errors (including variations).",
         )
-        sync_item_quantity_cache([item])
+        return super().form_invalid(form)
 
     def form_valid(self, form):
         context = self.get_context_data()
