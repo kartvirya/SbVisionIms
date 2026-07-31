@@ -394,8 +394,8 @@ class ProductCreateView(LoginRequiredMixin, CreateView):
             context['variation_formset'] = ProductVariationFormSet()
         return context
 
-    def _sync_product_stock(self, item, form):
-        from store.stock_utils import get_item_current_stock, set_item_total_stock
+    def _sync_product_stock(self, item, form, *, is_create=False):
+        from store.stock_utils import set_item_total_stock
         from transactions.services import sync_item_quantity_cache
 
         desired_raw = form.cleaned_data.get("quantity")
@@ -404,12 +404,22 @@ class ProductCreateView(LoginRequiredMixin, CreateView):
             return
 
         desired_total = int(desired_raw or 0)
-        initial_total = int(form.initial.get("quantity", item.quantity or 0))
-        if desired_total != initial_total:
+        initial_total = int(form.initial.get("quantity", 0) or 0)
+
+        if is_create:
+            if desired_total > 0:
+                set_item_total_stock(
+                    item,
+                    desired_total,
+                    notes=f"Product create #{item.pk}",
+                )
+            else:
+                sync_item_quantity_cache([item])
+        elif desired_total != initial_total:
             set_item_total_stock(
                 item,
                 desired_total,
-                notes=f"Product create #{item.pk}",
+                notes=f"Product update #{item.pk}",
             )
         else:
             sync_item_quantity_cache([item])
@@ -422,7 +432,7 @@ class ProductCreateView(LoginRequiredMixin, CreateView):
             self.object = form.save()
             variation_formset.instance = self.object
             variation_formset.save()
-            self._sync_product_stock(self.object, form)
+            self._sync_product_stock(self.object, form, is_create=True)
             return super().form_valid(form)
         else:
             return self.form_invalid(form)
@@ -475,7 +485,7 @@ class ProductUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
             return
 
         desired_total = int(desired_raw or 0)
-        initial_total = int(form.initial.get("quantity", item.quantity or 0))
+        initial_total = int(form.initial.get("quantity", 0) or 0)
         if desired_total != initial_total:
             set_item_total_stock(
                 item,

@@ -207,3 +207,43 @@ class VariantStockSyncTests(TestCase):
 
         set_item_total_stock(self.item, 5, notes="test")
         self.assertEqual(get_item_current_stock(self.item), 5)
+
+
+class ProductCreateStockTests(TestCase):
+    def setUp(self):
+        from accounts.models import Brand, Vendor
+
+        self.category = Category.objects.create(name="Gadgets")
+        self.vendor = Vendor.objects.create(name="Test Supplier")
+        self.brand = Brand.objects.create(vendor=self.vendor, name="TestBrand")
+
+    def test_new_product_quantity_posts_to_ledger(self):
+        from store.forms import ItemForm
+        from store.stock_utils import get_item_current_stock
+        from store.views import ProductCreateView
+
+        item = Item.objects.create(
+            name="New Widget",
+            description="Test",
+            category=self.category,
+            vendor=self.vendor,
+            brand=self.brand,
+            quantity=25,
+        )
+        form = ItemForm(
+            data={
+                "vendor": self.vendor.pk,
+                "brand": self.brand.pk,
+                "category": self.category.pk,
+                "name": item.name,
+                "description": item.description,
+                "quantity": "25",
+                "cost_price": "10",
+                "price": "20",
+                "low_stock_threshold": "5",
+            },
+            instance=item,
+        )
+        self.assertTrue(form.is_valid(), form.errors)
+        ProductCreateView()._sync_product_stock(item, form, is_create=True)
+        self.assertEqual(get_item_current_stock(item), 25)
