@@ -143,6 +143,28 @@
         box-shadow: 2px 4px 12px rgba(0,0,0,0.3);
     }
 
+    /* Keep Inventory / Contacts menus inside the sidebar when expanded */
+    .sidebar:not(.collapsed) .nav-item.dropdown {
+        position: static;
+    }
+
+    .sidebar:not(.collapsed) .dropdown-menu {
+        position: static !important;
+        inset: auto !important;
+        transform: none !important;
+        float: none;
+        width: 100%;
+        margin: 0.2rem 0 0.45rem;
+        padding: 0.25rem 0;
+        border-radius: 8px;
+        background-color: rgba(0, 0, 0, 0.22);
+        box-shadow: none;
+    }
+
+    .sidebar:not(.collapsed) .dropdown-item {
+        padding-left: 2.75rem;
+    }
+
     .dropdown-item {
         color: #adb5bd;
         padding: 10px 20px;
@@ -233,7 +255,7 @@
                 <span class="nav-link disabled text-uppercase py-1 px-3 sidebar-text text-secondary" style="font-size:0.68rem;letter-spacing:0.06em;opacity:0.85;">Inventory</span>
             </li>
             <li class="nav-item dropdown">
-                <a class="nav-link text-light {% with u=','|add:request.resolver_match.url_name|add:',' %}{% if u in ',productslist,product-detail,product-create,product-update,category-list,category-create,category-update,category-detail,' %}active{% endif %}{% endwith %} dropdown-toggle" href="#" id="productsDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false" title="Inventory">
+                <a class="nav-link text-light {% with u=','|add:request.resolver_match.url_name|add:',' %}{% if u in ',productslist,product-detail,product-create,product-update,category-list,category-create,category-update,category-detail,' %}active{% endif %}{% endwith %} dropdown-toggle" href="#" id="productsDropdown" role="button" data-bs-toggle="dropdown" data-bs-display="static" data-bs-auto-close="outside" aria-expanded="false" title="Inventory">
                     <i class="fa-solid fa-boxes-stacked fa-fw"></i>
                     <span class="sidebar-text">Inventory</span>
                 </a>
@@ -307,7 +329,7 @@
                 <span class="nav-link disabled text-uppercase py-1 px-3 sidebar-text text-secondary" style="font-size:0.68rem;letter-spacing:0.06em;opacity:0.85;">Contacts</span>
             </li>
             <li class="nav-item dropdown">
-                <a class="nav-link text-light {% with u=','|add:request.resolver_match.url_name|add:',' %}{% if u in ',customer_list,customer_create,customer_update,customer-detail,vendor-list,vendor-create,vendor-update,vendor-detail,accounts-book,' %}active{% endif %}{% endwith %} dropdown-toggle" href="#" id="contactsDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false" title="Contacts">
+                <a class="nav-link text-light {% with u=','|add:request.resolver_match.url_name|add:',' %}{% if u in ',customer_list,customer_create,customer_update,customer-detail,vendor-list,vendor-create,vendor-update,vendor-detail,accounts-book,' %}active{% endif %}{% endwith %} dropdown-toggle" href="#" id="contactsDropdown" role="button" data-bs-toggle="dropdown" data-bs-display="static" data-bs-auto-close="outside" aria-expanded="false" title="Contacts">
                     <i class="fa-solid fa-address-book fa-fw"></i>
                     <span class="sidebar-text">Contacts</span>
                 </a>
@@ -408,10 +430,29 @@
         
         // Update toggle icon on load
         updateToggleIcon();
-        
+
+        function closeSidebarDropdowns() {
+            document.querySelectorAll('.sidebar .dropdown-toggle').forEach(function(toggle) {
+                const instance = bootstrap.Dropdown.getInstance(toggle);
+                if (instance) {
+                    instance.hide();
+                }
+            });
+        }
+
+        // Floating flyout menus must close when the main page scrolls.
+        document.addEventListener('scroll', function(event) {
+            if (event.target.closest && event.target.closest('.sidebar .nav-container')) {
+                return;
+            }
+            closeSidebarDropdowns();
+        }, true);
+
+        window.addEventListener('resize', closeSidebarDropdowns);
+
         // Handle dropdown positioning when collapsed
         document.querySelectorAll('.sidebar .dropdown').forEach(function(dropdown) {
-            dropdown.addEventListener('show.bs.dropdown', function(e) {
+            dropdown.addEventListener('show.bs.dropdown', function() {
                 if (!sidebar.classList.contains('collapsed')) return;
                 const toggle = dropdown.querySelector('.dropdown-toggle');
                 const menu = dropdown.querySelector('.dropdown-menu');
@@ -420,6 +461,14 @@
                     const rect = toggle.getBoundingClientRect();
                     menu.style.left = '80px';
                     menu.style.top = rect.top + 'px';
+                }
+            });
+            dropdown.addEventListener('hidden.bs.dropdown', function() {
+                const menu = dropdown.querySelector('.dropdown-menu');
+                if (menu) {
+                    menu.style.position = '';
+                    menu.style.left = '';
+                    menu.style.top = '';
                 }
             });
         });
