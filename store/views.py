@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 # Django core imports
 from django.shortcuts import render, get_object_or_404
 from django.urls import reverse, reverse_lazy
-from django.http import JsonResponse, HttpResponse
+from django.http import JsonResponse, HttpResponse, HttpResponseRedirect
 from django.views.decorators.http import require_POST
 from django.views.decorators.csrf import csrf_exempt
 from django.db.models import Q, Count, Sum
@@ -424,18 +424,35 @@ class ProductCreateView(LoginRequiredMixin, CreateView):
         else:
             sync_item_quantity_cache([item])
 
+    def form_invalid(self, form):
+        messages.error(
+            self.request,
+            "Could not save product. Check the form for errors (including variations).",
+        )
+        return super().form_invalid(form)
+
     def form_valid(self, form):
         context = self.get_context_data()
         variation_formset = context['variation_formset']
-        
-        if variation_formset.is_valid():
-            self.object = form.save()
-            variation_formset.instance = self.object
-            variation_formset.save()
-            self._sync_product_stock(self.object, form, is_create=True)
-            return super().form_valid(form)
-        else:
+
+        if not variation_formset.is_valid():
             return self.form_invalid(form)
+
+        try:
+            with transaction.atomic():
+                self.object = form.save()
+                variation_formset.instance = self.object
+                variation_formset.save()
+                self._sync_product_stock(self.object, form, is_create=True)
+        except Exception:
+            logger.exception("Product create failed for %s", form.cleaned_data.get("name"))
+            messages.error(
+                self.request,
+                "Could not save product due to a server error. Please try again.",
+            )
+            return self.form_invalid(form)
+
+        return HttpResponseRedirect(self.get_success_url())
 
     def test_func(self):
         # item = Item.objects.get(id=pk)
@@ -505,15 +522,25 @@ class ProductUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
     def form_valid(self, form):
         context = self.get_context_data()
         variation_formset = context['variation_formset']
-        
-        if variation_formset.is_valid():
-            self.object = form.save()
-            variation_formset.instance = self.object
-            variation_formset.save()
-            self._sync_product_stock(self.object, form)
-            return super().form_valid(form)
-        else:
+
+        if not variation_formset.is_valid():
             return self.form_invalid(form)
+
+        try:
+            with transaction.atomic():
+                self.object = form.save()
+                variation_formset.instance = self.object
+                variation_formset.save()
+                self._sync_product_stock(self.object, form)
+        except Exception:
+            logger.exception("Product update failed for item %s", self.object.pk)
+            messages.error(
+                self.request,
+                "Could not update product due to a server error. Please try again.",
+            )
+            return self.form_invalid(form)
+
+        return HttpResponseRedirect(self.get_success_url())
 
     def test_func(self):
         if self.request.user.is_superuser:

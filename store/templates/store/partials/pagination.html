@@ -1,0 +1,47 @@
+{% load querystring from django_tables2 %}
+{% if is_paginated %}
+<nav aria-label="Page navigation" class="ims-pagination-nav">
+    <ul class="pagination justify-content-center flex-wrap mb-0">
+        {% if page_obj.has_previous %}
+        <li class="page-item">
+            <a class="page-link" href="{% querystring 'page'=1 %}" aria-label="First page">&laquo;&laquo;</a>
+        </li>
+        <li class="page-item">
+            <a class="page-link" href="{% querystring 'page'=page_obj.previous_page_number %}" aria-label="Previous page">&laquo;</a>
+        </li>
+        {% else %}
+        <li class="page-item disabled"><span class="page-link" aria-hidden="true">&laquo;&laquo;</span></li>
+        <li class="page-item disabled"><span class="page-link" aria-hidden="true">&laquo;</span></li>
+        {% endif %}
+
+        {% for num in page_obj.paginator.get_elided_page_range page_obj.number %}
+        {% if num == page_obj.paginator.ELLIPSIS %}
+        <li class="page-item disabled"><span class="page-link">&hellip;</span></li>
+        {% elif page_obj.number == num %}
+        <li class="page-item active" aria-current="page">
+            <span class="page-link">{{ num }}</span>
+        </li>
+        {% else %}
+        <li class="page-item">
+            <a class="page-link" href="{% querystring 'page'=num %}">{{ num }}</a>
+        </li>
+        {% endif %}
+        {% endfor %}
+
+        {% if page_obj.has_next %}
+        <li class="page-item">
+            <a class="page-link" href="{% querystring 'page'=page_obj.next_page_number %}" aria-label="Next page">&raquo;</a>
+        </li>
+        <li class="page-item">
+            <a class="page-link" href="{% querystring 'page'=page_obj.paginator.num_pages %}" aria-label="Last page">&raquo;&raquo;</a>
+        </li>
+        {% else %}
+        <li class="page-item disabled"><span class="page-link" aria-hidden="true">&raquo;</span></li>
+        <li class="page-item disabled"><span class="page-link" aria-hidden="true">&raquo;&raquo;</span></li>
+        {% endif %}
+    </ul>
+    <p class="text-center text-muted small mt-2 mb-0">
+        Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+    </p>
+</nav>
+{% endif %}

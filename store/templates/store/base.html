@@ -111,6 +111,8 @@
         #wrapper {
           transition: margin-left 0.3s ease;
           margin-left: 250px;
+          padding-bottom: 2rem;
+          min-height: 100vh;
         }
         
         @media (max-width: 768px) {
@@ -182,6 +184,7 @@
         <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
         <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
         <script src="{% static 'js/preview_drawer.js' %}"></script>
+        <script src="{% static 'js/disable_number_input_scroll.js' %}"></script>
         <script>window.STOCK_ADJUST_URL_TPL = "{% url 'stock-adjust' 999999 %}".replace("999999", "__ID__");</script>
         <script src="{% static 'js/stock_adjust.js' %}"></script>
         <script>
