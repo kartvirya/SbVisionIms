@@ -3,7 +3,7 @@
 {% load render_table from django_tables2 %}
 {% load querystring from django_tables2 %}
 {% block title %}Inventory — Products{% endblock title %}
-{% block extra_css %}
+{% block stylesheets %}
 <style>
     .variations-badges .badge {
         font-size: 0.75rem;
@@ -33,14 +33,10 @@
     .products-table-wrap {
         overflow-x: auto;
         -webkit-overflow-scrolling: touch;
-    }
-    .ims-pagination-nav {
-        padding: 0.5rem 0 1.5rem;
-        position: relative;
-        z-index: 1;
+        max-width: 100%;
     }
 </style>
-{% endblock extra_css %}
+{% endblock stylesheets %}
 {% block content %}
 <div class="container">
     <!-- Header Section -->

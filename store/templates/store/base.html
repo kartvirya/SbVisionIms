@@ -107,18 +107,33 @@
           transition: background-color 0.2s ease, color 0.2s ease;
         }
         
-        /* Wrapper adjustment for sidebar */
+        /* Wrapper adjustment for sidebar — keep page scroll inside content, not under fixed sidebar */
         #wrapper {
           transition: margin-left 0.3s ease;
           margin-left: 250px;
           padding-bottom: 2rem;
           min-height: 100vh;
+          overflow-x: auto;
+          max-width: calc(100vw - 250px);
+          box-sizing: border-box;
         }
         
         @media (max-width: 768px) {
           #wrapper {
             margin-left: 0;
+            max-width: 100vw;
           }
+        }
+
+        .ims-pagination-nav {
+          padding: 0.75rem 1rem 1.5rem;
+          overflow-x: auto;
+          -webkit-overflow-scrolling: touch;
+        }
+
+        .ims-pagination-nav .pagination {
+          flex-wrap: wrap;
+          row-gap: 0.35rem;
         }
       </style>
         {% include "store/sidebar.html" %}

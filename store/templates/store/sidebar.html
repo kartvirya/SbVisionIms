@@ -369,7 +369,10 @@
         const isCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
         if (isCollapsed) {
             sidebar.classList.add('collapsed');
-            if (wrapper) wrapper.style.marginLeft = '80px';
+            if (wrapper) {
+                wrapper.style.marginLeft = '80px';
+                wrapper.style.maxWidth = 'calc(100vw - 80px)';
+            }
         }
         
         // Update toggle icon
@@ -390,7 +393,8 @@
             // Update wrapper margin
             if (wrapper) {
                 wrapper.style.marginLeft = collapsed ? '80px' : '250px';
-                wrapper.style.transition = 'margin-left 0.3s ease';
+                wrapper.style.maxWidth = collapsed ? 'calc(100vw - 80px)' : 'calc(100vw - 250px)';
+                wrapper.style.transition = 'margin-left 0.3s ease, max-width 0.3s ease';
             }
             
             // Save state to localStorage
