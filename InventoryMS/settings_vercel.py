@@ -55,7 +55,6 @@ if _vercel_url:
 _vercel_project = os.environ.get("VERCEL_PROJECT_PRODUCTION_URL", "").strip()
 if _vercel_project:
     _csrf.append(f"https://{_vercel_project}")
-# Always trust production project alias pattern used by this app
 _csrf.extend(
     [
         "https://sbvision-ims.vercel.app",
@@ -69,11 +68,13 @@ USE_X_FORWARDED_HOST = True
 SECURE_SSL_REDIRECT = os.environ.get("SECURE_SSL_REDIRECT", "True") == "True"
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
+CSRF_COOKIE_HTTPONLY = False
+CSRF_COOKIE_SAMESITE = "Lax"
+SESSION_COOKIE_SAMESITE = "Lax"
 SECURE_BROWSER_XSS_FILTER = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = "DENY"
 
-# Neon / Postgres via DATABASE_URL (prefer pooled URL on serverless)
 database_url = os.environ.get("DATABASE_URL", "").strip()
 if not database_url:
     raise RuntimeError("DATABASE_URL environment variable is required")
@@ -93,7 +94,7 @@ DATABASES = {
         "OPTIONS": {
             "sslmode": sslmode,
         },
-        "CONN_MAX_AGE": 0,  # serverless: no persistent connections
+        "CONN_MAX_AGE": 0,
     }
 }
 
@@ -102,7 +103,6 @@ MIDDLEWARE = [
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
-    "InventoryMS.request_debug.RequestDebugMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
@@ -112,7 +112,6 @@ MIDDLEWARE = [
 STATIC_URL = "/static/"
 STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
 STATICFILES_DIRS = [os.path.join(BASE_DIR, "static")]
-# Serverless: serve app/static via finders without a separate collectstatic build step
 WHITENOISE_USE_FINDERS = True
 WHITENOISE_AUTOREFRESH = True
 STORAGES = {
@@ -124,7 +123,6 @@ STORAGES = {
     },
 }
 
-# Ephemeral filesystem on Vercel — uploads will not persist across deploys
 MEDIA_URL = "/media/"
 MEDIA_ROOT = os.path.join("/tmp", "ims_media")
 
