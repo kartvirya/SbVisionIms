@@ -19,6 +19,8 @@ dependencies = [
     "requests==2.32.3",
     "tablib==3.6.1",
     "gunicorn==21.2.0",
-    "psycopg2-binary==2.9.9",
+    "psycopg[binary]>=3.1.18",
     "python-decouple==3.8",
+    "whitenoise==6.7.0",
+    "waitress==3.0.2",
 ]

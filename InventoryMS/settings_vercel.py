@@ -111,12 +111,15 @@ MIDDLEWARE = [
 STATIC_URL = "/static/"
 STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
 STATICFILES_DIRS = [os.path.join(BASE_DIR, "static")]
+# Serverless: serve app/static via finders without a separate collectstatic build step
+WHITENOISE_USE_FINDERS = True
+WHITENOISE_AUTOREFRESH = True
 STORAGES = {
     "default": {
         "BACKEND": "django.core.files.storage.FileSystemStorage",
     },
     "staticfiles": {
-        "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage",
+        "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
     },
 }
 
