@@ -38,10 +38,14 @@ ALLOWED_HOSTS = [
     h.strip()
     for h in os.environ.get(
         "ALLOWED_HOSTS",
-        ".vercel.app,localhost,127.0.0.1",
+        ".vercel.app,localhost,127.0.0.1,sbvision.com.np,www.sbvision.com.np",
     ).split(",")
     if h.strip()
 ]
+
+# Public mount path when proxied from ecommerce (sbvision.com.np/ims → this app)
+_script = os.environ.get("FORCE_SCRIPT_NAME", "").strip().rstrip("/")
+FORCE_SCRIPT_NAME = _script if _script else None
 
 # Vercel injects VERCEL_URL without scheme (e.g. sbvision-ims.vercel.app)
 _csrf = [
@@ -57,6 +61,8 @@ if _vercel_project:
     _csrf.append(f"https://{_vercel_project}")
 _csrf.extend(
     [
+        "https://sbvision.com.np",
+        "https://www.sbvision.com.np",
         "https://sbvision-ims.vercel.app",
         "https://sbvision-ims-kartviryas-projects.vercel.app",
     ]
@@ -74,6 +80,13 @@ SESSION_COOKIE_SAMESITE = "Lax"
 SECURE_BROWSER_XSS_FILTER = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = "DENY"
+
+if FORCE_SCRIPT_NAME:
+    _cookie_path = f"{FORCE_SCRIPT_NAME}/"
+    SESSION_COOKIE_PATH = _cookie_path
+    CSRF_COOKIE_PATH = _cookie_path
+    # Behind Next.js path rewrite; TLS already terminated at the edge
+    SECURE_SSL_REDIRECT = False
 
 database_url = os.environ.get("DATABASE_URL", "").strip()
 if not database_url:
@@ -99,6 +112,7 @@ DATABASES = {
 }
 
 MIDDLEWARE = [
+    "InventoryMS.middleware.SubpathScriptNameMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
@@ -109,7 +123,13 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
-STATIC_URL = "/static/"
+if FORCE_SCRIPT_NAME:
+    STATIC_URL = f"{FORCE_SCRIPT_NAME}/static/"
+    MEDIA_URL = f"{FORCE_SCRIPT_NAME}/media/"
+else:
+    STATIC_URL = "/static/"
+    MEDIA_URL = "/media/"
+
 STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
 STATICFILES_DIRS = [os.path.join(BASE_DIR, "static")]
 WHITENOISE_USE_FINDERS = True
@@ -123,7 +143,6 @@ STORAGES = {
     },
 }
 
-MEDIA_URL = "/media/"
 MEDIA_ROOT = os.path.join("/tmp", "ims_media")
 
 LOGGING = {
