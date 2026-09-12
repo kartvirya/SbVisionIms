@@ -123,13 +123,7 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
-if FORCE_SCRIPT_NAME:
-    STATIC_URL = f"{FORCE_SCRIPT_NAME}/static/"
-    MEDIA_URL = f"{FORCE_SCRIPT_NAME}/media/"
-else:
-    STATIC_URL = "/static/"
-    MEDIA_URL = "/media/"
-
+STATIC_URL = "/static/"
 STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
 STATICFILES_DIRS = [os.path.join(BASE_DIR, "static")]
 WHITENOISE_USE_FINDERS = True
@@ -139,10 +133,11 @@ STORAGES = {
         "BACKEND": "django.core.files.storage.FileSystemStorage",
     },
     "staticfiles": {
-        "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+        "BACKEND": "InventoryMS.storage.PrefixedStaticFilesStorage",
     },
 }
 
+MEDIA_URL = f"{FORCE_SCRIPT_NAME}/media/" if FORCE_SCRIPT_NAME else "/media/"
 MEDIA_ROOT = os.path.join("/tmp", "ims_media")
 
 LOGGING = {
